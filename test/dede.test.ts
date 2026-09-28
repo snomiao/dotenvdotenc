@@ -273,11 +273,17 @@ describe("safety", () => {
     expect(r.exists(".env.keys")).toBe(false);
   });
 
-  test("plaintext tracked by git is refused", () => {
+  test("plaintext tracked by git is public config: enc skips it, named or not", () => {
     const r = new Repo();
-    r.write(".env.local", "A=1\n");
-    r.git("add", "-f", ".env.local");
-    expect(r.dede(["enc"]).code).toBe(1);
+    r.write(".env.production", "VITE_API_BASE_URL=\n");
+    r.git("add", "-f", ".env.production");
+    for (const args of [["enc"], ["enc", ".env.production"]]) {
+      const res = r.dede(args);
+      expect(res.code).toBe(0);
+      expect(res.err).toContain("skipping .env.production: committed in plaintext");
+    }
+    expect(r.exists(".env.production.enc")).toBe(false);
+    expect(r.exists(".env.keys")).toBe(false);
   });
 
   test("symlinked plaintext: refused when named, skipped in a default run", () => {
@@ -392,7 +398,7 @@ describe("guard and setup", () => {
     r.git("add", "-f", ".env.local", ".env.keys");
     const res = r.dede(["guard"]);
     expect(res.code).toBe(1);
-    expect(res.err).toContain(".env.local: plaintext env file");
+    expect(res.err).toContain(".env.local: new plaintext env file");
     expect(res.err).toContain(".env.keys: private keys");
     expect(res.err).not.toMatch(/[0-9a-f]{64}/);
     r.git("rm", "-q", "--cached", ".env.local", ".env.keys");
@@ -735,7 +741,7 @@ describe("keys files backed up as .env.keys.<name>.enc with --key", () => {
     vault.git("add", "-f", ".env.keys.proj");
     const res = vault.dede(["guard"]);
     expect(res.code).toBe(1);
-    expect(res.err).toContain(".env.keys.proj: plaintext env file");
+    expect(res.err).toContain(".env.keys.proj: new plaintext env file");
     expect(res.err).toContain(".env.keys.proj: contains a DOTENV_PRIVATE_KEY");
   });
 
@@ -777,4 +783,36 @@ test("guard reports line numbers of the .enc file itself (header included)", () 
   r.git("add", ".env.local.enc");
   const line = enc.split("\n").findIndex((l) => l.startsWith("# OLD=")) + 1;
   expect(r.dede(["guard"]).err).toContain(`.env.local.enc: line ${line} is a comment`);
+});
+
+describe("committed plaintext env files are public config", () => {
+  const withPublic = () => {
+    const r = new Repo(".env*\n!.env*.enc\n");
+    r.write(".env.production", "VITE_API_BASE_URL=\n");
+    r.git("add", "-f", ".gitignore", ".env.production");
+    r.git("commit", "-qm", "public config");
+    return r;
+  };
+
+  test("guard lets an edit to a tracked plaintext env file through, and --all passes", () => {
+    const r = withPublic();
+    r.write(".env.production", "VITE_API_BASE_URL=https://api.example.com\n");
+    r.git("add", ".env.production");
+    expect(r.dede(["guard"]).code).toBe(0);
+    expect(r.dede(["guard", "--all"]).code).toBe(0);
+  });
+
+  test("guard still blocks a new plaintext env file, a rename into one, and keys in tracked ones", () => {
+    const r = withPublic();
+    r.write(".env.local", "SECRET=x\n");
+    r.git("add", "-f", ".env.local");
+    expect(r.dede(["guard"]).err).toContain(".env.local: new plaintext env file");
+    r.git("rm", "-q", "--cached", ".env.local");
+    r.git("mv", ".env.production", ".env.staging");
+    expect(r.dede(["guard"]).err).toContain(".env.staging: new plaintext env file");
+    r.git("mv", ".env.staging", ".env.production");
+    r.write(".env.production", "DOTENV_PRIVATE_KEY_X=" + "e".repeat(64) + "\n");
+    r.git("add", ".env.production");
+    expect(r.dede(["guard"]).err).toContain(".env.production: contains a DOTENV_PRIVATE_KEY");
+  });
 });

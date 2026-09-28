@@ -115,7 +115,8 @@ On a new machine: restore `ME` from the password manager into the vault repo's `
 
 `dede guard` blocks a commit that stages:
 
-- a plaintext env file (`.env`, `.env.local`, …) — commit its `.enc` instead;
+- a new plaintext env file (`.env`, `.env.local`, …) — commit its `.enc` instead (already-tracked
+  plaintext env files are treated as public config and pass);
 - `.env.keys`, or any file containing a `DOTENV_PRIVATE_KEY…=<64 hex>` assignment;
 - an `.enc` file with a value that is not `encrypted:` or a line that is neither assignment nor comment.
 
@@ -131,7 +132,12 @@ plaintext secret that reaches a remote must be rotated.
   expands `$VAR` or runs `$(…)`; your loader (dotenvx, Next.js, Bun) may when it reads the plaintext.
 - Formatting survives: quote style, `export`, inline comments, duplicates, multiline values.
   A line that is neither an assignment nor a comment is refused, because it would be committed as-is.
-- dede refuses a plaintext file that is not gitignored or is tracked, and warns when an `.enc` is gitignored.
+- **A plaintext env file that is already committed is public config on purpose** (e.g. Vite's
+  `.env.production` with `VITE_*` values that ship in the bundle anyway): `enc`/`dec` skip it, and
+  the guard lets edits to it through. Only *new* plaintext env files are blocked; a new public one
+  can be committed with `--no-verify`. If a committed file does hold secrets, `git rm --cached` it
+  and rotate them.
+- dede refuses a plaintext file that is not gitignored, and warns when an `.enc` is gitignored.
 - Plaintext files are kept at mode 0600 (`enc` tightens a group/world-readable one). Symlinked
   plaintext files (e.g. `.env.local -> .env.dev`) are skipped in default and glob runs and refused when named.
 - Exit codes: 0 ok · 1 action needed / blocked · 2 conflict · 3 no key or cannot decrypt · 4 malformed input.

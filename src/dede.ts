@@ -276,7 +276,6 @@ function tighten(path: string): void {
 
 function preflight(pair: Pair): void {
   if (!isIgnored(pair.plain)) die(`${rel(pair.plain)} is not gitignored; run \`dede setup\` (or add \`.env*\` and \`!.env*.enc\` to .gitignore)`);
-  if (isTracked(pair.plain)) die(`${rel(pair.plain)} is tracked by git; run \`git rm --cached ${rel(pair.plain)}\` and rotate what it exposed`);
   if (isIgnored(pair.enc)) log(`warning: ${rel(pair.enc)} is gitignored and won't be committed; add \`!.env*.enc\` after your .env ignore rules (or run \`dede setup\`)`);
 }
 
@@ -390,11 +389,24 @@ function status(pair: Pair): boolean {
 
 // ---------- guard ----------
 
+// Staged paths, and whether each is new to git (added, renamed/copied in, or changed type).
+// With --all: every tracked path, none of them new.
+function guardList(top: string, all: boolean): { path: string; added: boolean }[] {
+  if (all) return git(["ls-files", "-z"], top).out.split("\0").filter(Boolean).map((path) => ({ path, added: false }));
+  const parts = git(["diff", "--cached", "--name-status", "-z", "--diff-filter=d"], top).out.split("\0");
+  const out: { path: string; added: boolean }[] = [];
+  for (let i = 0; i < parts.length && parts[i]; ) {
+    const st = parts[i++];
+    if (st[0] === "R" || st[0] === "C") i++; // skip the old path
+    out.push({ path: parts[i++], added: "ARCT".includes(st[0]) });
+  }
+  return out;
+}
+
 function guard(all: boolean): void {
   const top = gitDir(process.cwd());
-  const list = git(all ? ["ls-files", "-z"] : ["diff", "--cached", "--name-only", "-z", "--diff-filter=d"], top).out.split("\0").filter(Boolean);
   const bad: string[] = [];
-  for (const f of list) {
+  for (const { path: f, added } of guardList(top, all)) {
     const name = basename(f);
     const blob = git(["cat-file", "blob", `:${f}`], top);
     if (name === ".env.keys" || name.startsWith(TMP)) bad.push(`${f}: private keys / temp file must never be committed`);
@@ -405,7 +417,9 @@ function guard(all: boolean): void {
       } catch (e) {
         bad.push(e instanceof DedeError ? e.message : `${f}: unreadable`);
       }
-    } else if (NAME_RE.test(name) && !SKIP.has(name)) bad.push(`${f}: plaintext env file; commit ${name}.enc instead (dede enc)`);
+    } else if (added && NAME_RE.test(name) && !SKIP.has(name))
+      // Already-tracked plaintext env files are public config on purpose; only new ones are blocked.
+      bad.push(`${f}: new plaintext env file; commit ${name}.enc instead (dede enc), or --no-verify if it is public config`);
     if (blob.ok && PRIVATE_KEY_RE.test(blob.out)) bad.push(`${f}: contains a DOTENV_PRIVATE_KEY`);
   }
   if (bad.length) die(`dede guard: blocked\n  ${bad.join("\n  ")}\n  (unstage with \`git restore --staged <file>\`)`, 1);
@@ -505,6 +519,10 @@ function pairs(args: string[], mode: "enc" | "dec" | "any"): Pair[] {
     }
     if (!explicit && isSymlink(plain)) {
       log(`skipping ${rel(plain)}: symlink (dede only syncs regular files)`);
+      continue;
+    }
+    if (existsSync(plain) && isTracked(plain)) {
+      log(`skipping ${rel(plain)}: committed in plaintext, so treated as public config (if it holds secrets: git rm --cached it and rotate them)`);
       continue;
     }
     const pair = { plain, enc: `${plain}.enc`, name, explicit };
