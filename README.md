@@ -87,12 +87,16 @@ plaintext secret that reaches a remote must be rotated.
 
 ## Things to know
 
-- **Comments are committed in plaintext** (inline `# …` too). Don't put secrets in comments.
+- **Comments are committed in plaintext** (inline `# …` too). dede refuses comments that look like
+  credentials — a commented-out assignment with a long value (`# OLD_TOKEN=…`) or a URL with
+  userinfo (`https://user:pw@…`) — but it cannot recognise everything, so keep secrets out of comments.
 - Values are taken literally as dotenvx parses them (quotes, `\n` in double quotes). dede never
   expands `$VAR` or runs `$(…)`; your loader (dotenvx, Next.js, Bun) may when it reads the plaintext.
 - Formatting survives: quote style, `export`, inline comments, duplicates, multiline values.
   A line that is neither an assignment nor a comment is refused, because it would be committed as-is.
 - dede refuses a plaintext file that is not gitignored or is tracked, and warns when an `.enc` is gitignored.
+- Plaintext files are kept at mode 0600 (`enc` tightens a group/world-readable one). Symlinked
+  plaintext files (e.g. `.env.local -> .env.dev`) are skipped in default and glob runs and refused when named.
 - Exit codes: 0 ok · 1 action needed / blocked · 2 conflict · 3 no key or cannot decrypt · 4 malformed input.
 
 ## Develop

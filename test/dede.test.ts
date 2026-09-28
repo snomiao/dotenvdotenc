@@ -82,7 +82,7 @@ describe("enc / dec round trip", () => {
       "C=\"he said 'hi'\"",
       "D='she said \"yo\"'",
       "E=back\\slash",
-      "F=日本語 ✓",
+      "F=naïve café ✓",
       'G="l1\\nl2"',
       "H=`tick`",
       "I=a=b=c",
@@ -280,11 +280,16 @@ describe("safety", () => {
     expect(r.dede(["enc"]).code).toBe(1);
   });
 
-  test("symlinked plaintext is refused", () => {
+  test("symlinked plaintext: refused when named, skipped in a default run", () => {
     const r = new Repo();
-    r.write("real", "A=1\n");
-    symlinkSync("real", join(r.dir, ".env.local"));
-    expect(r.dede(["enc"]).code).toBe(4);
+    r.write(".env.dev", "A=1\n");
+    symlinkSync(".env.dev", join(r.dir, ".env.local"));
+    expect(r.dede(["enc", ".env.local"]).code).toBe(4);
+    const res = r.dede(["enc"]);
+    expect(res.code).toBe(0);
+    expect(res.err).toContain("skipping .env.local: symlink");
+    expect(r.exists(".env.dev.enc")).toBe(true);
+    expect(r.exists(".env.local.enc")).toBe(false);
   });
 
   test("DOTENV_* keys inside a plaintext file are refused", () => {
@@ -555,5 +560,61 @@ describe("review 1 regressions", () => {
     expect(r.dede(["enc", "**/.env*"]).code).toBe(0);
     expect(r.exists("node_modules/pkg/.env.enc")).toBe(false);
     expect(r.exists(".env.local.enc")).toBe(true);
+  });
+});
+
+describe("comments and modes", () => {
+  const leaky = [
+    "# OLD_TOKEN=" + "f".repeat(40) + "\nA=1\n",
+    "# export OLD='" + "g".repeat(20) + "'\nA=1\n",
+    "# was: https://user:pw@example.com/x\nA=1\n",
+    "# RECHROME_URL=https://abcdEFGH1234@host:1/?token=x\nA=1\n",
+  ];
+  for (const text of leaky)
+    test(`a comment holding a credential is refused: ${JSON.stringify(text.split("\n")[0].slice(0, 30))}`, () => {
+      const r = new Repo();
+      r.write(".env.local", text);
+      const res = r.dede(["enc"]);
+      expect(res.code).toBe(4);
+      expect(res.err).toContain("comment holding a credential-like value");
+      expect(res.err).not.toMatch(/ffff|gggg|pw@|abcdEFGH/);
+      expect(r.exists(".env.local.enc")).toBe(false);
+    });
+
+  test("ordinary comments, short commented settings and plain URLs are fine", () => {
+    const r = new Repo();
+    r.write(".env.local", "# NODE_ENV=production\n# docs: https://example.com/a?b=c\n# rotate at https://dash.example.com\nA=1\n");
+    expect(r.dede(["enc"]).code).toBe(0);
+  });
+
+  test("guard blocks an .enc whose comment holds a credential", () => {
+    const r = new Repo();
+    r.write(".env.local", "A=1\n");
+    r.dede(["enc"]);
+    r.write(".env.local.enc", r.read(".env.local.enc") + "# OLD=" + "h".repeat(32) + "\n");
+    r.git("add", ".env.local.enc");
+    const res = r.dede(["guard"]);
+    expect(res.code).toBe(1);
+    expect(res.err).toContain("comment holding a credential-like value");
+    expect(res.err).not.toContain("hhhh");
+  });
+
+  test("enc tightens a group/world-readable plaintext file to 0600", () => {
+    const r = new Repo();
+    r.write(".env.local", "A=1\n");
+    chmodSync(join(r.dir, ".env.local"), 0o664);
+    const res = r.dede(["enc"]);
+    expect(res.code).toBe(0);
+    expect(res.err).toContain("tightened .env.local to 0600");
+    expect(statSync(join(r.dir, ".env.local")).mode & 0o777).toBe(0o600);
+  });
+
+  test("setup keeps an existing hook's file mode (husky files need no +x)", () => {
+    const r = new Repo("");
+    r.git("config", "core.hooksPath", ".husky/_");
+    r.write(".husky/pre-commit", "bun test\n");
+    chmodSync(join(r.dir, ".husky/pre-commit"), 0o644);
+    expect(r.dede(["setup"]).code).toBe(0);
+    expect(statSync(join(r.dir, ".husky/pre-commit")).mode & 0o777).toBe(0o644);
   });
 });

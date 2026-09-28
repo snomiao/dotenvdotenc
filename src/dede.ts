@@ -25,6 +25,8 @@ const SKIP = new Set([".env.keys", ".env.vault", ".env.me", ".env.example", ".en
 const HEADER_RE = /^DOTENV_PUBLIC_KEY[A-Z0-9_]*="?(0[23][0-9a-f]{64})"?\r?$/;
 // An assignment in a committed file: the value is ciphertext (bare or quoted) or empty, then at most a spaced comment.
 const SEALED_LINE_RE = /^\s*(?:export\s+)?[A-Za-z_][A-Za-z0-9_.-]*\s*=\s*(?:"(?:encrypted:[A-Za-z0-9+/=]+)?"|'(?:encrypted:[A-Za-z0-9+/=]+)?'|`(?:encrypted:[A-Za-z0-9+/=]+)?`|(?:encrypted:[A-Za-z0-9+/=]+)?)(?:\s+#.*|\s*)\r?$/;
+// A commented-out assignment with a real-looking value, or a URL carrying userinfo, in a comment.
+const LEAKY_COMMENT_RE = /^\s*#\s*(?:export\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*["'`]?\S{16,}|:\/\/[^/\s:@]+(?::[^@\s]*)?@/;
 const PRIVATE_KEY_RE = /DOTENV_PRIVATE_KEY[A-Z0-9_]*["']?\s*[=:]\s*["']?[0-9a-fA-F]{64}/;
 const BANNER = [
   "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/",
@@ -143,6 +145,8 @@ function assertSealed(body: string, file: string): void {
   const lines = body.split("\n");
   const isComment = (line: string) => line.trim() === "" || line.trimStart().startsWith("#");
   lines.forEach((line, i) => {
+    if (isComment(line) && !line.startsWith("#/") && LEAKY_COMMENT_RE.test(line))
+      die(`${rel(file)}: line ${i + 1} is a comment holding a credential-like value (commented-out assignment or URL with userinfo); comments are committed in plaintext, so delete it`, 4);
     if (!isComment(line) && !keyOf(line)) die(`${rel(file)}: line ${i + 1} is not an assignment or comment and would be committed as plaintext`, 4);
   });
   for (const [k, vs] of Object.entries(values(body, file))) if (vs.some((v) => v !== "" && !v.startsWith(PREFIX))) die(`${rel(file)}: ${k} is not encrypted; ${hint}`, 4);
@@ -190,6 +194,14 @@ function lastSync(pair: Pair) {
   return loadState(pair)[relative(gitDir(dirname(pair.plain)), pair.plain)];
 }
 
+function isSymlink(path: string): boolean {
+  try {
+    return lstatSync(path).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
 function read(path: string): string | undefined {
   try {
     if (lstatSync(path).isSymbolicLink()) die(`${rel(path)} is a symlink; refusing`, 4);
@@ -212,6 +224,17 @@ function writeAtomic(path: string, text: string, mode: number): void {
   }
   chmodSync(tmp, mode);
   renameSync(tmp, path);
+}
+
+// Plaintext secrets are owner-only; fix a group/world-readable file instead of just warning.
+function tighten(path: string): void {
+  try {
+    const st = lstatSync(path);
+    if (st.isFile() && (st.mode & 0o077) !== 0) {
+      chmodSync(path, 0o600);
+      log(`tightened ${rel(path)} to 0600`);
+    }
+  } catch {}
 }
 
 function preflight(pair: Pair): void {
@@ -268,6 +291,7 @@ function drift(pair: Pair, P: string, E: string): Drift {
 
 function enc(pair: Pair, force: boolean): void {
   preflight(pair);
+  tighten(pair.plain);
   const v = view(pair, true);
   if (v.P === undefined) die(`${rel(pair.plain)} not found${v.E !== undefined ? "; run `dede dec`" : ""}`);
   if (v.E === undefined) {
@@ -380,7 +404,7 @@ function setup(): void {
     prev === undefined ? `#!/bin/sh\n${HOOK_CMD}\n`
     : prev.startsWith("#!") ? (nl === -1 ? `${prev}\n${HOOK_CMD}\n` : `${prev.slice(0, nl + 1)}${HOOK_CMD}\n${prev.slice(nl + 1)}`)
     : `${HOOK_CMD}\n${prev}`;
-  writeAtomic(hook, body, 0o755);
+  writeAtomic(hook, body, prev === undefined ? 0o755 : lstatSync(hook).mode & 0o777);
   log(`${prev === undefined ? "created" : "updated"} ${rel(hook)}: runs dede guard before each commit`);
 }
 
@@ -402,6 +426,10 @@ function pairs(args: string[], mode: "enc" | "dec" | "any"): Pair[] {
     const name = basename(plain);
     if (!isEnvName(name)) {
       if (explicit && !name.startsWith(".env")) die(`${rel(path)}: not a .env file`, 4);
+      continue;
+    }
+    if (!explicit && isSymlink(plain)) {
+      log(`skipping ${rel(plain)}: symlink (dede only syncs regular files)`);
       continue;
     }
     const pair = { plain, enc: `${plain}.enc`, name, explicit };
