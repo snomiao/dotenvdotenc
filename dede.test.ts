@@ -114,7 +114,10 @@ describe("enc / dec round trip", () => {
     r.write(".env.local", "HELLO=\"dummy world\"\n");
     expect(r.dede(["enc"]).code).toBe(0);
     r.rm(".env.local");
-    const out = spawnSync(DOTENVX, ["run", "-q", "-f", ".env.local.enc", "--", "sh", "-c", 'printf %s "$HELLO"'], { cwd: r.dir, encoding: "utf8", env: cleanEnv() });
+    // A script file, not `sh -c '…'`: dotenvx.exe re-quotes arguments on Windows.
+    r.write("print.sh", 'printf %s "$HELLO"\n');
+    const { HELLO: _, ...env } = cleanEnv(); // dotenvx never overrides an inherited HELLO
+    const out = spawnSync(DOTENVX, ["run", "-q", "-f", ".env.local.enc", "--", "sh", "print.sh"], { cwd: r.dir, encoding: "utf8", env });
     expect(out.stdout).toBe("dummy world");
   });
 
@@ -909,7 +912,7 @@ describe("unmanaged plaintext env files fail the pre-commit guard", () => {
     const r = new Repo("");
     const bin = join(r.dir, "node_modules/.bin");
     mkdirSync(bin, { recursive: true });
-    writeFileSync(join(bin, "dede"), `#!/bin/sh\nexec bun --no-env-file ${CLI} "$@"\n`);
+    writeFileSync(join(bin, "dede"), `#!/bin/sh\nexec bun --no-env-file ${SH_CLI} "$@"\n`);
     chmodSync(join(bin, "dede"), 0o755);
     r.write(".gitignore", "node_modules/\n");
     r.dede(["setup"]);

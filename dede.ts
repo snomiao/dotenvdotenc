@@ -204,7 +204,8 @@ const gitDir = (cwd: string) => git(["rev-parse", "--show-toplevel"], cwd).out.t
 const isIgnored = (path: string) => git(["check-ignore", "-q", "--", basename(path)], dirname(path)).ok;
 const isTracked = (path: string) => git(["ls-files", "--error-unmatch", "--", basename(path)], dirname(path)).ok;
 const sha = (text: string) => createHash("sha256").update(lf(text)).digest("hex");
-const rel = (path: string) => relative(process.cwd(), path) || ".";
+// Display paths as git does, with `/`, on Windows too.
+const rel = (path: string) => (WIN ? relative(process.cwd(), path).replaceAll("\\", "/") : relative(process.cwd(), path)) || ".";
 const log = (msg: string) => console.error(msg);
 // Contents are compared with LF endings: git's core.autocrlf (default on Windows) checks .enc out
 // with CRLF, and Windows editors may save the plaintext that way.
