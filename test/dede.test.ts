@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { scan } from "@dotenvx/primitives";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -616,5 +616,85 @@ describe("comments and modes", () => {
     chmodSync(join(r.dir, ".husky/pre-commit"), 0o644);
     expect(r.dede(["setup"]).code).toBe(0);
     expect(statSync(join(r.dir, ".husky/pre-commit")).mode & 0o777).toBe(0o644);
+  });
+});
+
+describe("keys: -fk, dede keys, dede keys link", () => {
+  const keyOf = (r: Repo, name: string) => new RegExp(`${name}=([0-9a-f]{64})`).exec(r.read(".env.keys"))![1];
+
+  test("-fk uses another keys file for dec, and stores a new key there on enc", () => {
+    const main = new Repo();
+    main.write(".env.local", "A=1\n");
+    main.dede(["enc"]);
+    const wt = new Repo();
+    wt.write(".env.local.enc", main.read(".env.local.enc"));
+    expect(wt.dede(["dec"]).code).toBe(3);
+    expect(wt.dede(["dec", "-fk", join(main.dir, ".env.keys")]).code).toBe(0);
+    expect(wt.read(".env.local")).toBe("A=1\n");
+    wt.write(".env.prod", "P=1\n");
+    expect(wt.dede(["enc", ".env.prod", "--env-keys-file", join(main.dir, ".env.keys")]).code).toBe(0);
+    expect(main.read(".env.keys")).toContain("DOTENV_PRIVATE_KEY_PROD=");
+    expect(wt.exists(".env.keys")).toBe(false);
+  });
+
+  test("DOTENV_KEYS_FILE works like -fk", () => {
+    const main = new Repo();
+    main.write(".env.local", "A=1\n");
+    main.dede(["enc"]);
+    const wt = new Repo();
+    wt.write(".env.local.enc", main.read(".env.local.enc"));
+    expect(wt.dede(["dec"], { DOTENV_KEYS_FILE: join(main.dir, ".env.keys") }).code).toBe(0);
+  });
+
+  test("-fk without a path is a clean error", () => {
+    const r = new Repo();
+    const res = r.dede(["dec", "-fk"]);
+    expect(res.code).toBe(4);
+    expect(res.err).not.toContain("    at ");
+  });
+
+  test("keys link: a visible symlink, dec works, a new key lands in the target file", () => {
+    const main = new Repo();
+    main.write(".env.local", "A=1\n");
+    main.dede(["enc"]);
+    const wt = new Repo();
+    wt.write(".env.local.enc", main.read(".env.local.enc"));
+    const res = wt.dede(["keys", "link", join(main.dir, ".env.keys")]);
+    expect(res.code).toBe(0);
+    expect(lstatSync(join(wt.dir, ".env.keys")).isSymbolicLink()).toBe(true);
+    expect(wt.dede(["dec"]).code).toBe(0);
+    wt.write(".env.test", "T=1\n");
+    expect(wt.dede(["enc", ".env.test"]).code).toBe(0);
+    expect(lstatSync(join(wt.dir, ".env.keys")).isSymbolicLink()).toBe(true);
+    expect(main.read(".env.keys")).toContain("DOTENV_PRIVATE_KEY_TEST=");
+    expect(wt.dede(["keys", "link", join(main.dir, ".env.keys")]).code).toBe(0); // idempotent
+  });
+
+  test("keys link refuses to replace an existing .env.keys and a missing target", () => {
+    const r = new Repo();
+    r.write(".env.keys", "DOTENV_PRIVATE_KEY_X=" + "1".repeat(64) + "\n");
+    const other = new Repo();
+    other.write(".env.keys", "DOTENV_PRIVATE_KEY_Y=" + "2".repeat(64) + "\n");
+    expect(r.dede(["keys", "link", join(other.dir, ".env.keys")]).code).toBe(1);
+    expect(r.dede(["keys", "link", join(other.dir, "nope")]).code).toBe(4);
+  });
+
+  test("dede keys lists each .enc with its source and never prints a private key", () => {
+    const r = new Repo();
+    r.write(".env.local", "A=1\n");
+    r.write(".env.prod", "B=1\n");
+    r.dede(["enc"]);
+    const priv = keyOf(r, "DOTENV_PRIVATE_KEY_LOCAL");
+    let res = r.dede(["keys"]);
+    expect(res.code).toBe(0);
+    expect(res.out).toMatch(/✓ \.env\.local\.enc  0[23][0-9a-f]{8}…  \.env\.keys/);
+    expect(res.out + res.err).not.toContain(priv);
+    r.write(".env.keys", r.read(".env.keys").replace(/DOTENV_PRIVATE_KEY_PROD=.*\n/, ""));
+    res = r.dede(["keys"], { DOTENV_PRIVATE_KEY_LOCAL: priv });
+    expect(res.code).toBe(1);
+    expect(res.out).toContain("✓ .env.local.enc");
+    expect(res.out).toContain("environment");
+    expect(res.out).toContain("✗ .env.prod.enc");
+    expect(res.out).toContain("missing (DOTENV_PRIVATE_KEY_PROD)");
   });
 });

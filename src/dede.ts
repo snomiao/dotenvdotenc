@@ -5,7 +5,7 @@
 import { decrypt, encrypt, keypair, keyringSync, scan, upsert } from "@dotenvx/primitives";
 import { spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
-import { chmodSync, closeSync, existsSync, fsyncSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, writeSync } from "node:fs";
+import { chmodSync, closeSync, existsSync, fsyncSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, realpathSync, renameSync, statSync, symlinkSync, writeSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
 
 const USAGE = `dede — sync gitignored .env* files with committed dotenvx-encrypted .env*.enc files
@@ -15,8 +15,12 @@ const USAGE = `dede — sync gitignored .env* files with committed dotenvx-encry
   dede status [file|glob…]          report sync state, exit 1 unless all in sync
   dede guard [--all]                pre-commit: block staged plaintext env files, keys, unencrypted values
   dede setup                        add .gitignore rules and the pre-commit hook
+  dede keys                         which key each .enc here needs, and whether it is held
+  dede keys link <path>             make ./.env.keys a symlink to another checkout's .env.keys
 
-Private keys: DOTENV_PRIVATE_KEY_<SUFFIX> in the environment or in .env.keys (dotenvx convention).`;
+  -fk, --env-keys-file <path>       use this keys file instead of ./.env.keys (also DOTENV_KEYS_FILE)
+
+Private keys: DOTENV_PRIVATE_KEY_<SUFFIX> in the environment, else ./.env.keys (dotenvx convention).`;
 
 const PREFIX = "encrypted:";
 const TMP = ".env.dede-tmp-";
@@ -68,27 +72,40 @@ export const suffixOf = (name: string) => (name === ".env" ? "" : "_" + name.sli
 
 const isEnvName = (name: string) => NAME_RE.test(name) && !name.endsWith(".enc") && !SKIP.has(name) && !name.startsWith(TMP);
 
+// Keys come from the environment, then one keys file: ./.env.keys next to the env file, or an
+// explicit -fk / DOTENV_KEYS_FILE. No other place is searched.
+let keysOverride: string | undefined;
+const keysFileFor = (dir: string) => keysOverride ?? join(dir, ".env.keys");
+
 function ringFor(dir: string): Record<string, string> {
-  return keyringSync({ fk: [join(dir, ".env.keys")], processEnv: process.env });
+  return keyringSync({ fk: [keysFileFor(dir)], processEnv: process.env });
 }
 
 function privateKeyFor(pub: string, pair: Pair): string {
   const priv = ringFor(dirname(pair.plain))[pub];
-  if (!priv) die(`${rel(pair.enc)}: no private key (set DOTENV_PRIVATE_KEY${suffixOf(pair.name)} or add it to .env.keys)`, 3);
+  if (!priv) die(`${rel(pair.enc)}: no private key (set DOTENV_PRIVATE_KEY${suffixOf(pair.name)}, add it to ${rel(keysFileFor(dirname(pair.plain)))}, or use -fk / \`dede keys link\`)`, 3);
   return priv!;
 }
 
-// Existing key for a new .enc (env or .env.keys, by dotenvx name), else a fresh one saved to .env.keys.
+// A keys file inside a git work tree must be gitignored; one outside any repo is the user's business.
+function assertKeysFileSafe(path: string): void {
+  const inRepo = git(["rev-parse", "--is-inside-work-tree"], dirname(resolve(path))).out.trim() === "true";
+  if (inRepo && !isIgnored(path)) die(`${rel(path)} is not gitignored; run \`dede setup\` first`);
+}
+
+// Existing key for a new .enc (env or the keys file, by dotenvx name), else a fresh one saved to the keys file.
 function obtainKey(pair: Pair): { publicKey: string; privateKey: string } {
   const keyName = `DOTENV_PRIVATE_KEY${suffixOf(pair.name)}`;
-  const keysPath = join(dirname(pair.plain), ".env.keys");
+  const keysPath = keysFileFor(dirname(pair.plain));
   const fromFile = existsSync(keysPath) ? scan(readFileSync(keysPath, "utf8")).parsed[keyName]?.at(-1) : undefined;
   const existing = (process.env[keyName] || fromFile || "").split(",")[0].trim();
   if (existing) return keypair(existing);
-  if (!isIgnored(keysPath)) die(`${rel(keysPath)} is not gitignored; run \`dede setup\` first`);
+  assertKeysFileSafe(keysPath);
   const kp = keypair();
   const prev = existsSync(keysPath) ? readFileSync(keysPath, "utf8") : `${KEYS_BANNER.join("\n")}\n`;
-  writeAtomic(keysPath, `${prev}${prev.endsWith("\n") ? "" : "\n"}\n# ${pair.name}\n${keyName}=${kp.privateKey}\n`, 0o600);
+  // A linked .env.keys (dede keys link) is updated at its target, keeping the link.
+  const target = isSymlink(keysPath) ? realpathSync(keysPath) : keysPath;
+  writeAtomic(target, `${prev}${prev.endsWith("\n") ? "" : "\n"}\n# ${pair.name}\n${keyName}=${kp.privateKey}\n`, 0o600);
   log(`new key ${keyName} saved to ${rel(keysPath)} — back it up (password manager); teammates need it to decrypt`);
   return kp;
 }
@@ -369,6 +386,39 @@ function guard(all: boolean): void {
   if (bad.length) die(`dede guard: blocked\n  ${bad.join("\n  ")}\n  (unstage with \`git restore --staged <file>\`)`, 1);
 }
 
+// ---------- keys ----------
+
+// Prints public-key prefixes and file names only, never a private key.
+function keysStatus(ps: Pair[]): boolean {
+  let ok = true;
+  const envRing = keyringSync({ fk: [], processEnv: process.env });
+  for (const p of ps) {
+    const E = read(p.enc);
+    if (E === undefined) continue;
+    const { publicKey } = splitEnc(E, p.enc);
+    const file = keysFileFor(dirname(p.plain));
+    const fileRing = existsSync(file) ? keyringSync({ fk: [file], processEnv: {} }) : {};
+    const link = isSymlink(file) ? ` → ${rel(realpathSync(file))}` : "";
+    const from = envRing[publicKey] ? "environment" : fileRing[publicKey] ? `${rel(file)}${link}` : undefined;
+    if (!from) ok = false;
+    console.log(`${from ? "✓" : "✗"} ${rel(p.enc)}  ${publicKey.slice(0, 10)}…  ${from ?? `missing (DOTENV_PRIVATE_KEY${suffixOf(p.name)})`}`);
+  }
+  return ok;
+}
+
+function keysLink(target: string | undefined): void {
+  if (!target) die("usage: dede keys link <path/to/.env.keys>", 4);
+  const link = join(process.cwd(), ".env.keys");
+  const abs = resolve(process.cwd(), target!);
+  if (!existsSync(abs) || !statSync(abs).isFile()) die(`${target}: no such keys file`, 4);
+  if (realpathSync(abs) === (existsSync(link) ? realpathSync(link) : "")) return log(`.env.keys already points to ${target}`);
+  if (existsSync(link) || isSymlink(link)) die(`.env.keys already exists here; move it away first`, 1);
+  assertKeysFileSafe(link);
+  if ((statSync(abs).mode & 0o077) !== 0) log(`warning: ${target} is readable by other users; chmod 600 it`);
+  symlinkSync(target!, link);
+  log(`linked .env.keys → ${target}`);
+}
+
 // ---------- setup ----------
 
 function setup(): void {
@@ -443,7 +493,18 @@ function pairs(args: string[], mode: "enc" | "dec" | "any"): Pair[] {
 }
 
 export function main(argv: string[]): number {
-  const [cmd, ...rest] = argv;
+  const [cmd, ...raw] = argv;
+  const rest: string[] = [];
+  keysOverride = process.env.DOTENV_KEYS_FILE || undefined;
+  for (let i = 0; i < raw.length; i++) {
+    const a = raw[i];
+    if (a === "-fk" || a === "--env-keys-file") {
+      if (raw[i + 1] === undefined) return log(`dede: ${a} needs a path`), 4;
+      keysOverride = raw[++i];
+    } else if (a.startsWith("--env-keys-file=")) keysOverride = a.slice("--env-keys-file=".length);
+    else rest.push(a);
+  }
+  if (keysOverride) keysOverride = resolve(process.cwd(), keysOverride);
   const force = rest.includes("--force");
   const args = rest.filter((a) => a !== "--force" && a !== "--all");
   let code = 0;
@@ -476,6 +537,10 @@ export function main(argv: string[]): number {
         break;
       case "setup":
         setup();
+        break;
+      case "keys":
+        if (args[0] === "link") keysLink(args[1]);
+        else if (!keysStatus(pairs(args, "dec"))) code = 1;
         break;
       case undefined:
       case "help":

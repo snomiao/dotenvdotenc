@@ -68,11 +68,26 @@ dotenvx's convention, nothing new:
 
 - `.env.local` ↔ `DOTENV_PUBLIC_KEY_LOCAL` (header of `.env.local.enc`) and `DOTENV_PRIVATE_KEY_LOCAL`
   (`.env` → no suffix, `.env.development.local` → `_DEVELOPMENT_LOCAL`).
-- The private key is read from the environment, else from `.env.keys` next to the file. The key
-  that matches the `.enc` header is used.
+- The private key is read from the environment, else from `.env.keys` next to the file — nowhere
+  else. The key that matches the `.enc` header is used, whatever its name.
+- `-fk <path>` / `--env-keys-file <path>` (or `DOTENV_KEYS_FILE`) points one run at another keys file.
+- `dede keys` lists every `.enc` here with the public key it needs and where that key was found
+  (environment, `.env.keys`, or missing). It never prints a private key.
 - The first `dede enc` of a file reuses an existing key by that name, or generates one and appends it
   to `.env.keys` (mode 0600). **Back it up in the password manager** — it is the only copy, and
   teammates need it to run `dede dec`.
+
+### Several checkouts of one repo (worktrees, submodules)
+
+Keep one real `.env.keys` and link the others to it, visibly:
+
+```sh
+cd ../feature-worktree
+dede keys link ../main/.env.keys     # ./.env.keys -> ../main/.env.keys (a plain symlink)
+dede dec
+```
+
+dotenvx follows the link too. New keys created from a linked checkout are written to the target file.
 
 ## Guard (pre-commit)
 
