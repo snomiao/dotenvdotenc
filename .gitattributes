@@ -1,0 +1,3 @@
+# LF everywhere, also in Windows checkouts: a published dede.ts with CRLF has a
+# `#!/usr/bin/env bun\r` shebang that fails on Linux and macOS.
+* text=auto eol=lf
