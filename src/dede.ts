@@ -403,9 +403,25 @@ function guardList(top: string, all: boolean): { path: string; added: boolean }[
   return out;
 }
 
+// Untracked plaintext env files that nobody manages: not *.local (machine-local by convention),
+// not committed (public config), and without an .enc twin. Ignored directories such as
+// node_modules are listed collapsed, so they are not walked.
+function unmanagedEnvFiles(top: string): string[] {
+  const list = [
+    ...git(["ls-files", "--others", "--exclude-standard", "-z"], top).out.split("\0"),
+    ...git(["ls-files", "--others", "--ignored", "--exclude-standard", "--directory", "-z"], top).out.split("\0"),
+  ].filter((p) => p && !p.endsWith("/") && !/(^|\/)node_modules\//.test(p));
+  return [...new Set(list)].filter((p) => {
+    const name = basename(p);
+    return isEnvName(name) && !name.endsWith(".local") && !existsSync(`${join(top, p)}.enc`);
+  });
+}
+const UNMANAGED_HINT = "unmanaged plaintext env file (not committed, no .enc, not *.local): `dede enc` it and commit the .enc, or rename it to *.local";
+
 function guard(all: boolean): void {
   const top = gitDir(process.cwd());
   const bad: string[] = [];
+  for (const f of unmanagedEnvFiles(top)) bad.push(`${f}: ${UNMANAGED_HINT}`);
   for (const { path: f, added } of guardList(top, all)) {
     const name = basename(f);
     const blob = git(["cat-file", "blob", `:${f}`], top);
@@ -599,11 +615,20 @@ export function main(argv: string[]): number {
       case "dec":
         each(pairs(args, "dec"), (p) => dec(p, force));
         break;
-      case "status":
-        each(pairs(args, "any"), (p) => {
+      case "status": {
+        const ps = pairs(args, "any");
+        each(ps, (p) => {
           if (!status(p)) code = Math.max(code, 1);
         });
+        const top = gitDir(process.cwd());
+        const shown = new Set(ps.map((p) => p.plain));
+        for (const f of unmanagedEnvFiles(top)) {
+          if (shown.has(join(top, f))) continue;
+          console.log(`✗ ${rel(join(top, f))}: ${UNMANAGED_HINT}`);
+          code = Math.max(code, 1);
+        }
         break;
+      }
       case "guard":
         guard(rest.includes("--all"));
         break;

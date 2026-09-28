@@ -119,6 +119,9 @@ On a new machine: restore `ME` from the password manager into the vault repo's `
 - a new plaintext env file (`.env`, `.env.local`, …) — commit its `.enc` instead (already-tracked
   plaintext env files are treated as public config and pass);
 - `.env.keys`, or any file containing a `DOTENV_PRIVATE_KEY…=<64 hex>` assignment;
+- while any `.env*` file in the repo is **unmanaged**: not committed, no `.enc` twin, and not named
+  `*.local` (machine-local by convention). Encrypt it with `dede enc`, or rename it to `*.local`.
+  `dede status` lists these files too;
 - an `.enc` file with a value that is not `encrypted:` or a line that is neither assignment nor comment.
 
 `dede guard --all` checks every tracked file (use it in CI). The guard is a local safety net; a

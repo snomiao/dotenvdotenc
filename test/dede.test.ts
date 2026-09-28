@@ -848,3 +848,60 @@ describe("setup defaults to husky in a JS repo without a hook manager", () => {
     expect(r.exists(".husky")).toBe(false);
   });
 });
+
+describe("unmanaged plaintext env files fail the pre-commit guard", () => {
+  test("untracked .env.foo without .enc blocks the commit; .enc, *.local, committed and examples pass", () => {
+    const r = new Repo();
+    r.write("README.md", "x\n");
+    r.git("add", "README.md", ".gitignore");
+    r.write(".env.foo", "A=1\n");
+    r.write("app/.env.bar", "B=1\n");
+    r.write(".env.local", "C=1\n");
+    r.write(".env.development.local", "D=1\n");
+    r.write(".env.example", "E=\n");
+    r.write("node_modules/pkg/.env", "F=1\n");
+    let res = r.dede(["guard"]);
+    expect(res.code).toBe(1);
+    expect(res.err).toContain(".env.foo: unmanaged plaintext env file");
+    expect(res.err).toContain("app/.env.bar: unmanaged plaintext env file");
+    for (const ok of [".env.local", ".env.development.local", ".env.example", "node_modules"]) expect(res.err).not.toContain(ok + ":");
+    expect(res.err).not.toContain("A=1");
+    r.dede(["enc", ".env.foo", "app/.env.bar"]);
+    res = r.dede(["guard"]);
+    expect(res.code).toBe(0);
+  });
+
+  test("a committed plaintext env file is not unmanaged", () => {
+    const r = new Repo();
+    r.write(".env.production", "VITE_X=\n");
+    r.git("add", "-f", ".gitignore", ".env.production");
+    r.git("commit", "-qm", "public config");
+    r.write("README.md", "x\n");
+    r.git("add", "README.md");
+    expect(r.dede(["guard"]).code).toBe(0);
+  });
+
+  test("status lists unmanaged files anywhere in the repo and exits 1", () => {
+    const r = new Repo();
+    r.write("app/.env.bar", "B=1\n");
+    const res = r.dede(["status"]);
+    expect(res.code).toBe(1);
+    expect(res.out).toContain("✗ app/.env.bar: unmanaged plaintext env file");
+  });
+
+  test("the installed hook blocks a commit while an unmanaged env file exists", () => {
+    const r = new Repo("");
+    const bin = join(r.dir, "node_modules/.bin");
+    mkdirSync(bin, { recursive: true });
+    writeFileSync(join(bin, "dede"), `#!/bin/sh\nexec bun --no-env-file ${CLI} "$@"\n`);
+    chmodSync(join(bin, "dede"), 0o755);
+    r.write(".gitignore", "node_modules/\n");
+    r.dede(["setup"]);
+    r.write(".env.foo", "A=1\n");
+    r.write("README.md", "x\n");
+    r.git("add", "README.md", ".gitignore");
+    const c = spawnSync("git", ["commit", "-qm", "x"], { cwd: r.dir, encoding: "utf8", env: cleanEnv() });
+    expect(c.status).not.toBe(0);
+    expect(c.stderr).toContain(".env.foo: unmanaged plaintext env file");
+  });
+});
