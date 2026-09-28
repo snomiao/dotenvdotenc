@@ -126,7 +126,7 @@ function obtainKey(pair: Pair): { publicKey: string; privateKey: string } {
 
 // ---------- file format ----------
 
-function splitEnc(text: string, file: string): { publicKey: string; body: string } {
+function splitEnc(text: string, file: string): { publicKey: string; body: string; offset: number } {
   const lines = text.split("\n");
   let i = 0;
   while (i < lines.length && lines[i].startsWith("#/")) i++;
@@ -134,7 +134,7 @@ function splitEnc(text: string, file: string): { publicKey: string; body: string
   if (!m) die(`${rel(file)}: missing DOTENV_PUBLIC_KEY header`, 4);
   i++;
   if (lines[i] === "" || lines[i] === "\r") i++;
-  return { publicKey: m![1], body: lines.slice(i).join("\n") };
+  return { publicKey: m![1], body: lines.slice(i).join("\n"), offset: i };
 }
 
 const header = (name: string, publicKey: string) => `${BANNER.join("\n")}\nDOTENV_PUBLIC_KEY${suffixOf(name)}="${publicKey}"\n\n`;
@@ -175,19 +175,20 @@ function decryptAll(body: string, priv: string, file: string): { plain: Values; 
 
 // Every committed line must be blank, a comment, or an assignment whose whole value is ciphertext.
 // Text glued to a value (`PASSWORD=abc#def`) parses as a comment and would stay plaintext.
-function assertSealed(body: string, file: string): void {
+// `offset`: lines before `body` in the file (the .enc header), so reported line numbers match the file.
+function assertSealed(body: string, file: string, offset = 0): void {
   const hint = 'quote the whole value ("…"), or put a space before a real comment';
   const keyOf = (line: string) => /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_.-]*)\s*=/.exec(line)?.[1];
   const lines = body.split("\n");
   const isComment = (line: string) => line.trim() === "" || line.trimStart().startsWith("#");
   lines.forEach((line, i) => {
     if (isComment(line) && !line.startsWith("#/") && LEAKY_COMMENT_RE.test(line))
-      die(`${rel(file)}: line ${i + 1} is a comment holding a credential-like value (commented-out assignment or URL with userinfo); comments are committed in plaintext, so delete it`, 4);
-    if (!isComment(line) && !keyOf(line)) die(`${rel(file)}: line ${i + 1} is not an assignment or comment and would be committed as plaintext`, 4);
+      die(`${rel(file)}: line ${i + 1 + offset} is a comment holding a credential-like value (commented-out assignment or URL with userinfo); comments are committed in plaintext, so delete it`, 4);
+    if (!isComment(line) && !keyOf(line)) die(`${rel(file)}: line ${i + 1 + offset} is not an assignment or comment and would be committed as plaintext`, 4);
   });
   for (const [k, vs] of Object.entries(values(body, file))) if (vs.some((v) => v !== "" && !v.startsWith(PREFIX))) die(`${rel(file)}: ${k} is not encrypted; ${hint}`, 4);
   lines.forEach((line, i) => {
-    if (!isComment(line) && !SEALED_LINE_RE.test(line)) die(`${rel(file)}: line ${i + 1} (${keyOf(line)}) would commit part of its value as plaintext; ${hint}`, 4);
+    if (!isComment(line) && !SEALED_LINE_RE.test(line)) die(`${rel(file)}: line ${i + 1 + offset} (${keyOf(line)}) would commit part of its value as plaintext; ${hint}`, 4);
   });
 }
 
@@ -399,7 +400,8 @@ function guard(all: boolean): void {
     if (name === ".env.keys" || name.startsWith(TMP)) bad.push(`${f}: private keys / temp file must never be committed`);
     else if (name.endsWith(".enc") && isEnvName(name.slice(0, -4))) {
       try {
-        assertSealed(splitEnc(blob.out, join(top, f)).body, join(top, f));
+        const { body, offset } = splitEnc(blob.out, join(top, f));
+        assertSealed(body, join(top, f), offset);
       } catch (e) {
         bad.push(e instanceof DedeError ? e.message : `${f}: unreadable`);
       }

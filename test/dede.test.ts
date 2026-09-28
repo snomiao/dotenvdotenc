@@ -767,3 +767,14 @@ describe("keys files backed up as .env.keys.<name>.enc with --key", () => {
     expect(vault.dede(["enc", ".env.keys.proj", "--key", "ME"]).code).toBe(4);
   });
 });
+
+test("guard reports line numbers of the .enc file itself (header included)", () => {
+  const r = new Repo();
+  r.write(".env.local", "A=1\n");
+  r.dede(["enc"]);
+  const enc = r.read(".env.local.enc") + "# OLD=" + "h".repeat(32) + "\n";
+  r.write(".env.local.enc", enc);
+  r.git("add", ".env.local.enc");
+  const line = enc.split("\n").findIndex((l) => l.startsWith("# OLD=")) + 1;
+  expect(r.dede(["guard"]).err).toContain(`.env.local.enc: line ${line} is a comment`);
+});
