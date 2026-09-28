@@ -89,6 +89,28 @@ dede dec
 
 dotenvx follows the link too. New keys created from a linked checkout are written to the target file.
 
+Submodules are separate checkouts, so link each one (from the superproject):
+
+```sh
+git submodule foreach 'dede keys link /path/to/.env.keys || true'
+```
+
+### Backing up keys files
+
+Keys files are `.env.keys` or `.env.keys.<name>`. They may hold `DOTENV_PRIVATE_KEY_*`; any other env
+file may not. So a keys file can itself be synced like any env file, encrypted with a key you
+choose:
+
+```sh
+# in a private repo that holds your personal key ME in ./.env.keys
+cp ~/src/myproj/.env.keys .env.keys.myproj
+dede enc .env.keys.myproj --key ME       # commits as .env.keys.myproj.enc, encrypted with ME
+cd ~/src/myproj && rm .env.keys && dede keys link ~/vault/.env.keys.myproj
+```
+
+On a new machine: restore `ME` from the password manager into the vault repo's `.env.keys`, run
+`dede dec`, then `dede keys link` from each project. `ME` becomes the one key to protect.
+
 ## Guard (pre-commit)
 
 `dede guard` blocks a commit that stages:

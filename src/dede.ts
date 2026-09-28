@@ -19,6 +19,8 @@ const USAGE = `dede — sync gitignored .env* files with committed dotenvx-encry
   dede keys link <path>             make ./.env.keys a symlink to another checkout's .env.keys
 
   -fk, --env-keys-file <path>       use this keys file instead of ./.env.keys (also DOTENV_KEYS_FILE)
+  --key <NAME>                      encrypt a new .enc with the existing DOTENV_PRIVATE_KEY_<NAME>
+                                    (e.g. back up a keys file: dede enc .env.keys.myproj --key ME)
 
 Private keys: DOTENV_PRIVATE_KEY_<SUFFIX> in the environment, else ./.env.keys (dotenvx convention).`;
 
@@ -93,12 +95,24 @@ function assertKeysFileSafe(path: string): void {
   if (inRepo && !isIgnored(path)) die(`${rel(path)} is not gitignored; run \`dede setup\` first`);
 }
 
+// `--key NAME`: the key a new .enc is encrypted with, instead of the one named after the file.
+let keyChoice: string | undefined;
+
+function keyByName(keyName: string, keysPath: string): string {
+  const fromFile = existsSync(keysPath) ? scan(readFileSync(keysPath, "utf8")).parsed[keyName]?.at(-1) : undefined;
+  return (process.env[keyName] || fromFile || "").split(",")[0].trim();
+}
+
 // Existing key for a new .enc (env or the keys file, by dotenvx name), else a fresh one saved to the keys file.
 function obtainKey(pair: Pair): { publicKey: string; privateKey: string } {
-  const keyName = `DOTENV_PRIVATE_KEY${suffixOf(pair.name)}`;
   const keysPath = keysFileFor(dirname(pair.plain));
-  const fromFile = existsSync(keysPath) ? scan(readFileSync(keysPath, "utf8")).parsed[keyName]?.at(-1) : undefined;
-  const existing = (process.env[keyName] || fromFile || "").split(",")[0].trim();
+  if (keyChoice) {
+    const chosen = keyByName(`DOTENV_PRIVATE_KEY_${keyChoice}`, keysPath);
+    if (!chosen) die(`--key ${keyChoice}: DOTENV_PRIVATE_KEY_${keyChoice} not found in the environment or ${rel(keysPath)}`, 3);
+    return keypair(chosen);
+  }
+  const keyName = `DOTENV_PRIVATE_KEY${suffixOf(pair.name)}`;
+  const existing = keyByName(keyName, keysPath);
   if (existing) return keypair(existing);
   assertKeysFileSafe(keysPath);
   const kp = keypair();
@@ -125,9 +139,14 @@ function splitEnc(text: string, file: string): { publicKey: string; body: string
 
 const header = (name: string, publicKey: string) => `${BANNER.join("\n")}\nDOTENV_PUBLIC_KEY${suffixOf(name)}="${publicKey}"\n\n`;
 
+// Keys files (.env.keys, .env.keys.<name>) may hold private keys, e.g. to back one up as .env.keys.<name>.enc.
+const isKeysName = (name: string) => name === ".env.keys" || name.startsWith(".env.keys.");
+
 function values(text: string, file: string): Values {
   const { parsed } = scan(text);
-  for (const k of Object.keys(parsed)) if (k.startsWith("DOTENV_PUBLIC_KEY") || k.startsWith("DOTENV_PRIVATE_KEY")) die(`${rel(file)}: ${k} does not belong in an env file`, 4);
+  const keysFile = isKeysName(basename(file).replace(/\.enc$/, ""));
+  for (const k of Object.keys(parsed))
+    if (k.startsWith("DOTENV_PUBLIC_KEY") || (!keysFile && k.startsWith("DOTENV_PRIVATE_KEY"))) die(`${rel(file)}: ${k} does not belong in an env file`, 4);
   return parsed;
 }
 
@@ -318,6 +337,10 @@ function enc(pair: Pair, force: boolean): void {
     saveState(pair, v.P!, text);
     return log(`created ${rel(pair.enc)}`);
   }
+  if (keyChoice) {
+    const chosen = keyByName(`DOTENV_PRIVATE_KEY_${keyChoice}`, keysFileFor(dirname(pair.plain)));
+    if (chosen && keypair(chosen).publicKey !== v.pub) die(`${rel(pair.enc)} is encrypted with another key; --key only chooses the key for a new .enc`, 4);
+  }
   if (v.C === v.D) {
     saveState(pair, v.P!, v.E);
     return log(`${rel(pair.enc)}: in sync`);
@@ -496,11 +519,15 @@ export function main(argv: string[]): number {
   const [cmd, ...raw] = argv;
   const rest: string[] = [];
   keysOverride = process.env.DOTENV_KEYS_FILE || undefined;
+  keyChoice = undefined;
   for (let i = 0; i < raw.length; i++) {
     const a = raw[i];
     if (a === "-fk" || a === "--env-keys-file") {
       if (raw[i + 1] === undefined) return log(`dede: ${a} needs a path`), 4;
       keysOverride = raw[++i];
+    } else if (a === "--key") {
+      if (!/^[A-Z0-9_]+$/.test(raw[i + 1] ?? "")) return log("dede: --key needs a NAME like TAKU (for DOTENV_PRIVATE_KEY_TAKU)"), 4;
+      keyChoice = raw[++i];
     } else if (a.startsWith("--env-keys-file=")) keysOverride = a.slice("--env-keys-file=".length);
     else rest.push(a);
   }

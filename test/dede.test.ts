@@ -698,3 +698,72 @@ describe("keys: -fk, dede keys, dede keys link", () => {
     expect(res.out).toContain("missing (DOTENV_PRIVATE_KEY_PROD)");
   });
 });
+
+describe("keys files backed up as .env.keys.<name>.enc with --key", () => {
+  const ME = "a".repeat(63) + "1";
+  const setup = () => {
+    const vault = new Repo();
+    vault.write(".env.keys", `DOTENV_PRIVATE_KEY_ME=${ME}\n`);
+    const proj = new Repo();
+    proj.write(".env.dev", "A=1\n");
+    proj.dede(["enc"]);
+    vault.write(".env.keys.proj", proj.read(".env.keys"));
+    return { vault, proj };
+  };
+
+  test("encrypts with the chosen key, adds no new key, and restores exactly", () => {
+    const { vault } = setup();
+    const plain = vault.read(".env.keys.proj");
+    const res = vault.dede(["enc", ".env.keys.proj", "--key", "ME"]);
+    expect(res.code).toBe(0);
+    expect(vault.read(".env.keys")).toBe(`DOTENV_PRIVATE_KEY_ME=${ME}\n`);
+    const enc = vault.read(".env.keys.proj.enc");
+    expect(enc).toMatch(/\nDOTENV_PRIVATE_KEY_DEV=encrypted:/);
+    expect(enc).not.toMatch(/=[0-9a-f]{64}/);
+    const mePub = /DOTENV_PUBLIC_KEY_KEYS_PROJ="(0[23][0-9a-f]{64})"/.exec(enc)![1];
+    expect(mePub).toBe(require("@dotenvx/primitives").keypair(ME).publicKey);
+    vault.rm(".env.keys.proj");
+    expect(vault.dede(["dec", ".env.keys.proj"]).code).toBe(0);
+    expect(vault.read(".env.keys.proj")).toBe(plain);
+  });
+
+  test("guard passes the .enc and blocks the plaintext keys file", () => {
+    const { vault } = setup();
+    vault.dede(["enc", ".env.keys.proj", "--key", "ME"]);
+    vault.git("add", ".gitignore", ".env.keys.proj.enc");
+    expect(vault.dede(["guard"]).code).toBe(0);
+    vault.git("add", "-f", ".env.keys.proj");
+    const res = vault.dede(["guard"]);
+    expect(res.code).toBe(1);
+    expect(res.err).toContain(".env.keys.proj: plaintext env file");
+    expect(res.err).toContain(".env.keys.proj: contains a DOTENV_PRIVATE_KEY");
+  });
+
+  test("a project checkout linked to the restored keys file decrypts", () => {
+    const { vault, proj } = setup();
+    vault.dede(["enc", ".env.keys.proj", "--key", "ME"]);
+    vault.rm(".env.keys.proj");
+    vault.dede(["dec", ".env.keys.proj"]);
+    const clone = new Repo();
+    clone.write(".env.dev.enc", proj.read(".env.dev.enc"));
+    expect(clone.dede(["keys", "link", join(vault.dir, ".env.keys.proj")]).code).toBe(0);
+    expect(clone.dede(["dec"]).code).toBe(0);
+    expect(clone.read(".env.dev")).toBe("A=1\n");
+  });
+
+  test("private keys are still refused in ordinary env files", () => {
+    const r = new Repo();
+    r.write(".env.local", `DOTENV_PRIVATE_KEY_X=${ME}\n`);
+    expect(r.dede(["enc"]).code).toBe(4);
+  });
+
+  test("--key errors: unknown key, bad name, existing .enc with another key", () => {
+    const { vault } = setup();
+    expect(vault.dede(["enc", ".env.keys.proj", "--key", "NOPE"]).code).toBe(3);
+    expect(vault.exists(".env.keys.proj.enc")).toBe(false);
+    expect(vault.dede(["enc", ".env.keys.proj", "--key", "bad name"]).code).toBe(4);
+    vault.dede(["enc", ".env.keys.proj"]); // encrypted with a new KEYS_PROJ key
+    vault.write(".env.keys", vault.read(".env.keys") + `DOTENV_PRIVATE_KEY_ME=${ME}\n`);
+    expect(vault.dede(["enc", ".env.keys.proj", "--key", "ME"]).code).toBe(4);
+  });
+});
