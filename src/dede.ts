@@ -479,8 +479,15 @@ function setup(): void {
     log(`${lefthook} found; add this under pre-commit, then run \`lefthook install\`:\n\npre-commit:\n  commands:\n    dede-guard:\n      run: ${HOOK_CMD}\n`);
     return;
   }
+  // A JS repo with no hook manager yet gets husky (v9) as the default.
+  const pkgPath = join(top, "package.json");
+  const hooksPathSet = git(["config", "core.hooksPath"], top).out.trim() !== "";
+  if (!hooksPathSet && !existsSync(join(top, ".husky")) && existsSync(pkgPath)) return setupHusky(top, pkgPath);
   // --git-path honours core.hooksPath (incl. `~`); husky v9 points it at .husky/_ and runs .husky/<hook>.
-  const dir = git(["rev-parse", "--path-format=absolute", "--git-path", "hooks"], top).out.trim().replace(/\/\.husky\/_\/?$/, "/.husky");
+  // A .husky/ dir whose `husky` has not run yet (no core.hooksPath) is still where the hook belongs.
+  const dir = !hooksPathSet && existsSync(join(top, ".husky"))
+    ? join(top, ".husky")
+    : git(["rev-parse", "--path-format=absolute", "--git-path", "hooks"], top).out.trim().replace(/\/\.husky\/_\/?$/, "/.husky");
   if (!dir) die("cannot locate the git hooks directory");
   const hook = join(dir, "pre-commit");
   const prev = read(hook);
@@ -495,6 +502,24 @@ function setup(): void {
     : `${HOOK_CMD}\n${prev}`;
   writeAtomic(hook, body, prev === undefined ? 0o755 : lstatSync(hook).mode & 0o777);
   log(`${prev === undefined ? "created" : "updated"} ${rel(hook)}: runs dede guard before each commit`);
+}
+
+function setupHusky(top: string, pkgPath: string): void {
+  const raw = readFileSync(pkgPath, "utf8");
+  const pkg = JSON.parse(raw);
+  const indent = /^\{\r?\n([ \t]+)"/.exec(raw)?.[1] ?? "  ";
+  pkg.scripts ??= {};
+  const prep: string | undefined = pkg.scripts.prepare;
+  if (!prep) pkg.scripts.prepare = "husky";
+  else if (!/\bhusky\b/.test(prep)) pkg.scripts.prepare = `husky && ${prep}`;
+  if (!pkg.devDependencies?.husky && !pkg.dependencies?.husky) pkg.devDependencies = { ...pkg.devDependencies, husky: "^9.1.7" };
+  writeAtomic(pkgPath, `${JSON.stringify(pkg, null, indent)}\n`, lstatSync(pkgPath).mode & 0o777);
+  mkdirSync(join(top, ".husky"), { recursive: true });
+  writeAtomic(join(top, ".husky", "pre-commit"), `${HOOK_CMD}\n`, 0o644);
+  const husky = join(top, "node_modules", ".bin", "husky");
+  if (existsSync(husky) && spawnSync(husky, [], { cwd: top, stdio: "ignore" }).status === 0)
+    return log("set up husky: .husky/pre-commit runs dede guard before each commit");
+  log("set up husky in package.json and .husky/pre-commit; run `bun install` (or npm/pnpm install) to activate it");
 }
 
 // ---------- args ----------

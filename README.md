@@ -38,6 +38,7 @@ dede dec [--force] [file|glob…]   .enc → plaintext   (default: every .env*.e
 dede status [file|glob…]          one line per file; exit 1 unless everything is in sync
 dede guard [--all]                pre-commit check (installed by setup)
 dede setup                        add `.env*` / `!.env*.enc` to .gitignore, install the hook
+                                  (husky in a JS repo without a hook manager; lefthook/husky/plain git otherwise)
 ```
 
 Files can be named either way — `.env.local` or `.env.local.enc` — and globs work quoted or

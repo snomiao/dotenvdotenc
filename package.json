@@ -21,7 +21,7 @@
     "dede": "src/dede.ts"
   },
   "scripts": {
-    "test": "bun --no-env-file test",
+    "test": "bun --no-env-file test --timeout 30000",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

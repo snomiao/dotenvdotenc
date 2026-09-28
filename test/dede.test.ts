@@ -816,3 +816,35 @@ describe("committed plaintext env files are public config", () => {
     expect(r.dede(["guard"]).err).toContain(".env.production: contains a DOTENV_PRIVATE_KEY");
   });
 });
+
+describe("setup defaults to husky in a JS repo without a hook manager", () => {
+  test("adds husky to package.json, writes .husky/pre-commit, asks for an install", () => {
+    const r = new Repo("");
+    r.write("package.json", JSON.stringify({ name: "x", scripts: { test: "bun test" } }, null, 2) + "\n");
+    const res = r.dede(["setup"]);
+    expect(res.code).toBe(0);
+    expect(res.err).toContain("run `bun install`");
+    const pkg = JSON.parse(r.read("package.json"));
+    expect(pkg.scripts.prepare).toBe("husky");
+    expect(pkg.scripts.test).toBe("bun test");
+    expect(pkg.devDependencies.husky).toMatch(/^\^9/);
+    expect(r.read(".husky/pre-commit")).toContain("dede guard");
+    expect(r.exists(".git/hooks/pre-commit")).toBe(false);
+    expect(r.dede(["setup"]).err).toContain("dede guard already installed"); // idempotent via .husky
+  });
+
+  test("keeps an existing prepare script and a 4-space package.json", () => {
+    const r = new Repo("");
+    r.write("package.json", JSON.stringify({ name: "x", scripts: { prepare: "echo hi" } }, null, 4) + "\n");
+    r.dede(["setup"]);
+    expect(r.read("package.json")).toContain('    "scripts"');
+    expect(JSON.parse(r.read("package.json")).scripts.prepare).toBe("husky && echo hi");
+  });
+
+  test("a repo without package.json still gets a plain git hook", () => {
+    const r = new Repo("");
+    r.dede(["setup"]);
+    expect(r.read(".git/hooks/pre-commit")).toContain("dede guard");
+    expect(r.exists(".husky")).toBe(false);
+  });
+});
