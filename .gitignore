@@ -1,1 +1,5 @@
 node_modules/
+
+# dede(dotenvdotenc): plaintext env files and private keys stay local; only .enc is committed
+.env*
+!.env*.enc

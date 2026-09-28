@@ -112,6 +112,8 @@ plaintext secret that reaches a remote must be rotated.
 - dede refuses a plaintext file that is not gitignored or is tracked, and warns when an `.enc` is gitignored.
 - Plaintext files are kept at mode 0600 (`enc` tightens a group/world-readable one). Symlinked
   plaintext files (e.g. `.env.local -> .env.dev`) are skipped in default and glob runs and refused when named.
+- Windows: CRLF from `core.autocrlf` or an editor is not drift; dede compares and writes LF. File modes
+  do not apply (access is by ACL), and `dede keys link` needs Developer Mode for symlinks (or use `-fk`).
 - Exit codes: 0 ok · 1 action needed / blocked · 2 conflict · 3 no key or cannot decrypt · 4 malformed input.
 
 ## Develop

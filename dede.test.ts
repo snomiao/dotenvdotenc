@@ -5,8 +5,10 @@ import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync,
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
-const CLI = resolve(import.meta.dir, "../src/dede.ts");
-const DOTENVX = resolve(import.meta.dir, "../node_modules/.bin/dotenvx");
+const WIN = process.platform === "win32";
+const CLI = resolve(import.meta.dir, "dede.ts");
+const SH_CLI = CLI.replace(/\\/g, "/"); // for the sh shims below; Git Bash reads C:/… fine
+const DOTENVX = resolve(import.meta.dir, "node_modules/.bin", WIN ? "dotenvx.exe" : "dotenvx");
 const dirs: string[] = [];
 afterEach(() => {
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
@@ -58,7 +60,7 @@ describe("enc / dec round trip", () => {
     expect(enc).toMatch(/\nNAME="encrypted:[^"]+"\n$/);
     expect(enc).not.toContain("dummy-1");
     expect(r.read(".env.keys")).toMatch(/# \.env\.local\nDOTENV_PRIVATE_KEY_LOCAL=[0-9a-f]{64}\n$/);
-    expect(statSync(join(r.dir, ".env.keys")).mode & 0o777).toBe(0o600);
+    if (!WIN) expect(statSync(join(r.dir, ".env.keys")).mode & 0o777).toBe(0o600);
     expect(res.err).toContain("back it up");
   });
 
@@ -71,7 +73,7 @@ describe("enc / dec round trip", () => {
     rmSync(r.statePath());
     expect(r.dede(["dec"]).code).toBe(0);
     expect(r.read(".env.local")).toBe(text);
-    expect(statSync(join(r.dir, ".env.local")).mode & 0o777).toBe(0o600);
+    if (!WIN) expect(statSync(join(r.dir, ".env.local")).mode & 0o777).toBe(0o600);
   });
 
   test("values survive literally: $VAR, $(cmd), quotes, backslashes, unicode, escaped newlines", () => {
@@ -350,7 +352,7 @@ describe("guard and setup", () => {
     expect(r.read(".gitignore")).toContain(".env*\n!.env*.enc\n");
     const hook = r.read(".git/hooks/pre-commit");
     expect(hook).toContain("dede guard");
-    expect(statSync(join(r.dir, ".git/hooks/pre-commit")).mode & 0o111).not.toBe(0);
+    if (!WIN) expect(statSync(join(r.dir, ".git/hooks/pre-commit")).mode & 0o111).not.toBe(0);
     expect(r.dede(["setup"]).code).toBe(0);
     expect(r.read(".gitignore").match(/!\.env\*\.enc/g)!.length).toBe(1);
     expect(r.read(".git/hooks/pre-commit")).toBe(hook);
@@ -411,7 +413,7 @@ describe("guard and setup", () => {
     const r = new Repo("");
     const bin = join(r.dir, "node_modules/.bin");
     mkdirSync(bin, { recursive: true });
-    writeFileSync(join(bin, "dede"), `#!/bin/sh\nexec bun --no-env-file ${CLI} "$@"\n`);
+    writeFileSync(join(bin, "dede"), `#!/bin/sh\nexec bun --no-env-file ${SH_CLI} "$@"\n`);
     chmodSync(join(bin, "dede"), 0o755);
     r.write(".gitignore", "node_modules/\n");
     r.dede(["setup"]);
@@ -461,7 +463,7 @@ describe("review 1 regressions", () => {
     chmodSync(join(r.dir, ".git/hooks/pre-commit"), 0o755);
     const bin = join(r.dir, "node_modules/.bin");
     mkdirSync(bin, { recursive: true });
-    writeFileSync(join(bin, "dede"), `#!/bin/sh\nexec bun --no-env-file ${CLI} "$@"\n`);
+    writeFileSync(join(bin, "dede"), `#!/bin/sh\nexec bun --no-env-file ${SH_CLI} "$@"\n`);
     chmodSync(join(bin, "dede"), 0o755);
     r.write(".gitignore", "node_modules/\n");
     expect(r.dede(["setup"]).code).toBe(0);
@@ -521,6 +523,20 @@ describe("review 1 regressions", () => {
     expect(vals(r.read(".env.local")).A).toEqual(["one"]);
     r.git("add", ".env.local.enc");
     expect(r.dede(["guard"]).code).toBe(0);
+  });
+
+  test("CRLF checkouts (core.autocrlf) are not drift: .enc or plaintext with CRLF stays in sync", () => {
+    const r = new Repo();
+    r.write(".env.local", "A=1\nB=2\n");
+    r.dede(["enc"]);
+    r.write(".env.local.enc", r.read(".env.local.enc").replace(/\n/g, "\r\n"));
+    expect(r.dede(["status"]).code).toBe(0);
+    r.write(".env.local", "A=1\r\nB=2\r\n");
+    expect(r.dede(["status"]).code).toBe(0);
+    r.write(".env.local", "A=1\r\nB=3\r\n");
+    expect(r.dede(["enc"]).code).toBe(0);
+    expect(r.read(".env.local.enc")).not.toContain("\r");
+    expect(r.dede(["status"]).code).toBe(0);
   });
 
   test("an empty last value keeps the final newline", () => {
@@ -599,7 +615,7 @@ describe("comments and modes", () => {
     expect(res.err).not.toContain("hhhh");
   });
 
-  test("enc tightens a group/world-readable plaintext file to 0600", () => {
+  test.skipIf(WIN)("enc tightens a group/world-readable plaintext file to 0600", () => {
     const r = new Repo();
     r.write(".env.local", "A=1\n");
     chmodSync(join(r.dir, ".env.local"), 0o664);
@@ -609,7 +625,7 @@ describe("comments and modes", () => {
     expect(statSync(join(r.dir, ".env.local")).mode & 0o777).toBe(0o600);
   });
 
-  test("setup keeps an existing hook's file mode (husky files need no +x)", () => {
+  test.skipIf(WIN)("setup keeps an existing hook's file mode (husky files need no +x)", () => {
     const r = new Repo("");
     r.git("config", "core.hooksPath", ".husky/_");
     r.write(".husky/pre-commit", "bun test\n");

@@ -1,7 +1,6 @@
 {
   "name": "dotenvdotenc",
   "version": "0.1.0",
-  "private": true,
   "description": "dede: keep gitignored .env* files in sync with committed dotenvx-encrypted .env*.enc twins",
   "license": "MIT",
   "repository": {
@@ -17,8 +16,12 @@
     "git"
   ],
   "type": "module",
+  "files": [
+    "dede.ts",
+    "primitives.d.ts"
+  ],
   "bin": {
-    "dede": "src/dede.ts"
+    "dede": "dede.ts"
   },
   "scripts": {
     "test": "bun --no-env-file test",

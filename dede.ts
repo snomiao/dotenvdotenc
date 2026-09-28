@@ -1,4 +1,5 @@
-#!/usr/bin/env -S bun --no-env-file
+#!/usr/bin/env bun
+// Plain `env bun` (not `env -S bun --no-env-file`): bun's Windows bin shim cannot parse `-S`.
 // dede — dotenv ⇄ dotenc. Keeps each gitignored plaintext `.env*` file in sync with a committed
 // `<file>.enc` twin in dotenvx format. Parsing, rewriting and crypto are @dotenvx/primitives;
 // dede only adds the two-file sync, a drift check, a pre-commit guard and `setup`.
@@ -44,7 +45,8 @@ const KEYS_BANNER = [
   "#/     [how it works](https://dotenvx.com/encryption)       /",
   "#/----------------------------------------------------------/",
 ];
-const IGNORE_BLOCK = "# dede: plaintext env files and private keys stay local; only .enc is committed\n.env*\n!.env*.enc\n";
+const IGNORE_BLOCK = "# dede(dotenvdotenc): plaintext env files and private keys stay local; only .enc is committed\n.env*\n!.env*.enc\n";
+const WIN = process.platform === "win32";
 const HOOK_MARK = "dede guard";
 const HOOK_CMD = '{ if [ -x node_modules/.bin/dede ]; then node_modules/.bin/dede guard; else dede guard; fi; } || exit 1';
 
@@ -181,9 +183,12 @@ function git(args: string[], cwd: string, input?: string) {
 const gitDir = (cwd: string) => git(["rev-parse", "--show-toplevel"], cwd).out.trim() || die("not inside a git repository");
 const isIgnored = (path: string) => git(["check-ignore", "-q", "--", basename(path)], dirname(path)).ok;
 const isTracked = (path: string) => git(["ls-files", "--error-unmatch", "--", basename(path)], dirname(path)).ok;
-const sha = (text: string) => createHash("sha256").update(text).digest("hex");
+const sha = (text: string) => createHash("sha256").update(lf(text)).digest("hex");
 const rel = (path: string) => relative(process.cwd(), path) || ".";
 const log = (msg: string) => console.error(msg);
+// Contents are compared with LF endings: git's core.autocrlf (default on Windows) checks .enc out
+// with CRLF, and Windows editors may save the plaintext that way.
+const lf = (text: string) => text.replace(/\r\n/g, "\n");
 
 // Last-synced hashes per pair, private to this worktree (never committed, never contains values).
 function stateFile(pair: Pair): string {
@@ -244,7 +249,9 @@ function writeAtomic(path: string, text: string, mode: number): void {
 }
 
 // Plaintext secrets are owner-only; fix a group/world-readable file instead of just warning.
+// Windows has no such mode bits (access is by ACL), so there is nothing to tighten.
 function tighten(path: string): void {
+  if (WIN) return;
   try {
     const st = lstatSync(path);
     if (st.isFile() && (st.mode & 0o077) !== 0) {
@@ -274,9 +281,9 @@ interface View {
 
 function view(pair: Pair, needKey: boolean): View {
   const v: View = { P: read(pair.plain), E: read(pair.enc) };
-  if (v.P !== undefined) v.C = rewrite(v.P, values(v.P, pair.plain));
+  if (v.P !== undefined) v.C = rewrite(lf(v.P), values(v.P, pair.plain));
   if (v.E !== undefined) {
-    const { publicKey, body } = splitEnc(v.E, pair.enc);
+    const { publicKey, body } = splitEnc(lf(v.E), pair.enc);
     v.pub = publicKey;
     if (!needKey && !ringFor(dirname(pair.plain))[publicKey]) return v;
     v.priv = privateKeyFor(publicKey, pair);
@@ -286,7 +293,8 @@ function view(pair: Pair, needKey: boolean): View {
   return v;
 }
 
-function buildEnc(pair: Pair, pub: string, priv: string, P: string, C: string, old?: View["old"]): string {
+function buildEnc(pair: Pair, pub: string, priv: string, raw: string, C: string, old?: View["old"]): string {
+  const P = lf(raw);
   const vals = values(P, pair.plain);
   const cts: Values = {};
   for (const [k, vs] of Object.entries(vals))
@@ -414,8 +422,13 @@ function keysLink(target: string | undefined): void {
   if (realpathSync(abs) === (existsSync(link) ? realpathSync(link) : "")) return log(`.env.keys already points to ${target}`);
   if (existsSync(link) || isSymlink(link)) die(`.env.keys already exists here; move it away first`, 1);
   assertKeysFileSafe(link);
-  if ((statSync(abs).mode & 0o077) !== 0) log(`warning: ${target} is readable by other users; chmod 600 it`);
-  symlinkSync(target!, link);
+  if (!WIN && (statSync(abs).mode & 0o077) !== 0) log(`warning: ${target} is readable by other users; chmod 600 it`);
+  try {
+    symlinkSync(target!, link, "file");
+  } catch (e) {
+    if (WIN && (e as NodeJS.ErrnoException).code === "EPERM") die("Windows needs Developer Mode (or an elevated shell) to create symlinks; or use -fk / DOTENV_KEYS_FILE instead", 1);
+    throw e;
+  }
   log(`linked .env.keys → ${target}`);
 }
 
@@ -467,7 +480,7 @@ function pairs(args: string[], mode: "enc" | "dec" | "any"): Pair[] {
   for (const a of args) {
     if (/[*?[{]/.test(a)) {
       for (const f of new Bun.Glob(a).scanSync({ cwd, dot: true, onlyFiles: true }))
-        if (!/(^|\/)(node_modules|\.git)\//.test(f)) found.push({ path: join(cwd, f), explicit: false });
+        if (!/(^|[\\/])(node_modules|\.git)[\\/]/.test(f)) found.push({ path: join(cwd, f), explicit: false });
     } else found.push({ path: resolve(cwd, a), explicit: true });
   }
   const out = new Map<string, Pair>();
