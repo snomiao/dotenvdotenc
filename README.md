@@ -37,6 +37,7 @@ dede enc [--force] [file|glob…]   plaintext → .enc   (default: every .env* i
 dede dec [--force] [file|glob…]   .enc → plaintext   (default: every .env*.enc in this directory)
 dede status [--quiet] [file|glob…] one line per file (--quiet: problems only); exit 1 unless all in sync
 dede diff [file|glob…]            which keys differ between plaintext and .enc (names only)
+dede get NAME [file|glob…]        one value from the .enc files, raw (for `KEY=$(dede get KEY) cmd`)
 dede guard [--all]                pre-commit check (installed by setup)
 dede setup                        add `.env*` / `!.env*.enc` to .gitignore, install the hook
                                   (husky in a JS repo without a hook manager; lefthook/husky/plain git otherwise)
@@ -68,6 +69,10 @@ whose comments changed. `--force` overrides a refusal and takes that command's s
 missing file on the target side is simply created. Messages name keys, never values.
 
 `dede diff` shows, per file, which keys differ between the plaintext and its `.enc`.
+
+`dede get NAME` decrypts one value straight from the `.enc` (no plaintext file needed) and writes it
+raw to stdout: `$VAR` and `$(…)` are never expanded or run (unlike `dotenvx get`). The last
+assignment wins. It prints a secret, so pipe it into a command rather than to a terminal or log.
 
 ## Keys
 

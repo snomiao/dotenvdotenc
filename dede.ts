@@ -15,6 +15,8 @@ const USAGE = `dede — sync gitignored .env* files with committed dotenvx-encry
   dede dec [--force] [file|glob…]   .enc → plaintext   (default: every .env*.enc here)
   dede status [--quiet] [file|glob…] report sync state, exit 1 unless all in sync
   dede diff [file|glob…]            which keys differ between plaintext and .enc (names only)
+  dede get NAME [file|glob…]        print one value from the .enc files (raw, never expanded);
+                                    for piping: KEY=$(dede get KEY) cmd. It prints a secret, so pipe it
   dede guard [--all]                pre-commit: block staged plaintext env files, keys, unencrypted values
   dede setup                        add .gitignore rules and the pre-commit hook
   dede keys                         which key each .enc here needs, and whether it is held
@@ -511,6 +513,35 @@ function status(pair: Pair): boolean {
   return say(`differs, no sync record — ${describeDiff(pair, values(v.P, pair.plain), values(v.D, pair.enc))}`);
 }
 
+// One value, decrypted straight from the .enc (no plaintext needed), written raw: no `$VAR`
+// expansion, no `$(…)` evaluation. The last assignment wins, as in dotenv.
+function get(name: string, ps: Pair[]): void {
+  if (!/^[A-Za-z_][A-Za-z0-9_.-]*$/.test(name)) die("usage: dede get NAME [file|glob…]", 4);
+  const found: { file: string; value: string }[] = [];
+  for (const pair of ps) {
+    const E = read(pair.enc);
+    if (E === undefined) continue;
+    const { publicKey, body } = splitEnc(lf(E), pair.enc);
+    const cipher = values(body, pair.enc)[name];
+    if (!cipher) continue;
+    const ct = cipher[cipher.length - 1];
+    let value = "";
+    if (ct !== "") {
+      if (!ct.startsWith(PREFIX)) die(`${rel(pair.enc)}: ${name} is not encrypted`, 4);
+      try {
+        value = decrypt(privateKeyFor(publicKey, pair), ct);
+      } catch (e) {
+        if (e instanceof DedeError) throw e;
+        die(`${rel(pair.enc)}: cannot decrypt ${name} (wrong key or corrupt value)`, 3);
+      }
+    }
+    found.push({ file: rel(pair.enc), value });
+  }
+  if (found.length === 0) die(`${name} not found in ${ps.length ? ps.map((p) => rel(p.enc)).join(", ") : "any .env*.enc here"}`, 1);
+  if (new Set(found.map((f) => f.value)).size > 1) die(`${name} has different values in ${found.map((f) => f.file).join(", ")}; name the file: dede get ${name} <file>`, 2);
+  process.stdout.write(found[0].value + (process.stdout.isTTY ? "\n" : ""));
+}
+
 function diff(pair: Pair): boolean {
   const v = view(pair, false);
   const say = (s: string, ok = false) => (console.log(`${ok ? "✓" : "✗"} ${rel(pair.plain)}: ${s}`), ok);
@@ -801,6 +832,10 @@ export function main(argv: string[]): number {
         }
         break;
       }
+      case "get":
+        if (!args[0]) die("usage: dede get NAME [file|glob…]", 4);
+        get(args[0], pairs(args.slice(1), "dec"));
+        break;
       case "diff":
         each(pairs(args, "any"), (p) => {
           if (!diff(p)) code = Math.max(code, 1);

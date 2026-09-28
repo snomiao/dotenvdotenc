@@ -1091,3 +1091,43 @@ describe("key-level UX: names in refusals, per-key merge, unencrypted-edit guard
     for (const f of ["post-merge", "post-checkout"]) expect(h.read(`.husky/${f}`)).toContain("dede status --quiet");
   });
 });
+
+describe("dede get", () => {
+  test("prints exactly one value from the .enc, raw and unevaluated, without a plaintext file", () => {
+    const r = new Repo();
+    r.write(".env.local", "A=plain\nB='$(touch pwned) $HOME'\nC=\"l1\\nl2\"\nD=first\nD=last\nE=\n");
+    r.dede(["enc"]);
+    r.rm(".env.local");
+    for (const [k, v] of [["A", "plain"], ["B", "$(touch pwned) $HOME"], ["C", "l1\nl2"], ["D", "last"], ["E", ""]]) {
+      const res = r.dede(["get", k]);
+      expect(res.code).toBe(0);
+      expect(res.out).toBe(v);
+    }
+    expect(r.exists("pwned")).toBe(false);
+    expect(r.exists(".env.local")).toBe(false);
+  });
+
+  test("not found → 1; differing values across files → 2 naming them; a file argument picks one", () => {
+    const r = new Repo();
+    r.write(".env.dev", "K=dev\n");
+    r.write(".env.prod", "K=prod\nONLY=x\n");
+    r.dede(["enc"]);
+    expect(r.dede(["get", "NOPE"]).code).toBe(1);
+    const res = r.dede(["get", "K"]);
+    expect(res.code).toBe(2);
+    expect(res.err).toContain(".env.dev.enc, .env.prod.enc");
+    expect(res.err).not.toMatch(/=dev|=prod/);
+    expect(r.dede(["get", "K", ".env.prod.enc"]).out).toBe("prod");
+    expect(r.dede(["get", "ONLY"]).out).toBe("x");
+  });
+
+  test("no key → 3, nothing printed", () => {
+    const r = new Repo();
+    r.write(".env.local", "A=secretvalue\n");
+    r.dede(["enc"]);
+    r.rm(".env.keys");
+    const res = r.dede(["get", "A"]);
+    expect(res.code).toBe(3);
+    expect(res.out).toBe("");
+  });
+});
