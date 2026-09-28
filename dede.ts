@@ -20,6 +20,8 @@ const USAGE = `dede — sync gitignored .env* files with committed dotenvx-encry
   dede keys link <path>             make ./.env.keys a symlink to another checkout's .env.keys
 
   -fk, --env-keys-file <path>       use this keys file instead of ./.env.keys (also DOTENV_KEYS_FILE)
+  --key <NAME>                      encrypt a new .enc with the existing DOTENV_PRIVATE_KEY_<NAME>
+                                    (e.g. back up a keys file: dede enc .env.keys.myproj --key ME)
 
 Private keys: DOTENV_PRIVATE_KEY_<SUFFIX> in the environment, else ./.env.keys (dotenvx convention).`;
 
@@ -95,12 +97,24 @@ function assertKeysFileSafe(path: string): void {
   if (inRepo && !isIgnored(path)) die(`${rel(path)} is not gitignored; run \`dede setup\` first`);
 }
 
+// `--key NAME`: the key a new .enc is encrypted with, instead of the one named after the file.
+let keyChoice: string | undefined;
+
+function keyByName(keyName: string, keysPath: string): string {
+  const fromFile = existsSync(keysPath) ? scan(readFileSync(keysPath, "utf8")).parsed[keyName]?.at(-1) : undefined;
+  return (process.env[keyName] || fromFile || "").split(",")[0].trim();
+}
+
 // Existing key for a new .enc (env or the keys file, by dotenvx name), else a fresh one saved to the keys file.
 function obtainKey(pair: Pair): { publicKey: string; privateKey: string } {
-  const keyName = `DOTENV_PRIVATE_KEY${suffixOf(pair.name)}`;
   const keysPath = keysFileFor(dirname(pair.plain));
-  const fromFile = existsSync(keysPath) ? scan(readFileSync(keysPath, "utf8")).parsed[keyName]?.at(-1) : undefined;
-  const existing = (process.env[keyName] || fromFile || "").split(",")[0].trim();
+  if (keyChoice) {
+    const chosen = keyByName(`DOTENV_PRIVATE_KEY_${keyChoice}`, keysPath);
+    if (!chosen) die(`--key ${keyChoice}: DOTENV_PRIVATE_KEY_${keyChoice} not found in the environment or ${rel(keysPath)}`, 3);
+    return keypair(chosen);
+  }
+  const keyName = `DOTENV_PRIVATE_KEY${suffixOf(pair.name)}`;
+  const existing = keyByName(keyName, keysPath);
   if (existing) return keypair(existing);
   assertKeysFileSafe(keysPath);
   const kp = keypair();
@@ -114,7 +128,7 @@ function obtainKey(pair: Pair): { publicKey: string; privateKey: string } {
 
 // ---------- file format ----------
 
-function splitEnc(text: string, file: string): { publicKey: string; body: string } {
+function splitEnc(text: string, file: string): { publicKey: string; body: string; offset: number } {
   const lines = text.split("\n");
   let i = 0;
   while (i < lines.length && lines[i].startsWith("#/")) i++;
@@ -122,14 +136,19 @@ function splitEnc(text: string, file: string): { publicKey: string; body: string
   if (!m) die(`${rel(file)}: missing DOTENV_PUBLIC_KEY header`, 4);
   i++;
   if (lines[i] === "" || lines[i] === "\r") i++;
-  return { publicKey: m![1], body: lines.slice(i).join("\n") };
+  return { publicKey: m![1], body: lines.slice(i).join("\n"), offset: i };
 }
 
 const header = (name: string, publicKey: string) => `${BANNER.join("\n")}\nDOTENV_PUBLIC_KEY${suffixOf(name)}="${publicKey}"\n\n`;
 
+// Keys files (.env.keys, .env.keys.<name>) may hold private keys, e.g. to back one up as .env.keys.<name>.enc.
+const isKeysName = (name: string) => name === ".env.keys" || name.startsWith(".env.keys.");
+
 function values(text: string, file: string): Values {
   const { parsed } = scan(text);
-  for (const k of Object.keys(parsed)) if (k.startsWith("DOTENV_PUBLIC_KEY") || k.startsWith("DOTENV_PRIVATE_KEY")) die(`${rel(file)}: ${k} does not belong in an env file`, 4);
+  const keysFile = isKeysName(basename(file).replace(/\.enc$/, ""));
+  for (const k of Object.keys(parsed))
+    if (k.startsWith("DOTENV_PUBLIC_KEY") || (!keysFile && k.startsWith("DOTENV_PRIVATE_KEY"))) die(`${rel(file)}: ${k} does not belong in an env file`, 4);
   return parsed;
 }
 
@@ -158,19 +177,20 @@ function decryptAll(body: string, priv: string, file: string): { plain: Values; 
 
 // Every committed line must be blank, a comment, or an assignment whose whole value is ciphertext.
 // Text glued to a value (`PASSWORD=abc#def`) parses as a comment and would stay plaintext.
-function assertSealed(body: string, file: string): void {
+// `offset`: lines before `body` in the file (the .enc header), so reported line numbers match the file.
+function assertSealed(body: string, file: string, offset = 0): void {
   const hint = 'quote the whole value ("…"), or put a space before a real comment';
   const keyOf = (line: string) => /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_.-]*)\s*=/.exec(line)?.[1];
   const lines = body.split("\n");
   const isComment = (line: string) => line.trim() === "" || line.trimStart().startsWith("#");
   lines.forEach((line, i) => {
     if (isComment(line) && !line.startsWith("#/") && LEAKY_COMMENT_RE.test(line))
-      die(`${rel(file)}: line ${i + 1} is a comment holding a credential-like value (commented-out assignment or URL with userinfo); comments are committed in plaintext, so delete it`, 4);
-    if (!isComment(line) && !keyOf(line)) die(`${rel(file)}: line ${i + 1} is not an assignment or comment and would be committed as plaintext`, 4);
+      die(`${rel(file)}: line ${i + 1 + offset} is a comment holding a credential-like value (commented-out assignment or URL with userinfo); comments are committed in plaintext, so delete it`, 4);
+    if (!isComment(line) && !keyOf(line)) die(`${rel(file)}: line ${i + 1 + offset} is not an assignment or comment and would be committed as plaintext`, 4);
   });
   for (const [k, vs] of Object.entries(values(body, file))) if (vs.some((v) => v !== "" && !v.startsWith(PREFIX))) die(`${rel(file)}: ${k} is not encrypted; ${hint}`, 4);
   lines.forEach((line, i) => {
-    if (!isComment(line) && !SEALED_LINE_RE.test(line)) die(`${rel(file)}: line ${i + 1} (${keyOf(line)}) would commit part of its value as plaintext; ${hint}`, 4);
+    if (!isComment(line) && !SEALED_LINE_RE.test(line)) die(`${rel(file)}: line ${i + 1 + offset} (${keyOf(line)}) would commit part of its value as plaintext; ${hint}`, 4);
   });
 }
 
@@ -263,7 +283,6 @@ function tighten(path: string): void {
 
 function preflight(pair: Pair): void {
   if (!isIgnored(pair.plain)) die(`${rel(pair.plain)} is not gitignored; run \`dede setup\` (or add \`.env*\` and \`!.env*.enc\` to .gitignore)`);
-  if (isTracked(pair.plain)) die(`${rel(pair.plain)} is tracked by git; run \`git rm --cached ${rel(pair.plain)}\` and rotate what it exposed`);
   if (isIgnored(pair.enc)) log(`warning: ${rel(pair.enc)} is gitignored and won't be committed; add \`!.env*.enc\` after your .env ignore rules (or run \`dede setup\`)`);
 }
 
@@ -326,6 +345,10 @@ function enc(pair: Pair, force: boolean): void {
     saveState(pair, v.P!, text);
     return log(`created ${rel(pair.enc)}`);
   }
+  if (keyChoice) {
+    const chosen = keyByName(`DOTENV_PRIVATE_KEY_${keyChoice}`, keysFileFor(dirname(pair.plain)));
+    if (chosen && keypair(chosen).publicKey !== v.pub) die(`${rel(pair.enc)} is encrypted with another key; --key only chooses the key for a new .enc`, 4);
+  }
   if (v.C === v.D) {
     saveState(pair, v.P!, v.E);
     return log(`${rel(pair.enc)}: in sync`);
@@ -374,21 +397,53 @@ function status(pair: Pair): boolean {
 
 // ---------- guard ----------
 
+// Staged paths, and whether each is new to git (added, renamed/copied in, or changed type).
+// With --all: every tracked path, none of them new.
+function guardList(top: string, all: boolean): { path: string; added: boolean }[] {
+  if (all) return git(["ls-files", "-z"], top).out.split("\0").filter(Boolean).map((path) => ({ path, added: false }));
+  const parts = git(["diff", "--cached", "--name-status", "-z", "--diff-filter=d"], top).out.split("\0");
+  const out: { path: string; added: boolean }[] = [];
+  for (let i = 0; i < parts.length && parts[i]; ) {
+    const st = parts[i++];
+    if (st[0] === "R" || st[0] === "C") i++; // skip the old path
+    out.push({ path: parts[i++], added: "ARCT".includes(st[0]) });
+  }
+  return out;
+}
+
+// Untracked plaintext env files that nobody manages: not *.local (machine-local by convention),
+// not committed (public config), and without an .enc twin. Ignored directories such as
+// node_modules are listed collapsed, so they are not walked.
+function unmanagedEnvFiles(top: string): string[] {
+  const list = [
+    ...git(["ls-files", "--others", "--exclude-standard", "-z"], top).out.split("\0"),
+    ...git(["ls-files", "--others", "--ignored", "--exclude-standard", "--directory", "-z"], top).out.split("\0"),
+  ].filter((p) => p && !p.endsWith("/") && !/(^|\/)node_modules\//.test(p));
+  return [...new Set(list)].filter((p) => {
+    const name = basename(p);
+    return isEnvName(name) && !name.endsWith(".local") && !existsSync(`${join(top, p)}.enc`);
+  });
+}
+const UNMANAGED_HINT = "unmanaged plaintext env file (not committed, no .enc, not *.local): `dede enc` it and commit the .enc, or rename it to *.local";
+
 function guard(all: boolean): void {
   const top = gitDir(process.cwd());
-  const list = git(all ? ["ls-files", "-z"] : ["diff", "--cached", "--name-only", "-z", "--diff-filter=d"], top).out.split("\0").filter(Boolean);
   const bad: string[] = [];
-  for (const f of list) {
+  for (const f of unmanagedEnvFiles(top)) bad.push(`${f}: ${UNMANAGED_HINT}`);
+  for (const { path: f, added } of guardList(top, all)) {
     const name = basename(f);
     const blob = git(["cat-file", "blob", `:${f}`], top);
     if (name === ".env.keys" || name.startsWith(TMP)) bad.push(`${f}: private keys / temp file must never be committed`);
     else if (name.endsWith(".enc") && isEnvName(name.slice(0, -4))) {
       try {
-        assertSealed(splitEnc(blob.out, join(top, f)).body, join(top, f));
+        const { body, offset } = splitEnc(blob.out, join(top, f));
+        assertSealed(body, join(top, f), offset);
       } catch (e) {
         bad.push(e instanceof DedeError ? e.message : `${f}: unreadable`);
       }
-    } else if (NAME_RE.test(name) && !SKIP.has(name)) bad.push(`${f}: plaintext env file; commit ${name}.enc instead (dede enc)`);
+    } else if (added && NAME_RE.test(name) && !SKIP.has(name))
+      // Already-tracked plaintext env files are public config on purpose; only new ones are blocked.
+      bad.push(`${f}: new plaintext env file; commit ${name}.enc instead (dede enc), or --no-verify if it is public config`);
     if (blob.ok && PRIVATE_KEY_RE.test(blob.out)) bad.push(`${f}: contains a DOTENV_PRIVATE_KEY`);
   }
   if (bad.length) die(`dede guard: blocked\n  ${bad.join("\n  ")}\n  (unstage with \`git restore --staged <file>\`)`, 1);
@@ -453,8 +508,15 @@ function setup(): void {
     log(`${lefthook} found; add this under pre-commit, then run \`lefthook install\`:\n\npre-commit:\n  commands:\n    dede-guard:\n      run: ${HOOK_CMD}\n`);
     return;
   }
+  // A JS repo with no hook manager yet gets husky (v9) as the default.
+  const pkgPath = join(top, "package.json");
+  const hooksPathSet = git(["config", "core.hooksPath"], top).out.trim() !== "";
+  if (!hooksPathSet && !existsSync(join(top, ".husky")) && existsSync(pkgPath)) return setupHusky(top, pkgPath);
   // --git-path honours core.hooksPath (incl. `~`); husky v9 points it at .husky/_ and runs .husky/<hook>.
-  const dir = git(["rev-parse", "--path-format=absolute", "--git-path", "hooks"], top).out.trim().replace(/\/\.husky\/_\/?$/, "/.husky");
+  // A .husky/ dir whose `husky` has not run yet (no core.hooksPath) is still where the hook belongs.
+  const dir = !hooksPathSet && existsSync(join(top, ".husky"))
+    ? join(top, ".husky")
+    : git(["rev-parse", "--path-format=absolute", "--git-path", "hooks"], top).out.trim().replace(/\/\.husky\/_\/?$/, "/.husky");
   if (!dir) die("cannot locate the git hooks directory");
   const hook = join(dir, "pre-commit");
   const prev = read(hook);
@@ -469,6 +531,24 @@ function setup(): void {
     : `${HOOK_CMD}\n${prev}`;
   writeAtomic(hook, body, prev === undefined ? 0o755 : lstatSync(hook).mode & 0o777);
   log(`${prev === undefined ? "created" : "updated"} ${rel(hook)}: runs dede guard before each commit`);
+}
+
+function setupHusky(top: string, pkgPath: string): void {
+  const raw = readFileSync(pkgPath, "utf8");
+  const pkg = JSON.parse(raw);
+  const indent = /^\{\r?\n([ \t]+)"/.exec(raw)?.[1] ?? "  ";
+  pkg.scripts ??= {};
+  const prep: string | undefined = pkg.scripts.prepare;
+  if (!prep) pkg.scripts.prepare = "husky";
+  else if (!/\bhusky\b/.test(prep)) pkg.scripts.prepare = `husky && ${prep}`;
+  if (!pkg.devDependencies?.husky && !pkg.dependencies?.husky) pkg.devDependencies = { ...pkg.devDependencies, husky: "^9.1.7" };
+  writeAtomic(pkgPath, `${JSON.stringify(pkg, null, indent)}\n`, lstatSync(pkgPath).mode & 0o777);
+  mkdirSync(join(top, ".husky"), { recursive: true });
+  writeAtomic(join(top, ".husky", "pre-commit"), `${HOOK_CMD}\n`, 0o644);
+  const husky = join(top, "node_modules", ".bin", "husky");
+  if (existsSync(husky) && spawnSync(husky, [], { cwd: top, stdio: "ignore" }).status === 0)
+    return log("set up husky: .husky/pre-commit runs dede guard before each commit");
+  log("set up husky in package.json and .husky/pre-commit; run `bun install` (or npm/pnpm install) to activate it");
 }
 
 // ---------- args ----------
@@ -495,6 +575,10 @@ function pairs(args: string[], mode: "enc" | "dec" | "any"): Pair[] {
       log(`skipping ${rel(plain)}: symlink (dede only syncs regular files)`);
       continue;
     }
+    if (existsSync(plain) && isTracked(plain)) {
+      log(`skipping ${rel(plain)}: committed in plaintext, so treated as public config (if it holds secrets: git rm --cached it and rotate them)`);
+      continue;
+    }
     const pair = { plain, enc: `${plain}.enc`, name, explicit };
     const wanted = mode === "enc" ? existsSync(pair.plain) : mode === "dec" ? existsSync(pair.enc) : existsSync(pair.plain) || existsSync(pair.enc);
     if (!wanted && !explicit) continue;
@@ -509,11 +593,15 @@ export function main(argv: string[]): number {
   const [cmd, ...raw] = argv;
   const rest: string[] = [];
   keysOverride = process.env.DOTENV_KEYS_FILE || undefined;
+  keyChoice = undefined;
   for (let i = 0; i < raw.length; i++) {
     const a = raw[i];
     if (a === "-fk" || a === "--env-keys-file") {
       if (raw[i + 1] === undefined) return log(`dede: ${a} needs a path`), 4;
       keysOverride = raw[++i];
+    } else if (a === "--key") {
+      if (!/^[A-Z0-9_]+$/.test(raw[i + 1] ?? "")) return log("dede: --key needs a NAME like TAKU (for DOTENV_PRIVATE_KEY_TAKU)"), 4;
+      keyChoice = raw[++i];
     } else if (a.startsWith("--env-keys-file=")) keysOverride = a.slice("--env-keys-file=".length);
     else rest.push(a);
   }
@@ -540,11 +628,20 @@ export function main(argv: string[]): number {
       case "dec":
         each(pairs(args, "dec"), (p) => dec(p, force));
         break;
-      case "status":
-        each(pairs(args, "any"), (p) => {
+      case "status": {
+        const ps = pairs(args, "any");
+        each(ps, (p) => {
           if (!status(p)) code = Math.max(code, 1);
         });
+        const top = gitDir(process.cwd());
+        const shown = new Set(ps.map((p) => p.plain));
+        for (const f of unmanagedEnvFiles(top)) {
+          if (shown.has(join(top, f))) continue;
+          console.log(`✗ ${rel(join(top, f))}: ${UNMANAGED_HINT}`);
+          code = Math.max(code, 1);
+        }
         break;
+      }
       case "guard":
         guard(rest.includes("--all"));
         break;

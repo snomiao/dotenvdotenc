@@ -275,11 +275,17 @@ describe("safety", () => {
     expect(r.exists(".env.keys")).toBe(false);
   });
 
-  test("plaintext tracked by git is refused", () => {
+  test("plaintext tracked by git is public config: enc skips it, named or not", () => {
     const r = new Repo();
-    r.write(".env.local", "A=1\n");
-    r.git("add", "-f", ".env.local");
-    expect(r.dede(["enc"]).code).toBe(1);
+    r.write(".env.production", "VITE_API_BASE_URL=\n");
+    r.git("add", "-f", ".env.production");
+    for (const args of [["enc"], ["enc", ".env.production"]]) {
+      const res = r.dede(args);
+      expect(res.code).toBe(0);
+      expect(res.err).toContain("skipping .env.production: committed in plaintext");
+    }
+    expect(r.exists(".env.production.enc")).toBe(false);
+    expect(r.exists(".env.keys")).toBe(false);
   });
 
   test("symlinked plaintext: refused when named, skipped in a default run", () => {
@@ -394,7 +400,7 @@ describe("guard and setup", () => {
     r.git("add", "-f", ".env.local", ".env.keys");
     const res = r.dede(["guard"]);
     expect(res.code).toBe(1);
-    expect(res.err).toContain(".env.local: plaintext env file");
+    expect(res.err).toContain(".env.local: new plaintext env file");
     expect(res.err).toContain(".env.keys: private keys");
     expect(res.err).not.toMatch(/[0-9a-f]{64}/);
     r.git("rm", "-q", "--cached", ".env.local", ".env.keys");
@@ -712,5 +718,206 @@ describe("keys: -fk, dede keys, dede keys link", () => {
     expect(res.out).toContain("environment");
     expect(res.out).toContain("✗ .env.prod.enc");
     expect(res.out).toContain("missing (DOTENV_PRIVATE_KEY_PROD)");
+  });
+});
+
+describe("keys files backed up as .env.keys.<name>.enc with --key", () => {
+  const ME = "a".repeat(63) + "1";
+  const setup = () => {
+    const vault = new Repo();
+    vault.write(".env.keys", `DOTENV_PRIVATE_KEY_ME=${ME}\n`);
+    const proj = new Repo();
+    proj.write(".env.dev", "A=1\n");
+    proj.dede(["enc"]);
+    vault.write(".env.keys.proj", proj.read(".env.keys"));
+    return { vault, proj };
+  };
+
+  test("encrypts with the chosen key, adds no new key, and restores exactly", () => {
+    const { vault } = setup();
+    const plain = vault.read(".env.keys.proj");
+    const res = vault.dede(["enc", ".env.keys.proj", "--key", "ME"]);
+    expect(res.code).toBe(0);
+    expect(vault.read(".env.keys")).toBe(`DOTENV_PRIVATE_KEY_ME=${ME}\n`);
+    const enc = vault.read(".env.keys.proj.enc");
+    expect(enc).toMatch(/\nDOTENV_PRIVATE_KEY_DEV=encrypted:/);
+    expect(enc).not.toMatch(/=[0-9a-f]{64}/);
+    const mePub = /DOTENV_PUBLIC_KEY_KEYS_PROJ="(0[23][0-9a-f]{64})"/.exec(enc)![1];
+    expect(mePub).toBe(require("@dotenvx/primitives").keypair(ME).publicKey);
+    vault.rm(".env.keys.proj");
+    expect(vault.dede(["dec", ".env.keys.proj"]).code).toBe(0);
+    expect(vault.read(".env.keys.proj")).toBe(plain);
+  });
+
+  test("guard passes the .enc and blocks the plaintext keys file", () => {
+    const { vault } = setup();
+    vault.dede(["enc", ".env.keys.proj", "--key", "ME"]);
+    vault.git("add", ".gitignore", ".env.keys.proj.enc");
+    expect(vault.dede(["guard"]).code).toBe(0);
+    vault.git("add", "-f", ".env.keys.proj");
+    const res = vault.dede(["guard"]);
+    expect(res.code).toBe(1);
+    expect(res.err).toContain(".env.keys.proj: new plaintext env file");
+    expect(res.err).toContain(".env.keys.proj: contains a DOTENV_PRIVATE_KEY");
+  });
+
+  test("a project checkout linked to the restored keys file decrypts", () => {
+    const { vault, proj } = setup();
+    vault.dede(["enc", ".env.keys.proj", "--key", "ME"]);
+    vault.rm(".env.keys.proj");
+    vault.dede(["dec", ".env.keys.proj"]);
+    const clone = new Repo();
+    clone.write(".env.dev.enc", proj.read(".env.dev.enc"));
+    expect(clone.dede(["keys", "link", join(vault.dir, ".env.keys.proj")]).code).toBe(0);
+    expect(clone.dede(["dec"]).code).toBe(0);
+    expect(clone.read(".env.dev")).toBe("A=1\n");
+  });
+
+  test("private keys are still refused in ordinary env files", () => {
+    const r = new Repo();
+    r.write(".env.local", `DOTENV_PRIVATE_KEY_X=${ME}\n`);
+    expect(r.dede(["enc"]).code).toBe(4);
+  });
+
+  test("--key errors: unknown key, bad name, existing .enc with another key", () => {
+    const { vault } = setup();
+    expect(vault.dede(["enc", ".env.keys.proj", "--key", "NOPE"]).code).toBe(3);
+    expect(vault.exists(".env.keys.proj.enc")).toBe(false);
+    expect(vault.dede(["enc", ".env.keys.proj", "--key", "bad name"]).code).toBe(4);
+    vault.dede(["enc", ".env.keys.proj"]); // encrypted with a new KEYS_PROJ key
+    vault.write(".env.keys", vault.read(".env.keys") + `DOTENV_PRIVATE_KEY_ME=${ME}\n`);
+    expect(vault.dede(["enc", ".env.keys.proj", "--key", "ME"]).code).toBe(4);
+  });
+});
+
+test("guard reports line numbers of the .enc file itself (header included)", () => {
+  const r = new Repo();
+  r.write(".env.local", "A=1\n");
+  r.dede(["enc"]);
+  const enc = r.read(".env.local.enc") + "# OLD=" + "h".repeat(32) + "\n";
+  r.write(".env.local.enc", enc);
+  r.git("add", ".env.local.enc");
+  const line = enc.split("\n").findIndex((l) => l.startsWith("# OLD=")) + 1;
+  expect(r.dede(["guard"]).err).toContain(`.env.local.enc: line ${line} is a comment`);
+});
+
+describe("committed plaintext env files are public config", () => {
+  const withPublic = () => {
+    const r = new Repo(".env*\n!.env*.enc\n");
+    r.write(".env.production", "VITE_API_BASE_URL=\n");
+    r.git("add", "-f", ".gitignore", ".env.production");
+    r.git("commit", "-qm", "public config");
+    return r;
+  };
+
+  test("guard lets an edit to a tracked plaintext env file through, and --all passes", () => {
+    const r = withPublic();
+    r.write(".env.production", "VITE_API_BASE_URL=https://api.example.com\n");
+    r.git("add", ".env.production");
+    expect(r.dede(["guard"]).code).toBe(0);
+    expect(r.dede(["guard", "--all"]).code).toBe(0);
+  });
+
+  test("guard still blocks a new plaintext env file, a rename into one, and keys in tracked ones", () => {
+    const r = withPublic();
+    r.write(".env.local", "SECRET=x\n");
+    r.git("add", "-f", ".env.local");
+    expect(r.dede(["guard"]).err).toContain(".env.local: new plaintext env file");
+    r.git("rm", "-q", "--cached", ".env.local");
+    r.git("mv", ".env.production", ".env.staging");
+    expect(r.dede(["guard"]).err).toContain(".env.staging: new plaintext env file");
+    r.git("mv", ".env.staging", ".env.production");
+    r.write(".env.production", "DOTENV_PRIVATE_KEY_X=" + "e".repeat(64) + "\n");
+    r.git("add", ".env.production");
+    expect(r.dede(["guard"]).err).toContain(".env.production: contains a DOTENV_PRIVATE_KEY");
+  });
+});
+
+describe("setup defaults to husky in a JS repo without a hook manager", () => {
+  test("adds husky to package.json, writes .husky/pre-commit, asks for an install", () => {
+    const r = new Repo("");
+    r.write("package.json", JSON.stringify({ name: "x", scripts: { test: "bun test" } }, null, 2) + "\n");
+    const res = r.dede(["setup"]);
+    expect(res.code).toBe(0);
+    expect(res.err).toContain("run `bun install`");
+    const pkg = JSON.parse(r.read("package.json"));
+    expect(pkg.scripts.prepare).toBe("husky");
+    expect(pkg.scripts.test).toBe("bun test");
+    expect(pkg.devDependencies.husky).toMatch(/^\^9/);
+    expect(r.read(".husky/pre-commit")).toContain("dede guard");
+    expect(r.exists(".git/hooks/pre-commit")).toBe(false);
+    expect(r.dede(["setup"]).err).toContain("dede guard already installed"); // idempotent via .husky
+  });
+
+  test("keeps an existing prepare script and a 4-space package.json", () => {
+    const r = new Repo("");
+    r.write("package.json", JSON.stringify({ name: "x", scripts: { prepare: "echo hi" } }, null, 4) + "\n");
+    r.dede(["setup"]);
+    expect(r.read("package.json")).toContain('    "scripts"');
+    expect(JSON.parse(r.read("package.json")).scripts.prepare).toBe("husky && echo hi");
+  });
+
+  test("a repo without package.json still gets a plain git hook", () => {
+    const r = new Repo("");
+    r.dede(["setup"]);
+    expect(r.read(".git/hooks/pre-commit")).toContain("dede guard");
+    expect(r.exists(".husky")).toBe(false);
+  });
+});
+
+describe("unmanaged plaintext env files fail the pre-commit guard", () => {
+  test("untracked .env.foo without .enc blocks the commit; .enc, *.local, committed and examples pass", () => {
+    const r = new Repo();
+    r.write("README.md", "x\n");
+    r.git("add", "README.md", ".gitignore");
+    r.write(".env.foo", "A=1\n");
+    r.write("app/.env.bar", "B=1\n");
+    r.write(".env.local", "C=1\n");
+    r.write(".env.development.local", "D=1\n");
+    r.write(".env.example", "E=\n");
+    r.write("node_modules/pkg/.env", "F=1\n");
+    let res = r.dede(["guard"]);
+    expect(res.code).toBe(1);
+    expect(res.err).toContain(".env.foo: unmanaged plaintext env file");
+    expect(res.err).toContain("app/.env.bar: unmanaged plaintext env file");
+    for (const ok of [".env.local", ".env.development.local", ".env.example", "node_modules"]) expect(res.err).not.toContain(ok + ":");
+    expect(res.err).not.toContain("A=1");
+    r.dede(["enc", ".env.foo", "app/.env.bar"]);
+    res = r.dede(["guard"]);
+    expect(res.code).toBe(0);
+  });
+
+  test("a committed plaintext env file is not unmanaged", () => {
+    const r = new Repo();
+    r.write(".env.production", "VITE_X=\n");
+    r.git("add", "-f", ".gitignore", ".env.production");
+    r.git("commit", "-qm", "public config");
+    r.write("README.md", "x\n");
+    r.git("add", "README.md");
+    expect(r.dede(["guard"]).code).toBe(0);
+  });
+
+  test("status lists unmanaged files anywhere in the repo and exits 1", () => {
+    const r = new Repo();
+    r.write("app/.env.bar", "B=1\n");
+    const res = r.dede(["status"]);
+    expect(res.code).toBe(1);
+    expect(res.out).toContain("✗ app/.env.bar: unmanaged plaintext env file");
+  });
+
+  test("the installed hook blocks a commit while an unmanaged env file exists", () => {
+    const r = new Repo("");
+    const bin = join(r.dir, "node_modules/.bin");
+    mkdirSync(bin, { recursive: true });
+    writeFileSync(join(bin, "dede"), `#!/bin/sh\nexec bun --no-env-file ${CLI} "$@"\n`);
+    chmodSync(join(bin, "dede"), 0o755);
+    r.write(".gitignore", "node_modules/\n");
+    r.dede(["setup"]);
+    r.write(".env.foo", "A=1\n");
+    r.write("README.md", "x\n");
+    r.git("add", "README.md", ".gitignore");
+    const c = spawnSync("git", ["commit", "-qm", "x"], { cwd: r.dir, encoding: "utf8", env: cleanEnv() });
+    expect(c.status).not.toBe(0);
+    expect(c.stderr).toContain(".env.foo: unmanaged plaintext env file");
   });
 });

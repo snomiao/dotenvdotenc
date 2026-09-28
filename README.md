@@ -38,6 +38,7 @@ dede dec [--force] [file|glob…]   .enc → plaintext   (default: every .env*.e
 dede status [file|glob…]          one line per file; exit 1 unless everything is in sync
 dede guard [--all]                pre-commit check (installed by setup)
 dede setup                        add `.env*` / `!.env*.enc` to .gitignore, install the hook
+                                  (husky in a JS repo without a hook manager; lefthook/husky/plain git otherwise)
 ```
 
 Files can be named either way — `.env.local` or `.env.local.enc` — and globs work quoted or
@@ -89,12 +90,38 @@ dede dec
 
 dotenvx follows the link too. New keys created from a linked checkout are written to the target file.
 
+Submodules are separate checkouts, so link each one (from the superproject):
+
+```sh
+git submodule foreach 'dede keys link /path/to/.env.keys || true'
+```
+
+### Backing up keys files
+
+Keys files are `.env.keys` or `.env.keys.<name>`. They may hold `DOTENV_PRIVATE_KEY_*`; any other env
+file may not. So a keys file can itself be synced like any env file, encrypted with a key you
+choose:
+
+```sh
+# in a private repo that holds your personal key ME in ./.env.keys
+cp ~/src/myproj/.env.keys .env.keys.myproj
+dede enc .env.keys.myproj --key ME       # commits as .env.keys.myproj.enc, encrypted with ME
+cd ~/src/myproj && rm .env.keys && dede keys link ~/vault/.env.keys.myproj
+```
+
+On a new machine: restore `ME` from the password manager into the vault repo's `.env.keys`, run
+`dede dec`, then `dede keys link` from each project. `ME` becomes the one key to protect.
+
 ## Guard (pre-commit)
 
 `dede guard` blocks a commit that stages:
 
-- a plaintext env file (`.env`, `.env.local`, …) — commit its `.enc` instead;
+- a new plaintext env file (`.env`, `.env.local`, …) — commit its `.enc` instead (already-tracked
+  plaintext env files are treated as public config and pass);
 - `.env.keys`, or any file containing a `DOTENV_PRIVATE_KEY…=<64 hex>` assignment;
+- while any `.env*` file in the repo is **unmanaged**: not committed, no `.enc` twin, and not named
+  `*.local` (machine-local by convention). Encrypt it with `dede enc`, or rename it to `*.local`.
+  `dede status` lists these files too;
 - an `.enc` file with a value that is not `encrypted:` or a line that is neither assignment nor comment.
 
 `dede guard --all` checks every tracked file (use it in CI). The guard is a local safety net; a
@@ -109,7 +136,12 @@ plaintext secret that reaches a remote must be rotated.
   expands `$VAR` or runs `$(…)`; your loader (dotenvx, Next.js, Bun) may when it reads the plaintext.
 - Formatting survives: quote style, `export`, inline comments, duplicates, multiline values.
   A line that is neither an assignment nor a comment is refused, because it would be committed as-is.
-- dede refuses a plaintext file that is not gitignored or is tracked, and warns when an `.enc` is gitignored.
+- **A plaintext env file that is already committed is public config on purpose** (e.g. Vite's
+  `.env.production` with `VITE_*` values that ship in the bundle anyway): `enc`/`dec` skip it, and
+  the guard lets edits to it through. Only *new* plaintext env files are blocked; a new public one
+  can be committed with `--no-verify`. If a committed file does hold secrets, `git rm --cached` it
+  and rotate them.
+- dede refuses a plaintext file that is not gitignored, and warns when an `.enc` is gitignored.
 - Plaintext files are kept at mode 0600 (`enc` tightens a group/world-readable one). Symlinked
   plaintext files (e.g. `.env.local -> .env.dev`) are skipped in default and glob runs and refused when named.
 - Windows: CRLF from `core.autocrlf` or an editor is not drift; dede compares and writes LF. File modes
