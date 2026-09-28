@@ -1,0 +1,32 @@
+name: release
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency: release
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # tags and GitHub releases
+      issues: write # comment on released issues
+      pull-requests: write # comment on released PRs
+      id-token: write # npm trusted publishing (OIDC), no NPM_TOKEN
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      # No registry-url: its .npmrc would get in the way of OIDC auth. Node 24 ships npm 11 (OIDC needs >= 11.5.1).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run test
+      - run: npx semantic-release@25
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

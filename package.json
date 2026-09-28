@@ -16,6 +16,11 @@
     "git"
   ],
   "type": "module",
+  "release": {
+    "branches": [
+      "main"
+    ]
+  },
   "files": [
     "dede.ts",
     "primitives.d.ts"
