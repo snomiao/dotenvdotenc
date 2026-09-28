@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "dotenvdotenc",
   "version": "0.2.0",
   "description": "dede: keep gitignored .env* files in sync with committed dotenvx-encrypted .env*.enc twins",
