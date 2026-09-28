@@ -35,7 +35,8 @@ Requires Bun. Without a global install, use `bunx dede …` or `node_modules/.bi
 ```
 dede enc [--force] [file|glob…]   plaintext → .enc   (default: every .env* in this directory)
 dede dec [--force] [file|glob…]   .enc → plaintext   (default: every .env*.enc in this directory)
-dede status [file|glob…]          one line per file; exit 1 unless everything is in sync
+dede status [--quiet] [file|glob…] one line per file (--quiet: problems only); exit 1 unless all in sync
+dede diff [file|glob…]            which keys differ between plaintext and .enc (names only)
 dede guard [--all]                pre-commit check (installed by setup)
 dede setup                        add `.env*` / `!.env*.enc` to .gitignore, install the hook
                                   (husky in a JS repo without a hook manager; lefthook/husky/plain git otherwise)
@@ -50,18 +51,23 @@ shell-expanded: `dede enc '.env.*'`, `dede dec .env*`. `.env.keys`, `.env.exampl
 dede compares the **content** of both files (after decrypting). Equal → nothing is written, so an
 unchanged value keeps its exact ciphertext and a one-value edit is a one-line diff.
 
-When they differ, dede checks which side changed since the last `enc`/`dec` in this worktree
-(hashes only, in `.git/dotenvdotenc/state.json`):
+When they differ, dede checks which side changed since the last `enc`/`dec` in this worktree.
+The record lives in `.git/dotenvdotenc/state.json`: file hashes plus salted per-key hashes, never
+values.
 
 | Changed since last sync | `dede enc` | `dede dec` |
 |---|---|---|
-| plaintext only | writes `.enc` | refuses: run `dede enc` |
-| `.enc` only (you pulled) | refuses: run `dede dec` | writes plaintext |
-| both | refuses (conflict) | refuses (conflict) |
-| unknown (no record yet) | refuses | refuses |
+| plaintext only | writes `.enc` | refuses, naming the edited keys: run `dede enc` |
+| `.enc` only (you pulled) | refuses, naming the changed keys: run `dede dec` | writes plaintext |
+| both, different keys | **merges per key**, writes both files | **merges per key** into the plaintext; then `dede enc` publishes your edits |
+| both, the same key (or comments on both sides) | refuses, naming the keys | refuses, naming the keys |
+| unknown (never synced here) | refuses, listing which keys differ | refuses, listing which keys differ |
 
-`--force` overrides a refusal and takes that command's source side. Nothing is ever merged
-automatically. A missing file on the target side is simply created.
+A merge takes each key from the side that changed it, and keeps the comments and order of the side
+whose comments changed. `--force` overrides a refusal and takes that command's source side. A
+missing file on the target side is simply created. Messages name keys, never values.
+
+`dede diff` shows, per file, which keys differ between the plaintext and its `.enc`.
 
 ## Keys
 
@@ -123,6 +129,12 @@ On a new machine: restore `ME` from the password manager into the vault repo's `
   `*.local` (machine-local by convention). Encrypt it with `dede enc`, or rename it to `*.local`.
   `dede status` lists these files too;
 - an `.enc` file with a value that is not `encrypted:` or a line that is neither assignment nor comment.
+- while a plaintext file has **edits not yet encrypted** (it changed since its last sync with its
+  `.enc`). The message names the keys; run `dede enc` and commit the `.enc`. A pull that only changed
+  the `.enc` does not block commits.
+
+`dede setup` also installs `post-merge` / `post-checkout` hooks that run `dede status --quiet`, so a
+pull or branch switch tells you which files to `dede dec` (they never block).
 
 `dede guard --all` checks every tracked file (use it in CI). The guard is a local safety net; a
 plaintext secret that reaches a remote must be rotated.

@@ -3,9 +3,9 @@
 // dede — dotenv ⇄ dotenc. Keeps each gitignored plaintext `.env*` file in sync with a committed
 // `<file>.enc` twin in dotenvx format. Parsing, rewriting and crypto are @dotenvx/primitives;
 // dede only adds the two-file sync, a drift check, a pre-commit guard and `setup`.
-import { decrypt, encrypt, keypair, keyringSync, scan, upsert } from "@dotenvx/primitives";
+import { decrypt, encrypt, keypair, keyringSync, remove, scan, upsert } from "@dotenvx/primitives";
 import { spawnSync } from "node:child_process";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 import { chmodSync, closeSync, existsSync, fsyncSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, realpathSync, renameSync, statSync, symlinkSync, writeSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
 
@@ -13,7 +13,8 @@ const USAGE = `dede — sync gitignored .env* files with committed dotenvx-encry
 
   dede enc [--force] [file|glob…]   plaintext → .enc   (default: every .env* here)
   dede dec [--force] [file|glob…]   .enc → plaintext   (default: every .env*.enc here)
-  dede status [file|glob…]          report sync state, exit 1 unless all in sync
+  dede status [--quiet] [file|glob…] report sync state, exit 1 unless all in sync
+  dede diff [file|glob…]            which keys differ between plaintext and .enc (names only)
   dede guard [--all]                pre-commit: block staged plaintext env files, keys, unencrypted values
   dede setup                        add .gitignore rules and the pre-commit hook
   dede keys                         which key each .enc here needs, and whether it is held
@@ -51,6 +52,9 @@ const IGNORE_BLOCK = "# dede(dotenvdotenc): plaintext env files and private keys
 const WIN = process.platform === "win32";
 const HOOK_MARK = "dede guard";
 const HOOK_CMD = '{ if [ -x node_modules/.bin/dede ]; then node_modules/.bin/dede guard; else dede guard; fi; } || exit 1';
+// After a pull or branch switch: say which files need `dede dec` (never blocks).
+const NOTICE_MARK = "dede status --quiet";
+const NOTICE_CMD = '{ if [ -x node_modules/.bin/dede ]; then node_modules/.bin/dede status --quiet; else dede status --quiet; fi; } || true';
 
 class DedeError extends Error {
   constructor(message: string, readonly code = 1) {
@@ -211,30 +215,109 @@ const log = (msg: string) => console.error(msg);
 // with CRLF, and Windows editors may save the plaintext that way.
 const lf = (text: string) => text.replace(/\r\n/g, "\n");
 
-// Last-synced hashes per pair, private to this worktree (never committed, never contains values).
+// Last-synced state per pair, private to this worktree (never committed, never contains values):
+// file hashes, plus salted per-key hashes and a comment hash so a two-sided change can be merged per key.
+interface SyncState {
+  plain: string;
+  enc: string;
+  salt?: string;
+  keys?: Record<string, string>;
+  notes?: string;
+}
+const hmac = (salt: string, text: string) => createHmac("sha256", salt).update(text).digest("hex").slice(0, 24);
+const commentsOf = (text: string) => text.split("\n").filter((l) => l.trimStart().startsWith("#")).join("\n");
+const stateKey = (pair: Pair) => relative(gitDir(dirname(pair.plain)), pair.plain);
+
 function stateFile(pair: Pair): string {
   const p = git(["rev-parse", "--path-format=absolute", "--git-path", "dotenvdotenc/state.json"], dirname(pair.plain)).out.trim();
   return p || die("not inside a git repository");
 }
-function loadState(pair: Pair): Record<string, { plain: string; enc: string }> {
-  const f = stateFile(pair);
+function loadState(pair: Pair): Record<string, SyncState> {
   try {
-    return JSON.parse(readFileSync(f, "utf8"));
+    return JSON.parse(readFileSync(stateFile(pair), "utf8"));
   } catch {
     return {};
   }
 }
+// `plainText` is the plaintext that corresponds to `encText` (in sync).
 function saveState(pair: Pair, plainText: string, encText: string): void {
   const f = stateFile(pair);
   const all = loadState(pair);
-  const key = relative(gitDir(dirname(pair.plain)), pair.plain);
-  if (all[key]?.plain === sha(plainText) && all[key]?.enc === sha(encText)) return;
-  all[key] = { plain: sha(plainText), enc: sha(encText) };
+  const key = stateKey(pair);
+  const cur = all[key];
+  if (cur?.plain === sha(plainText) && cur?.enc === sha(encText) && cur.keys) return;
+  const salt = randomBytes(16).toString("hex");
+  const keys = Object.fromEntries(Object.entries(values(plainText, pair.plain)).map(([k, v]) => [k, hmac(salt, JSON.stringify(v))]));
+  all[key] = { plain: sha(plainText), enc: sha(encText), salt, keys, notes: hmac(salt, commentsOf(lf(plainText))) };
   mkdirSync(dirname(f), { recursive: true });
   writeAtomic(f, JSON.stringify(all, null, 2) + "\n", 0o600);
 }
-function lastSync(pair: Pair) {
-  return loadState(pair)[relative(gitDir(dirname(pair.plain)), pair.plain)];
+function lastSync(pair: Pair): SyncState | undefined {
+  return loadState(pair)[stateKey(pair)];
+}
+
+// ---------- key-level comparison (names only, never values) ----------
+
+const sameVals = (a?: string[], b?: string[]) => JSON.stringify(a) === JSON.stringify(b);
+const list = (xs: string[]) => (xs.length > 6 ? `${xs.slice(0, 6).join(", ")} +${xs.length - 6}` : xs.join(", "));
+
+function describeDiff(pair: Pair, L: Values, E: Values): string {
+  const keys = [...new Set([...Object.keys(L), ...Object.keys(E)])].sort();
+  const differ = keys.filter((k) => k in L && k in E && !sameVals(L[k], E[k]));
+  const onlyL = keys.filter((k) => !(k in E));
+  const onlyE = keys.filter((k) => !(k in L));
+  const parts = [
+    differ.length && `different: ${list(differ)}`,
+    onlyL.length && `only in ${basename(pair.plain)}: ${list(onlyL)}`,
+    onlyE.length && `only in ${basename(pair.enc)}: ${list(onlyE)}`,
+  ].filter(Boolean);
+  return parts.length ? parts.join(" · ") : "same values, different comments/formatting";
+}
+
+// Keys whose value changed since the last sync (added, removed or edited).
+function changedSince(st: SyncState | undefined, vals: Values): string[] {
+  if (!st?.keys || !st.salt) return [];
+  const keys = new Set([...Object.keys(st.keys), ...Object.keys(vals)]);
+  return [...keys].filter((k) => (k in vals ? hmac(st.salt!, JSON.stringify(vals[k])) : undefined) !== st.keys![k]).sort();
+}
+const keysNote = (ks: string[]) => (ks.length ? ` (${list(ks)})` : "");
+
+// Three-way merge per key against the last sync. Each key takes the side that changed it; the same
+// key changed on both sides, or comments changed on both sides, is a conflict.
+function merge3(pair: Pair, P: string, D: string, st: SyncState | undefined): { text?: string; took: { local: string[]; enc: string[] }; conflicts: string[] } {
+  const took = { local: [] as string[], enc: [] as string[] };
+  P = lf(P);
+  if (!st?.keys || !st.salt) return { took, conflicts: ["(no per-key sync record; sync once with this dede version)"] };
+  const L = values(P, pair.plain);
+  const E = values(D, pair.enc);
+  const h = (v?: string[]) => (v === undefined ? undefined : hmac(st.salt!, JSON.stringify(v)));
+  const conflicts: string[] = [];
+  for (const k of [...new Set([...Object.keys(L), ...Object.keys(E)])].sort()) {
+    const lh = h(L[k]);
+    const eh = h(E[k]);
+    if (lh === eh) continue;
+    if (lh === st.keys[k]) took.enc.push(k);
+    else if (eh === st.keys[k]) took.local.push(k);
+    else conflicts.push(k);
+  }
+  const localNotes = hmac(st.salt, commentsOf(P)) !== st.notes;
+  const encNotes = hmac(st.salt, commentsOf(D)) !== st.notes;
+  if (localNotes && encNotes && commentsOf(P) !== commentsOf(D)) conflicts.push("(comments)");
+  if (conflicts.length) return { took, conflicts };
+  // Keep the text (comments, order) of the side whose comments changed; apply the other side's keys.
+  const [base, apply, from] = localNotes ? [P, took.enc, E] : [D, took.local, L];
+  let text = base;
+  for (const k of apply) {
+    if (!(k in from)) text = remove(text, k);
+    else if (k in values(text, pair.plain)) text = upsert(text, k, from[k]);
+    else if (from[k].length === 1) text = upsert(text.endsWith("\n") || text === "" ? text : `${text}\n`, k, from[k][0]);
+    else return { took, conflicts: [`${k} (repeated assignments)`] };
+  }
+  const merged = values(text, pair.plain);
+  const want = { ...Object.fromEntries(Object.entries(localNotes ? L : E)) } as Values;
+  for (const k of apply) (k in from ? (want[k] = from[k]) : delete want[k]);
+  for (const k of new Set([...Object.keys(merged), ...Object.keys(want)])) if (!sameVals(merged[k], want[k])) return { took, conflicts: [`${k} (could not merge the text)`] };
+  return { text, took, conflicts: [] };
 }
 
 function isSymlink(path: string): boolean {
@@ -326,13 +409,19 @@ function buildEnc(pair: Pair, pub: string, priv: string, raw: string, C: string,
 }
 
 type Drift = "enc-changed" | "plain-changed" | "both" | "unknown" | "neither";
-function drift(pair: Pair, P: string, E: string): Drift {
-  const s = lastSync(pair);
-  if (!s) return "unknown";
-  const pc = sha(P) !== s.plain;
-  const ec = sha(E) !== s.enc;
+function drift(st: SyncState | undefined, P: string, E: string): Drift {
+  if (!st) return "unknown";
+  const pc = sha(P) !== st.plain;
+  const ec = sha(E) !== st.enc;
   return pc && ec ? "both" : pc ? "plain-changed" : ec ? "enc-changed" : "neither";
 }
+
+const noRecord = (pair: Pair, v: View) =>
+  die(`${rel(pair.plain)} and ${rel(pair.enc)} differ, and this checkout has never synced them — ${describeDiff(pair, values(v.P!, pair.plain), values(v.D!, pair.enc))}. Keep the .enc side: \`dede dec --force\`; keep the plaintext side: \`dede enc --force\``, 2);
+const mergeConflict = (pair: Pair, conflicts: string[]) =>
+  die(`${rel(pair.plain)}: both sides changed ${list(conflicts)} since the last sync; edit ${rel(pair.plain)} to the value you want, then \`dede enc --force\``, 2);
+const mergedNote = (m: { took: { local: string[]; enc: string[] } }) =>
+  `merged: from .enc${keysNote(m.took.enc) || " (nothing)"}, kept your edits${keysNote(m.took.local) || " (none)"}`;
 
 function enc(pair: Pair, force: boolean): void {
   preflight(pair);
@@ -354,16 +443,25 @@ function enc(pair: Pair, force: boolean): void {
     saveState(pair, v.P!, v.E);
     return log(`${rel(pair.enc)}: in sync`);
   }
-  const d = drift(pair, v.P!, v.E);
+  const st = lastSync(pair);
+  const d = drift(st, v.P!, v.E);
+  let P = lf(v.P!);
+  let note = `encrypted ${rel(pair.plain)} → ${rel(pair.enc)}`;
   if (!force) {
-    if (d === "unknown") die(`${rel(pair.enc)}: differs from ${rel(pair.plain)} with no sync record; \`dede dec --force\` takes .enc, \`dede enc --force\` takes plaintext`, 2);
-    if (d === "both") die(`${rel(pair.enc)}: both files changed since last sync; resolve by hand, then use --force`, 2);
-    if (d === "enc-changed") die(`${rel(pair.enc)}: changed since last sync (pulled?); run \`dede dec\` first`, 1);
+    if (d === "unknown") noRecord(pair, v);
+    if (d === "enc-changed") die(`${rel(pair.enc)} changed since the last sync${keysNote(changedSince(st, values(v.D!, pair.enc)))} (pulled?); run \`dede dec\` first`, 1);
+    if (d === "both") {
+      const m = merge3(pair, v.P!, v.D!, st);
+      if (m.conflicts.length) mergeConflict(pair, m.conflicts);
+      P = m.text!;
+      writeAtomic(pair.plain, P, 0o600);
+      note = `${rel(pair.enc)}: ${mergedNote(m)}; wrote both files`;
+    }
   }
-  const text = buildEnc(pair, v.pub!, v.priv!, v.P!, v.C!, v.old);
+  const text = buildEnc(pair, v.pub!, v.priv!, P, rewrite(P, values(P, pair.plain)), v.old);
   writeAtomic(pair.enc, text, 0o644);
-  saveState(pair, v.P!, text);
-  log(`encrypted ${rel(pair.plain)} → ${rel(pair.enc)}`);
+  saveState(pair, P, text);
+  log(note);
 }
 
 function dec(pair: Pair, force: boolean): void {
@@ -375,25 +473,51 @@ function dec(pair: Pair, force: boolean): void {
     return log(`${rel(pair.plain)}: in sync`);
   }
   if (v.P !== undefined && !force) {
-    const d = drift(pair, v.P, v.E!);
-    if (d === "unknown") die(`${rel(pair.plain)}: differs from ${rel(pair.enc)} with no sync record; \`dede dec --force\` takes .enc, \`dede enc --force\` takes plaintext`, 2);
-    if (d === "both") die(`${rel(pair.plain)}: both files changed since last sync; resolve by hand, then use --force`, 2);
-    if (d === "plain-changed") die(`${rel(pair.plain)}: has edits not yet encrypted; run \`dede enc\` first (or \`dede dec --force\` to discard them)`, 1);
+    const st = lastSync(pair);
+    const d = drift(st, v.P, v.E!);
+    if (d === "unknown") noRecord(pair, v);
+    if (d === "plain-changed")
+      die(`${rel(pair.plain)} has edits not yet encrypted${keysNote(changedSince(st, values(v.P, pair.plain)))}; run \`dede enc\` (or \`dede dec --force\` to discard them)`, 1);
+    if (d === "both") {
+      const m = merge3(pair, v.P, v.D!, st);
+      if (m.conflicts.length) mergeConflict(pair, m.conflicts);
+      writeAtomic(pair.plain, m.text!, 0o600);
+      saveState(pair, v.D!, v.E!); // synced with the new .enc; your kept edits still need `dede enc`
+      return log(`${rel(pair.plain)}: ${mergedNote(m)}${m.took.local.length ? "; run `dede enc` to publish your edits" : ""}`);
+    }
   }
   writeAtomic(pair.plain, v.D!, 0o600);
   saveState(pair, v.D!, v.E!);
   log(`decrypted ${rel(pair.enc)} → ${rel(pair.plain)}`);
 }
 
+let quiet = false;
+
 function status(pair: Pair): boolean {
   const v = view(pair, false);
-  const say = (s: string, ok = false) => (console.log(`${ok ? "✓" : "✗"} ${rel(pair.plain)}: ${s}`), ok);
+  const say = (s: string, ok = false) => ((!ok || !quiet) && console.log(`${ok ? "✓" : "✗"} ${rel(pair.plain)}: ${s}`), ok);
   if (v.E === undefined) return say(v.P === undefined ? "missing" : "no .enc yet (run `dede enc`)");
   if (v.P === undefined) return say("no plaintext (run `dede dec`)");
   if (v.D === undefined) return say("no private key; cannot compare");
   if (v.C === v.D) return say("in sync", true);
-  const d = drift(pair, v.P, v.E);
-  return say(d === "plain-changed" ? "edited (run `dede enc`)" : d === "enc-changed" ? ".enc changed (run `dede dec`)" : d === "both" ? "conflict: both changed" : "differs, no sync record");
+  const st = lastSync(pair);
+  const d = drift(st, v.P, v.E);
+  if (d === "plain-changed") return say(`edited${keysNote(changedSince(st, values(v.P, pair.plain)))} (run \`dede enc\`)`);
+  if (d === "enc-changed") return say(`.enc changed${keysNote(changedSince(st, values(v.D, pair.enc)))} (run \`dede dec\`)`);
+  if (d === "both") {
+    const m = merge3(pair, v.P, v.D, st);
+    return say(m.conflicts.length ? `conflict: both changed ${list(m.conflicts)}` : `both changed, mergeable (run \`dede enc\`)`);
+  }
+  return say(`differs, no sync record — ${describeDiff(pair, values(v.P, pair.plain), values(v.D, pair.enc))}`);
+}
+
+function diff(pair: Pair): boolean {
+  const v = view(pair, false);
+  const say = (s: string, ok = false) => (console.log(`${ok ? "✓" : "✗"} ${rel(pair.plain)}: ${s}`), ok);
+  if (v.E === undefined || v.P === undefined) return say(v.E === undefined ? "no .enc" : "no plaintext");
+  if (v.D === undefined) return say("no private key; cannot compare");
+  if (v.C === v.D) return say("no differences", true);
+  return say(describeDiff(pair, values(v.P, pair.plain), values(v.D, pair.enc)));
 }
 
 // ---------- guard ----------
@@ -427,10 +551,37 @@ function unmanagedEnvFiles(top: string): string[] {
 }
 const UNMANAGED_HINT = "unmanaged plaintext env file (not committed, no .enc, not *.local): `dede enc` it and commit the .enc, or rename it to *.local";
 
+// Plaintext files with an .enc twin whose edits have not been encrypted yet. Uses the sync record,
+// so no key is needed; without a record it decrypts when the key is held.
+function unencryptedEdits(top: string): string[] {
+  const list0 = [
+    ...git(["ls-files", "--others", "--exclude-standard", "-z"], top).out.split("\0"),
+    ...git(["ls-files", "--others", "--ignored", "--exclude-standard", "--directory", "-z"], top).out.split("\0"),
+  ].filter((p) => p && !p.endsWith("/") && !/(^|\/)node_modules\//.test(p));
+  const bad: string[] = [];
+  for (const f of [...new Set(list0)]) {
+    const name = basename(f);
+    const plain = join(top, f);
+    if (!isEnvName(name) || !existsSync(`${plain}.enc`) || isSymlink(plain)) continue;
+    const pair: Pair = { plain, enc: `${plain}.enc`, name, explicit: false };
+    const P = read(plain)!;
+    const E = read(pair.enc)!;
+    const st = lastSync(pair);
+    if (st) {
+      if (sha(P) !== st.plain) bad.push(`${f}: edits not encrypted yet${keysNote(changedSince(st, values(P, plain)))}; run \`dede enc\` and commit ${name}.enc`);
+      continue;
+    }
+    const v = view(pair, false);
+    if (v.D !== undefined && v.C !== v.D) bad.push(`${f}: differs from ${name}.enc and has never been synced here (${describeDiff(pair, values(P, plain), values(v.D, pair.enc))}); see \`dede diff\``);
+  }
+  return bad;
+}
+
 function guard(all: boolean): void {
   const top = gitDir(process.cwd());
   const bad: string[] = [];
   for (const f of unmanagedEnvFiles(top)) bad.push(`${f}: ${UNMANAGED_HINT}`);
+  bad.push(...unencryptedEdits(top));
   for (const { path: f, added } of guardList(top, all)) {
     const name = basename(f);
     const blob = git(["cat-file", "blob", `:${f}`], top);
@@ -506,7 +657,7 @@ function setup(): void {
   if (lefthook) {
     const text = readFileSync(join(top, lefthook), "utf8");
     if (text.includes(HOOK_MARK)) return log(`${lefthook}: dede guard already configured`);
-    log(`${lefthook} found; add this under pre-commit, then run \`lefthook install\`:\n\npre-commit:\n  commands:\n    dede-guard:\n      run: ${HOOK_CMD}\n`);
+    log(`${lefthook} found; add this, then run \`lefthook install\`:\n\npre-commit:\n  commands:\n    dede-guard:\n      run: ${HOOK_CMD}\npost-merge:\n  commands:\n    dede-status:\n      run: ${NOTICE_CMD}\npost-checkout:\n  commands:\n    dede-status:\n      run: ${NOTICE_CMD}\n`);
     return;
   }
   // A JS repo with no hook manager yet gets husky (v9) as the default.
@@ -519,19 +670,24 @@ function setup(): void {
     ? join(top, ".husky")
     : git(["rev-parse", "--path-format=absolute", "--git-path", "hooks"], top).out.trim().replace(/\/\.husky\/_\/?$/, "/.husky");
   if (!dir) die("cannot locate the git hooks directory");
-  const hook = join(dir, "pre-commit");
+  installHook(dir, "pre-commit", HOOK_CMD, HOOK_MARK, "runs dede guard before each commit");
+  for (const h of ["post-merge", "post-checkout"]) installHook(dir, h, NOTICE_CMD, NOTICE_MARK, "reports env files to decrypt after a pull or checkout", true);
+}
+
+function installHook(dir: string, name: string, cmd: string, mark: string, what: string, quietIfPresent = false): void {
+  const hook = join(dir, name);
   const prev = read(hook);
-  if (prev?.includes(HOOK_MARK)) return log(`${rel(hook)}: dede guard already installed`);
-  if (prev?.startsWith("#!") && !/^#!.*\b(sh|bash|zsh|dash)\b/.test(prev)) die(`${rel(hook)} is not a shell script; add \`${HOOK_CMD}\` to it yourself`);
+  if (prev?.includes(mark)) return quietIfPresent ? undefined : log(`${rel(hook)}: dede guard already installed`);
+  if (prev?.startsWith("#!") && !/^#!.*\b(sh|bash|zsh|dash)\b/.test(prev)) die(`${rel(hook)} is not a shell script; add \`${cmd}\` to it yourself`);
   mkdirSync(dir, { recursive: true });
   // First thing after the shebang, so a later `exec`/`exit` in an existing hook cannot skip it.
   const nl = prev?.startsWith("#!") ? prev.indexOf("\n") : -1;
   const body =
-    prev === undefined ? `#!/bin/sh\n${HOOK_CMD}\n`
-    : prev.startsWith("#!") ? (nl === -1 ? `${prev}\n${HOOK_CMD}\n` : `${prev.slice(0, nl + 1)}${HOOK_CMD}\n${prev.slice(nl + 1)}`)
-    : `${HOOK_CMD}\n${prev}`;
+    prev === undefined ? `#!/bin/sh\n${cmd}\n`
+    : prev.startsWith("#!") ? (nl === -1 ? `${prev}\n${cmd}\n` : `${prev.slice(0, nl + 1)}${cmd}\n${prev.slice(nl + 1)}`)
+    : `${cmd}\n${prev}`;
   writeAtomic(hook, body, prev === undefined ? 0o755 : lstatSync(hook).mode & 0o777);
-  log(`${prev === undefined ? "created" : "updated"} ${rel(hook)}: runs dede guard before each commit`);
+  log(`${prev === undefined ? "created" : "updated"} ${rel(hook)}: ${what}`);
 }
 
 function setupHusky(top: string, pkgPath: string): void {
@@ -546,6 +702,7 @@ function setupHusky(top: string, pkgPath: string): void {
   writeAtomic(pkgPath, `${JSON.stringify(pkg, null, indent)}\n`, lstatSync(pkgPath).mode & 0o777);
   mkdirSync(join(top, ".husky"), { recursive: true });
   writeAtomic(join(top, ".husky", "pre-commit"), `${HOOK_CMD}\n`, 0o644);
+  for (const h of ["post-merge", "post-checkout"]) if (!existsSync(join(top, ".husky", h))) writeAtomic(join(top, ".husky", h), `${NOTICE_CMD}\n`, 0o644);
   const husky = join(top, "node_modules", ".bin", "husky");
   if (existsSync(husky) && spawnSync(husky, [], { cwd: top, stdio: "ignore" }).status === 0)
     return log("set up husky: .husky/pre-commit runs dede guard before each commit");
@@ -608,7 +765,8 @@ export function main(argv: string[]): number {
   }
   if (keysOverride) keysOverride = resolve(process.cwd(), keysOverride);
   const force = rest.includes("--force");
-  const args = rest.filter((a) => a !== "--force" && a !== "--all");
+  quiet = rest.includes("--quiet");
+  const args = rest.filter((a) => a !== "--force" && a !== "--all" && a !== "--quiet");
   let code = 0;
   const each = (ps: Pair[], fn: (p: Pair) => void) => {
     for (const p of ps)
@@ -643,6 +801,11 @@ export function main(argv: string[]): number {
         }
         break;
       }
+      case "diff":
+        each(pairs(args, "any"), (p) => {
+          if (!diff(p)) code = Math.max(code, 1);
+        });
+        break;
       case "guard":
         guard(rest.includes("--all"));
         break;

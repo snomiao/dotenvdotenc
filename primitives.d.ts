@@ -6,4 +6,5 @@ declare module "@dotenvx/primitives" {
   export function keyringSync(options?: { fk?: string | string[]; processEnv?: Record<string, string | undefined> }): Record<string, string>;
   export function scan(source: string): { parsed: Record<string, string[]>; comments: Record<string, (string | null)[]> };
   export function upsert(source: string, key: string, value: string | string[]): string;
+  export function remove(source: string, key: string): string;
 }

@@ -203,16 +203,19 @@ describe("drift", () => {
     expect(b.dede(["enc"]).code).toBe(0);
   });
 
-  test("both changed: conflict (exit 2) on both commands; --force picks a side", () => {
+  test("same key changed on both sides: conflict (exit 2) naming it; --force picks a side", () => {
     const { a, b } = twoClones();
     a.write(".env.local", "A=1\nB=theirs\n");
     a.dede(["enc"]);
     a.git("commit", "-qam", "b");
     b.git("pull", "-q", a.dir, "main");
-    b.write(".env.local", "A=mine\nB=2\n");
-    expect(b.dede(["enc"]).code).toBe(2);
+    b.write(".env.local", "A=1\nB=mine\n");
+    const res = b.dede(["enc"]);
+    expect(res.code).toBe(2);
+    expect(res.err).toContain("both sides changed B");
+    expect(res.err).not.toMatch(/theirs|mine/);
     expect(b.dede(["dec"]).code).toBe(2);
-    expect(b.read(".env.local")).toBe("A=mine\nB=2\n");
+    expect(b.read(".env.local")).toBe("A=1\nB=mine\n");
     expect(b.dede(["dec", "--force"]).code).toBe(0);
     expect(b.read(".env.local")).toBe("A=1\nB=theirs\n");
   });
@@ -350,7 +353,7 @@ describe("arguments", () => {
     r.write(".env.local", "A=2\n");
     const res = r.dede(["status"]);
     expect(res.code).toBe(1);
-    expect(res.out).toContain("edited (run `dede enc`)");
+    expect(res.out).toContain("edited (A) (run `dede enc`)");
   });
 });
 
@@ -922,5 +925,169 @@ describe("unmanaged plaintext env files fail the pre-commit guard", () => {
     const c = spawnSync("git", ["commit", "-qm", "x"], { cwd: r.dir, encoding: "utf8", env: cleanEnv() });
     expect(c.status).not.toBe(0);
     expect(c.stderr).toContain(".env.foo: unmanaged plaintext env file");
+  });
+});
+
+describe("key-level UX: names in refusals, per-key merge, unencrypted-edit guard, hooks", () => {
+  function clones(init = "A=1\nB=2\nC=3\n") {
+    const a = new Repo();
+    a.write(".env.local", init);
+    a.dede(["enc"]);
+    a.git("add", ".gitignore", ".env.local.enc");
+    a.git("commit", "-qm", "init");
+    const b = new Repo(null as unknown as string);
+    b.git("pull", "-q", a.dir, "main");
+    b.write(".env.keys", a.read(".env.keys"));
+    expect(b.dede(["dec"]).code).toBe(0);
+    const publish = (text: string) => {
+      a.write(".env.local", text);
+      expect(a.dede(["enc"]).code).toBe(0);
+      a.git("commit", "-qam", "update");
+      b.git("pull", "-q", a.dir, "main");
+    };
+    return { a, b, publish };
+  }
+
+  test("no sync record: the refusal names the differing keys, never values", () => {
+    const r = new Repo();
+    r.write(".env.local", "A=s3cretA\nB=s3cretB\n");
+    r.dede(["enc"]);
+    rmSync(r.statePath());
+    r.write(".env.local", "A=s3cretA\nB=changedB\nC=newC\n");
+    const res = r.dede(["dec"]);
+    expect(res.code).toBe(2);
+    expect(res.err).toContain("different: B");
+    expect(res.err).toContain("only in .env.local: C");
+    expect(res.err).not.toMatch(/s3cret|changedB|newC/);
+  });
+
+  test("dec with local edits and enc after a pull name the changed keys", () => {
+    const { b, publish } = clones();
+    b.write(".env.local", "A=1\nB=edited\nC=3\n");
+    let res = b.dede(["dec"]);
+    expect(res.code).toBe(1);
+    expect(res.err).toContain("not yet encrypted (B)");
+    b.dede(["enc"]);
+    const c = clones();
+    c.publish("A=new\nB=2\nC=3\n");
+    res = c.b.dede(["enc"]);
+    expect(res.err).toMatch(/nothing to encrypt|in sync|changed since the last sync \(A\)/);
+  });
+
+  test("different keys changed on each side merge through dec, then enc publishes", () => {
+    const { a, b, publish } = clones();
+    b.write(".env.local", "A=1\nB=mine\nC=3\n");
+    publish("A=theirs\nB=2\nC=3\n");
+    const res = b.dede(["dec"]);
+    expect(res.code).toBe(0);
+    expect(res.err).toContain("from .enc (A)");
+    expect(res.err).toContain("kept your edits (B)");
+    expect(b.read(".env.local")).toBe("A=theirs\nB=mine\nC=3\n");
+    expect(b.dede(["status"]).out).toContain("edited (B)");
+    expect(b.dede(["enc"]).code).toBe(0);
+    b.git("commit", "-qam", "b");
+    a.git("pull", "-q", b.dir, "main");
+    expect(a.dede(["dec"]).code).toBe(0);
+    expect(a.read(".env.local")).toBe("A=theirs\nB=mine\nC=3\n");
+  });
+
+  test("enc merges too, writing both files", () => {
+    const { b, publish } = clones();
+    b.write(".env.local", "A=1\nB=2\nC=mine\nD=added\n");
+    publish("A=1\nB=theirs\nC=3\n");
+    const res = b.dede(["enc"]);
+    expect(res.code).toBe(0);
+    expect(res.err).toContain("wrote both files");
+    expect(vals(b.read(".env.local"))).toEqual(vals("A=1\nB=theirs\nC=mine\nD=added\n"));
+    expect(b.dede(["status"]).code).toBe(0);
+  });
+
+  test("a key deleted on one side and another edited on the other both land", () => {
+    const { b, publish } = clones();
+    b.write(".env.local", "A=mine\nB=2\nC=3\n");
+    publish("A=1\nB=2\n");
+    expect(b.dede(["dec"]).code).toBe(0);
+    expect(vals(b.read(".env.local"))).toEqual(vals("A=mine\nB=2\n"));
+  });
+
+  test("comments: one side's comment edits are kept; comments changed on both sides conflict", () => {
+    let { b, publish } = clones();
+    b.write(".env.local", "# mine\nA=1\nB=2\nC=3\n");
+    publish("A=theirs\nB=2\nC=3\n");
+    expect(b.dede(["dec"]).code).toBe(0);
+    expect(b.read(".env.local")).toBe("# mine\nA=theirs\nB=2\nC=3\n");
+    ({ b, publish } = clones());
+    b.write(".env.local", "# mine\nA=1\nB=2\nC=3\n");
+    publish("# theirs\nA=1\nB=2\nC=3\n");
+    const res = b.dede(["dec"]);
+    expect(res.code).toBe(2);
+    expect(res.err).toContain("(comments)");
+    expect(b.read(".env.local")).toBe("# mine\nA=1\nB=2\nC=3\n");
+  });
+
+  test("pre-commit guard fails on unencrypted edits, naming keys; passes after enc", () => {
+    const { b } = clones();
+    b.write(".env.local", "A=1\nB=edited\nC=3\n");
+    b.write("README.md", "x\n");
+    b.git("add", "README.md");
+    let res = b.dede(["guard"]);
+    expect(res.code).toBe(1);
+    expect(res.err).toContain(".env.local: edits not encrypted yet (B)");
+    expect(res.err).not.toContain("edited");
+    b.dede(["enc"]);
+    b.git("add", ".env.local.enc");
+    expect(b.dede(["guard"]).code).toBe(0);
+  });
+
+  test("guard without a sync record compares when the key is held, skips when it is not", () => {
+    const { b } = clones();
+    rmSync(b.statePath());
+    b.write(".env.local", "A=1\nB=other\nC=3\n");
+    expect(b.dede(["guard"]).err).toContain("has never been synced here (different: B)");
+    b.rm(".env.keys");
+    expect(b.dede(["guard"]).code).toBe(0);
+  });
+
+  test("a pull that only changed .enc does not block commits (status reports it)", () => {
+    const { b, publish } = clones();
+    publish("A=theirs\nB=2\nC=3\n");
+    expect(b.dede(["guard"]).code).toBe(0);
+    const res = b.dede(["status", "--quiet"]);
+    expect(res.code).toBe(1);
+    expect(res.out).toContain(".enc changed (A)");
+    expect(b.dede(["dec"]).code).toBe(0);
+    expect(b.dede(["status", "--quiet"]).out).toBe("");
+  });
+
+  test("dede diff names keys, exits 1 on differences", () => {
+    const { b } = clones();
+    expect(b.dede(["diff"]).out).toContain("no differences");
+    b.write(".env.local", "A=1\nB=x\nE=5\n");
+    const res = b.dede(["diff"]);
+    expect(res.code).toBe(1);
+    expect(res.out).toContain("different: B · only in .env.local: E · only in .env.local.enc: C");
+  });
+
+  test("a CRLF plaintext (Windows editor) still merges per key", () => {
+    const { b, publish } = clones();
+    b.write(".env.local", "A=1\r\nB=mine\r\nC=3\r\n");
+    publish("A=theirs\nB=2\nC=3\n");
+    expect(b.dede(["dec"]).code).toBe(0);
+    expect(vals(b.read(".env.local"))).toEqual(vals("A=theirs\nB=mine\nC=3\n"));
+    expect(b.dede(["enc"]).code).toBe(0);
+    expect(b.read(".env.local.enc")).not.toContain("\r");
+  });
+
+  test("setup installs post-merge and post-checkout notices (git hooks and husky)", () => {
+    const r = new Repo("");
+    r.dede(["setup"]);
+    for (const h of ["post-merge", "post-checkout"]) expect(r.read(`.git/hooks/${h}`)).toContain("dede status --quiet");
+    const before = r.read(".git/hooks/post-merge");
+    r.dede(["setup"]);
+    expect(r.read(".git/hooks/post-merge")).toBe(before);
+    const h = new Repo("");
+    h.write("package.json", '{"name":"x"}\n');
+    h.dede(["setup"]);
+    for (const f of ["post-merge", "post-checkout"]) expect(h.read(`.husky/${f}`)).toContain("dede status --quiet");
   });
 });
