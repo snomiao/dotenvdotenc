@@ -165,6 +165,17 @@ plaintext secret that reaches a remote must be rotated.
   do not apply (access is by ACL), and `dede keys link` needs Developer Mode for symlinks (or use `-fk`).
 - Exit codes: 0 ok · 1 action needed / blocked · 2 conflict · 3 no key or cannot decrypt · 4 malformed input.
 
+## Agent skills
+
+[`skills/`](skills/) holds agent skills (`skills/<name>/SKILL.md`) for workflows built on dede:
+
+| skill | use |
+|---|---|
+| [`encrypted-env-repo`](skills/encrypted-env-repo/SKILL.md) | set up a private repo of `.env*.enc` files (allowlist `.gitignore`, `dede guard` hook, one key per file) |
+| [`save-account-credentials`](skills/save-account-credentials/SKILL.md) | record every field of a new third-party account as `<SITE>_<FIELD>`, never printing values |
+| [`agent-signup-via-browser`](skills/agent-signup-via-browser/SKILL.md) | sign up for a service via rechrome, handing identity/KYC, CAPTCHAs and attestations to the human |
+| [`payment-provider-selection`](skills/payment-provider-selection/SKILL.md) | choose and wire a payment provider (solo developer in Japan, after a Stripe refusal) |
+
 ## Develop
 
 ```sh
