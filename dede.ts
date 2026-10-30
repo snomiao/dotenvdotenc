@@ -112,7 +112,7 @@ function treeFor(dir: string): Tree {
   const link = isSymlink(file) ? ` → ${rel(realpathSync(file))}` : "";
   for (const pub of Object.keys(t.ring)) t.from[pub] = envRing[pub] ? "environment" : fileRing[pub] ? `${rel(file)}${link}` : "keys";
   const homes = new Set([resolve(dir), ...(existsSync(file) ? [dirname(realpathSync(file))] : [])]);
-  const nodes = [...homes].flatMap((d) => readdirSync(d).filter((n) => KEYS_ENC_RE.test(n)).map((n) => join(d, n)));
+  const nodes = [...homes].flatMap((d) => readdirSync(d).filter((n) => KEYS_ENC_RE.test(n)).sort().map((n) => join(d, n)));
   const opened = new Set<string>();
   for (let grew = true; grew; ) {
     grew = false;
@@ -916,10 +916,11 @@ function setupHusky(top: string, pkgPath: string): void {
 function pairs(args: string[], mode: "enc" | "dec" | "any"): Pair[] {
   const cwd = process.cwd();
   const found: { path: string; explicit: boolean }[] = [];
-  if (args.length === 0) for (const n of readdirSync(cwd)) found.push({ path: join(cwd, n), explicit: false });
+  // Sorted: readdir and glob order is the filesystem's (unsorted on Linux); output and new keys should not depend on it.
+  if (args.length === 0) for (const n of readdirSync(cwd).sort()) found.push({ path: join(cwd, n), explicit: false });
   for (const a of args) {
     if (/[*?[{]/.test(a)) {
-      for (const f of new Bun.Glob(a).scanSync({ cwd, dot: true, onlyFiles: true }))
+      for (const f of [...new Bun.Glob(a).scanSync({ cwd, dot: true, onlyFiles: true })].sort())
         if (!/(^|[\\/])(node_modules|\.git)[\\/]/.test(f)) found.push({ path: join(cwd, f), explicit: false });
     } else found.push({ path: resolve(cwd, a), explicit: true });
   }
