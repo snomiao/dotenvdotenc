@@ -26,7 +26,8 @@ const USAGE = `dede — sync gitignored .env* files with committed dotenvx-encry
   --key <NAME>                      encrypt a new .enc with the existing DOTENV_PRIVATE_KEY_<NAME>
                                     (e.g. back up a keys file: dede enc .env.keys.myproj --key ME)
 
-Private keys: DOTENV_PRIVATE_KEY_<SUFFIX> in the environment, else ./.env.keys (dotenvx convention).`;
+Private keys: DOTENV_PRIVATE_KEY_<SUFFIX> in the environment, else ./.env.keys (dotenvx convention),
+else the key tree: any .env.keys.<name>.enc a held key opens adds the keys inside it, recursively.`;
 
 const PREFIX = "encrypted:";
 const TMP = ".env.dede-tmp-";
@@ -83,17 +84,73 @@ export const suffixOf = (name: string) => (name === ".env" ? "" : "_" + name.sli
 const isEnvName = (name: string) => NAME_RE.test(name) && !name.endsWith(".enc") && !SKIP.has(name) && !name.startsWith(TMP);
 
 // Keys come from the environment, then one keys file: ./.env.keys next to the env file, or an
-// explicit -fk / DOTENV_KEYS_FILE. No other place is searched.
+// explicit -fk / DOTENV_KEYS_FILE. From there the key tree grows (treeFor); nothing else is searched.
 let keysOverride: string | undefined;
 const keysFileFor = (dir: string) => keysOverride ?? join(dir, ".env.keys");
 
-function ringFor(dir: string): Record<string, string> {
-  return keyringSync({ fk: [keysFileFor(dir)], processEnv: process.env });
+// Key tree: a committed keys file `.env.keys.<name>.enc` (next to the env file, or next to the
+// keys file a link points at) is opened in memory once a held key fits it, and its
+// DOTENV_PRIVATE_KEY_* join the ring, repeatedly until nothing new opens. So one root key in
+// .env.keys reaches every key below it. Nothing is written; the keys never leave the process.
+interface Tree {
+  ring: Record<string, string>; // public key → private key
+  from: Record<string, string>; // public key → where it was found, for `dede keys`
+  byName: Record<string, string>; // DOTENV_PRIVATE_KEY_* name → private key, from the tree's files
 }
+const KEYS_ENC_RE = /^\.env\.keys\.[A-Za-z0-9_.-]+\.enc$/;
+const trees = new Map<string, Tree>();
+
+function treeFor(dir: string): Tree {
+  const file = keysFileFor(dir);
+  const cached = trees.get(`${dir}\0${file}`);
+  if (cached) return cached;
+  const envRing = keyringSync({ fk: [], processEnv: process.env });
+  const fileRing = existsSync(file) ? keyringSync({ fk: [file], processEnv: {} }) : {};
+  const t: Tree = { ring: keyringSync({ fk: [file], processEnv: process.env }), from: {}, byName: {} };
+  const link = isSymlink(file) ? ` → ${rel(realpathSync(file))}` : "";
+  for (const pub of Object.keys(t.ring)) t.from[pub] = envRing[pub] ? "environment" : fileRing[pub] ? `${rel(file)}${link}` : "keys";
+  const homes = new Set([resolve(dir), ...(existsSync(file) ? [dirname(realpathSync(file))] : [])]);
+  const nodes = [...homes].flatMap((d) => readdirSync(d).filter((n) => KEYS_ENC_RE.test(n)).map((n) => join(d, n)));
+  const opened = new Set<string>();
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const node of nodes) {
+      if (opened.has(node)) continue;
+      let plain: Values;
+      let via: string;
+      try {
+        const { publicKey, body } = splitEnc(lf(readFileSync(node, "utf8")), node);
+        if (!t.ring[publicKey]) continue; // maybe a later round opens it
+        via = t.from[publicKey];
+        plain = decryptAll(body, t.ring[publicKey], node).plain;
+      } catch {
+        opened.add(node); // malformed or undecryptable: not part of the tree
+        continue;
+      }
+      opened.add(node);
+      for (const [name, vs] of Object.entries(plain)) {
+        if (!name.startsWith("DOTENV_PRIVATE_KEY")) continue;
+        for (const priv of (vs.at(-1) ?? "").split(",").map((s) => s.trim())) {
+          if (!/^[0-9a-fA-F]{64}$/.test(priv)) continue;
+          t.byName[name] ??= priv;
+          const pub = keypair(priv).publicKey;
+          if (t.ring[pub]) continue;
+          t.ring[pub] = priv;
+          t.from[pub] = `${rel(node)} ← ${via}`;
+          grew = true;
+        }
+      }
+    }
+  }
+  trees.set(`${dir}\0${file}`, t);
+  return t;
+}
+
+const ringFor = (dir: string) => treeFor(dir).ring;
 
 function privateKeyFor(pub: string, pair: Pair): string {
   const priv = ringFor(dirname(pair.plain))[pub];
-  if (!priv) die(`${rel(pair.enc)}: no private key (set DOTENV_PRIVATE_KEY${suffixOf(pair.name)}, add it to ${rel(keysFileFor(dirname(pair.plain)))}, or use -fk / \`dede keys link\`)`, 3);
+  if (!priv) die(`${rel(pair.enc)}: no private key (set DOTENV_PRIVATE_KEY${suffixOf(pair.name)}, add it to ${rel(keysFileFor(dirname(pair.plain)))} or to a .env.keys.<name>.enc a held key opens, or use -fk / \`dede keys link\`)`, 3);
   return priv!;
 }
 
@@ -106,21 +163,22 @@ function assertKeysFileSafe(path: string): void {
 // `--key NAME`: the key a new .enc is encrypted with, instead of the one named after the file.
 let keyChoice: string | undefined;
 
-function keyByName(keyName: string, keysPath: string): string {
+function keyByName(keyName: string, dir: string): string {
+  const keysPath = keysFileFor(dir);
   const fromFile = existsSync(keysPath) ? scan(readFileSync(keysPath, "utf8")).parsed[keyName]?.at(-1) : undefined;
-  return (process.env[keyName] || fromFile || "").split(",")[0].trim();
+  return (process.env[keyName] || fromFile || treeFor(dir).byName[keyName] || "").split(",")[0].trim();
 }
 
-// Existing key for a new .enc (env or the keys file, by dotenvx name), else a fresh one saved to the keys file.
+// Existing key for a new .enc (env, the keys file or the key tree, by dotenvx name), else a fresh one saved to the keys file.
 function obtainKey(pair: Pair): { publicKey: string; privateKey: string } {
   const keysPath = keysFileFor(dirname(pair.plain));
   if (keyChoice) {
-    const chosen = keyByName(`DOTENV_PRIVATE_KEY_${keyChoice}`, keysPath);
-    if (!chosen) die(`--key ${keyChoice}: DOTENV_PRIVATE_KEY_${keyChoice} not found in the environment or ${rel(keysPath)}`, 3);
+    const chosen = keyByName(`DOTENV_PRIVATE_KEY_${keyChoice}`, dirname(pair.plain));
+    if (!chosen) die(`--key ${keyChoice}: DOTENV_PRIVATE_KEY_${keyChoice} not found in the environment, ${rel(keysPath)} or its key tree`, 3);
     return keypair(chosen);
   }
   const keyName = `DOTENV_PRIVATE_KEY${suffixOf(pair.name)}`;
-  const existing = keyByName(keyName, keysPath);
+  const existing = keyByName(keyName, dirname(pair.plain));
   if (existing) return keypair(existing);
   assertKeysFileSafe(keysPath);
   const kp = keypair();
@@ -341,6 +399,7 @@ function read(path: string): string | undefined {
 }
 
 function writeAtomic(path: string, text: string, mode: number): void {
+  trees.clear(); // a new key or keys file may change the key tree
   if (existsSync(path) && lstatSync(path).isSymbolicLink()) die(`${rel(path)} is a symlink; refusing`, 4);
   const tmp = join(dirname(path), `${TMP}${process.pid}-${randomBytes(4).toString("hex")}`);
   const fd = openSync(tmp, "wx", mode);
@@ -438,7 +497,7 @@ function enc(pair: Pair, force: boolean): void {
     return log(`created ${rel(pair.enc)}`);
   }
   if (keyChoice) {
-    const chosen = keyByName(`DOTENV_PRIVATE_KEY_${keyChoice}`, keysFileFor(dirname(pair.plain)));
+    const chosen = keyByName(`DOTENV_PRIVATE_KEY_${keyChoice}`, dirname(pair.plain));
     if (chosen && keypair(chosen).publicKey !== v.pub) die(`${rel(pair.enc)} is encrypted with another key; --key only chooses the key for a new .enc`, 4);
   }
   if (v.C === v.D) {
@@ -637,15 +696,11 @@ function guard(all: boolean): void {
 // Prints public-key prefixes and file names only, never a private key.
 function keysStatus(ps: Pair[]): boolean {
   let ok = true;
-  const envRing = keyringSync({ fk: [], processEnv: process.env });
   for (const p of ps) {
     const E = read(p.enc);
     if (E === undefined) continue;
     const { publicKey } = splitEnc(E, p.enc);
-    const file = keysFileFor(dirname(p.plain));
-    const fileRing = existsSync(file) ? keyringSync({ fk: [file], processEnv: {} }) : {};
-    const link = isSymlink(file) ? ` → ${rel(realpathSync(file))}` : "";
-    const from = envRing[publicKey] ? "environment" : fileRing[publicKey] ? `${rel(file)}${link}` : undefined;
+    const from = treeFor(dirname(p.plain)).from[publicKey];
     if (!from) ok = false;
     console.log(`${from ? "✓" : "✗"} ${rel(p.enc)}  ${publicKey.slice(0, 10)}…  ${from ?? `missing (DOTENV_PRIVATE_KEY${suffixOf(p.name)})`}`);
   }
