@@ -80,11 +80,12 @@ dotenvx's convention, nothing new:
 
 - `.env.local` ↔ `DOTENV_PUBLIC_KEY_LOCAL` (header of `.env.local.enc`) and `DOTENV_PRIVATE_KEY_LOCAL`
   (`.env` → no suffix, `.env.development.local` → `_DEVELOPMENT_LOCAL`).
-- The private key is read from the environment, else from `.env.keys` next to the file — nowhere
-  else. The key that matches the `.enc` header is used, whatever its name.
+- The private key is read from the environment, else from `.env.keys` next to the file, else from
+  the [key tree](#key-tree) those keys open — nowhere else. The key that matches the `.enc` header is
+  used, whatever its name.
 - `-fk <path>` / `--env-keys-file <path>` (or `DOTENV_KEYS_FILE`) points one run at another keys file.
 - `dede keys` lists every `.enc` here with the public key it needs and where that key was found
-  (environment, `.env.keys`, or missing). It never prints a private key.
+  (environment, `.env.keys`, a path through the key tree, or missing). It never prints a private key.
 - The first `dede enc` of a file reuses an existing key by that name, or generates one and appends it
   to `.env.keys` (mode 0600). **Back it up in the password manager** — it is the only copy, and
   teammates need it to run `dede dec`.
@@ -122,6 +123,29 @@ cd ~/src/myproj && rm .env.keys && dede keys link ~/vault/.env.keys.myproj
 
 On a new machine: restore `ME` from the password manager into the vault repo's `.env.keys`, run
 `dede dec`, then `dede keys link` from each project. `ME` becomes the one key to protect.
+
+### Key tree
+
+A committed keys file `.env.keys.<name>.enc` is a branch: when a key dede already holds opens it, the
+`DOTENV_PRIVATE_KEY_*` inside join the ring, and those may open further `.env.keys.<name>.enc` files,
+until nothing new opens. So one root key in `.env.keys` (or the environment) decrypts everything below
+it, without running `dede dec` on the keys files first:
+
+```text
+.env.keys                 DOTENV_PRIVATE_KEY_ME            (the one key you hold)
+├─ .env.keys.team.enc     DOTENV_PRIVATE_KEY_TEAM          (encrypted with ME)
+│  └─ .env.keys.ci.enc    DOTENV_PRIVATE_KEY_CI            (encrypted with TEAM)
+└─ .env.keys.myproj.enc   DOTENV_PRIVATE_KEY_PRODUCTION …  (encrypted with ME)
+```
+
+```sh
+dede enc .env.keys.team --key ME     # add a branch
+dede keys                            # ✓ .env.ci.enc  02ab…  .env.keys.ci.enc ← .env.keys.team.enc ← .env.keys
+```
+
+Branches are read from the directory of the env file and from the directory a linked `.env.keys`
+points into, so a project linked to a vault repo's keys file sees the vault's whole tree. Keys found
+this way stay in memory; nothing is written. A new `.enc` whose named key is in the tree reuses it.
 
 ## Guard (pre-commit)
 

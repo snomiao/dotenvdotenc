@@ -1131,3 +1131,73 @@ describe("dede get", () => {
     expect(res.out).toBe("");
   });
 });
+
+describe("key tree", () => {
+  const ROOT = "a".repeat(64);
+  const MID = "b".repeat(64);
+  // ROOT (in .env.keys) opens .env.keys.mid.enc → MID opens .env.keys.leaf.enc → LOCAL opens .env.local.enc
+  const tree = () => {
+    const r = new Repo();
+    r.write(".env.local", "A=1\n");
+    expect(r.dede(["enc"]).code).toBe(0);
+    const local = /DOTENV_PRIVATE_KEY_LOCAL=([0-9a-f]{64})/.exec(r.read(".env.keys"))![1];
+    r.write(".env.keys", `DOTENV_PRIVATE_KEY_ROOT=${ROOT}\nDOTENV_PRIVATE_KEY_MID=${MID}\n`);
+    r.write(".env.keys.leaf", `DOTENV_PRIVATE_KEY_LOCAL=${local}\n`);
+    expect(r.dede(["enc", ".env.keys.leaf", "--key", "MID"]).code).toBe(0);
+    r.write(".env.keys.mid", `DOTENV_PRIVATE_KEY_MID=${MID}\n`);
+    expect(r.dede(["enc", ".env.keys.mid", "--key", "ROOT"]).code).toBe(0);
+    for (const f of [".env.local", ".env.keys.leaf", ".env.keys.mid"]) r.rm(f);
+    r.write(".env.keys", `DOTENV_PRIVATE_KEY_ROOT=${ROOT}\n`);
+    return { r, local };
+  };
+
+  test("one root key in .env.keys opens keys two levels down; nothing extra is written", () => {
+    const { r } = tree();
+    expect(r.dede(["dec", ".env.local.enc"]).code).toBe(0);
+    expect(r.read(".env.local")).toBe("A=1\n");
+    expect(r.read(".env.keys")).toBe(`DOTENV_PRIVATE_KEY_ROOT=${ROOT}\n`);
+    expect(r.exists(".env.keys.mid")).toBe(false);
+    expect(r.exists(".env.keys.leaf")).toBe(false);
+    expect(r.dede(["get", "A", ".env.local.enc"]).out).toBe("1");
+  });
+
+  test("the root key can come from the environment", () => {
+    const { r } = tree();
+    r.rm(".env.keys");
+    expect(r.dede(["get", "A", ".env.local.enc"]).code).toBe(3);
+    expect(r.dede(["get", "A", ".env.local.enc"], { DOTENV_PRIVATE_KEY_ROOT: ROOT }).out).toBe("1");
+  });
+
+  test("dede keys shows the path through the tree and never a private key", () => {
+    const { r, local } = tree();
+    const res = r.dede(["keys"]);
+    expect(res.code).toBe(0);
+    expect(res.out).toContain(".env.local.enc");
+    expect(res.out).toContain(".env.keys.leaf.enc ← .env.keys.mid.enc ← .env.keys");
+    for (const k of [ROOT, MID, local]) expect(res.out + res.err).not.toContain(k);
+  });
+
+  test("a new .enc reuses its named key from the tree instead of minting one", () => {
+    const { r } = tree();
+    r.write(".env.local", "A=1\nB=2\n");
+    r.rm(".env.local.enc");
+    expect(r.dede(["enc", ".env.local"]).code).toBe(0);
+    expect(r.read(".env.keys")).toBe(`DOTENV_PRIVATE_KEY_ROOT=${ROOT}\n`);
+  });
+
+  test("without the root key the branch stays shut: exit 3", () => {
+    const { r } = tree();
+    r.write(".env.keys", `DOTENV_PRIVATE_KEY_OTHER=${"c".repeat(64)}\n`);
+    expect(r.dede(["dec", ".env.local.enc"]).code).toBe(3);
+    expect(r.exists(".env.local")).toBe(false);
+  });
+
+  test("a linked .env.keys grows the tree from the target's directory", () => {
+    const { r } = tree();
+    const other = new Repo();
+    expect(other.dede(["keys", "link", join(r.dir, ".env.keys")]).code).toBe(0);
+    other.write(".env.local.enc", r.read(".env.local.enc"));
+    expect(other.dede(["dec", ".env.local.enc"]).code).toBe(0);
+    expect(other.read(".env.local")).toBe("A=1\n");
+  });
+});
