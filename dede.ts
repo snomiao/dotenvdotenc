@@ -20,6 +20,8 @@ const USAGE = `dede — sync gitignored .env* files with committed dotenvx-encry
   dede guard [--all]                pre-commit: block staged plaintext env files, keys, unencrypted values
   dede setup                        add .gitignore rules and the pre-commit hook
   dede keys                         which key each .enc here needs, and whether it is held
+  dede health [--all] [file|glob…]  rotation check against the rules in .dede.yaml: overdue (exit 1)
+                                    and due-soon values, aged by git blame of their .enc line
   dede keys link <path>             make ./.env.keys a symlink to another checkout's .env.keys
 
   -fk, --env-keys-file <path>       use this keys file instead of ./.env.keys (also DOTENV_KEYS_FILE)
@@ -693,6 +695,120 @@ function guard(all: boolean): void {
 
 // ---------- keys ----------
 
+// ---------- health: rotation rules ----------
+
+// .dede.yaml at the repo root holds rotation rules. A value's age is the date its ciphertext line
+// last changed (git blame): dede keeps the ciphertext of unchanged values, so the line only moves
+// when the value does. First matching rule wins; a value no rule matches is not checked.
+//
+//   rotate:
+//     - keys: "*_TOKEN*"            # glob(s) over value names (default: all)
+//       files: ".env.prod"          # glob(s) over plaintext file names (default: all)
+//       every: 90d                  # max age: Nd, Nw, Nm (months), Ny
+//       expires: 2027-01-26         # or a fixed date (e.g. a token's own expiry)
+//       warn: 30d                   # "due soon" window (default 30d)
+//       note: "Settings → Tokens"   # where to rotate it; shown in the report
+interface Rule {
+  keys: string[];
+  files: string[];
+  every?: number; // days
+  expires?: number; // epoch ms
+  warn: number; // days
+  note?: string;
+}
+const DAY = 86_400_000;
+const CONFIG = ".dede.yaml";
+
+function days(v: unknown, where: string): number {
+  const m = /^(\d+)\s*([dwmy])$/.exec(String(v).trim());
+  if (!m) die(`${where}: "${v}" is not a duration like 90d, 12w, 6m or 1y`, 4);
+  return Number(m![1]) * { d: 1, w: 7, m: 30, y: 365 }[m![2] as "d" | "w" | "m" | "y"];
+}
+
+function loadRules(top: string): Rule[] | undefined {
+  const file = join(top, CONFIG);
+  if (!existsSync(file)) return undefined;
+  let doc: { rotate?: unknown };
+  try {
+    doc = (Bun.YAML.parse(readFileSync(file, "utf8")) ?? {}) as { rotate?: unknown };
+  } catch (e) {
+    return die(`${rel(file)}: ${(e as Error).message}`, 4);
+  }
+  if (doc.rotate === undefined) return [];
+  if (!Array.isArray(doc.rotate)) die(`${rel(file)}: rotate must be a list of rules`, 4);
+  const list = (v: unknown) => (v === undefined ? ["*"] : Array.isArray(v) ? v.map(String) : [String(v)]);
+  return (doc.rotate as Record<string, unknown>[]).map((r, i) => {
+    const where = `${rel(file)}: rotate[${i}]`;
+    for (const k of Object.keys(r ?? {})) if (!["keys", "files", "every", "expires", "warn", "note"].includes(k)) die(`${where}: unknown field ${k}`, 4);
+    const expires = r.expires === undefined ? undefined : Date.parse(r.expires instanceof Date ? r.expires.toISOString() : String(r.expires));
+    if (expires !== undefined && Number.isNaN(expires)) die(`${where}: expires "${r.expires}" is not a date (YYYY-MM-DD)`, 4);
+    return {
+      keys: list(r.keys),
+      files: list(r.files),
+      every: r.every === undefined || r.every === "never" ? undefined : days(r.every, where),
+      expires,
+      warn: r.warn === undefined ? 30 : days(r.warn, where),
+      note: r.note === undefined ? undefined : String(r.note),
+    };
+  });
+}
+
+// When each line of a committed file last changed (epoch ms); uncommitted lines count as now.
+function lineDates(file: string): number[] | undefined {
+  const r = git(["blame", "--line-porcelain", "-M", "-C", "--", basename(file)], dirname(file));
+  if (!r.ok) return undefined;
+  const dates: number[] = [];
+  let t = 0;
+  for (const line of r.out.split("\n")) {
+    if (line.startsWith("author-time ")) t = Number(line.slice(12)) * 1000;
+    else if (line.startsWith("\t")) dates.push(t);
+  }
+  return dates;
+}
+
+const fmt = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+
+function health(ps: Pair[], all: boolean): boolean {
+  const rules = loadRules(gitDir(process.cwd())) ?? die(`no ${CONFIG} at the repo root; add rotation rules there (see README: Rotation)`, 4);
+  const now = Date.now();
+  const n = { overdue: 0, soon: 0, ok: 0, unruled: 0 };
+  for (const p of ps) {
+    const E = read(p.enc);
+    if (E === undefined) continue;
+    const lines = lf(E).split("\n");
+    const dates = lineDates(p.enc);
+    const at: Record<string, number> = {};
+    lines.forEach((line, i) => {
+      const k = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_.-]*)\s*=/.exec(line)?.[1];
+      if (k && !k.startsWith("DOTENV_PUBLIC_KEY")) at[k] = i; // last assignment wins, as in dotenv
+    });
+    for (const [k, i] of Object.entries(at)) {
+      const rule = rules.find((r) => r.keys.some((g) => new Bun.Glob(g).match(k)) && r.files.some((g) => new Bun.Glob(g).match(p.name)));
+      if (!rule || (rule.every === undefined && rule.expires === undefined)) {
+        n.unruled++;
+        continue;
+      }
+      const changed = dates?.[i] ?? now;
+      const dueBy = Math.min(rule.every === undefined ? Infinity : changed + rule.every * DAY, rule.expires ?? Infinity);
+      const left = Math.floor((dueBy - now) / DAY);
+      const why = [dates ? `changed ${fmt(changed)}` : "not committed", rule.every && `every ${rule.every}d`, rule.expires && `expires ${fmt(rule.expires)}`].filter(Boolean).join(", ");
+      const tail = `${why}${rule.note ? ` — ${rule.note}` : ""}`;
+      if (left < 0) {
+        n.overdue++;
+        console.log(`✗ ${rel(p.enc)}  ${k}  overdue ${-left}d (${tail})`);
+      } else if (left <= rule.warn) {
+        n.soon++;
+        console.log(`! ${rel(p.enc)}  ${k}  due in ${left}d (${tail})`);
+      } else {
+        n.ok++;
+        if (all) console.log(`✓ ${rel(p.enc)}  ${k}  due in ${left}d (${tail})`);
+      }
+    }
+  }
+  log(`dede health: ${n.overdue} overdue, ${n.soon} due soon, ${n.ok} ok, ${n.unruled} without a rule`);
+  return n.overdue === 0;
+}
+
 // Prints public-key prefixes and file names only, never a private key.
 function keysStatus(ps: Pair[]): boolean {
   let ok = true;
@@ -901,6 +1017,9 @@ export function main(argv: string[]): number {
         break;
       case "setup":
         setup();
+        break;
+      case "health":
+        if (!health(pairs(args, "dec"), rest.includes("--all"))) code = 1;
         break;
       case "keys":
         if (args[0] === "link") keysLink(args[1]);

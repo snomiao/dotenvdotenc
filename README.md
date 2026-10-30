@@ -147,6 +147,37 @@ Branches are read from the directory of the env file and from the directory a li
 points into, so a project linked to a vault repo's keys file sees the vault's whole tree. Keys found
 this way stay in memory; nothing is written. A new `.enc` whose named key is in the tree reuses it.
 
+## Rotation (`dede health`)
+
+Put rotation rules in `.dede.yaml` at the repo root, and `dede health` reports which secrets are overdue
+(exit 1) or due soon. A value's age is the date its ciphertext line last changed in git: dede keeps the
+ciphertext of unchanged values, so `git blame` on the `.enc` moves only when the value itself changes.
+Rotating = edit the value, `dede enc`, commit; the clock restarts for that value only.
+
+```yaml
+# .dede.yaml — first matching rule wins; values no rule matches are counted, not checked
+rotate:
+  - keys: TAILSCALE_AUTHKEY        # glob(s) over value names (default: all)
+    expires: 2027-01-26            # the credential's own expiry date
+    note: "admin console → Keys"   # where to rotate it; printed in the report
+  - keys: ["*_TOTP_SECRET", "*_ACCOUNT_ID"]
+    every: never                   # exempt
+  - keys: ["*_TOKEN*", "*_API_KEY", "*_SECRET*"]
+    every: 90d                     # Nd, Nw, Nm (months), Ny
+    warn: 14d                      # "due soon" window (default 30d)
+  - files: ".env.prod"             # glob(s) over plaintext file names (default: all)
+    every: 1y
+```
+
+```sh
+dede health              # ✗ overdue / ! due soon, names and dates only (never values)
+dede health --all        # also ✓ the ones in date
+dede health .env.prod    # one file
+```
+
+It prints names and dates, never a value, so it can run in CI on a schedule (it needs the full git
+history: `fetch-depth: 0`) without any private key.
+
 ## Guard (pre-commit)
 
 `dede guard` blocks a commit that stages:
