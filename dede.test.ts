@@ -1219,7 +1219,7 @@ describe("health (.dede.yaml rotation rules)", () => {
     expect(res.code).toBe(1);
     expect(res.out).toMatch(/✗ \.env\.prod\.enc {2}API_TOKEN {2}overdue \d+d \(changed 2020-01-01, every 90d — Settings → Tokens\)/);
     expect(res.out).not.toContain("NAME");
-    expect(res.err).toContain("1 overdue, 0 due soon, 0 ok, 1 without a rule");
+    expect(res.err).toContain("1 overdue, 0 due soon, 0 ok, 0 exempt (every: never), 1 without a rule");
     expect(res.out + res.err).not.toContain("tok-secret");
   });
 
@@ -1262,7 +1262,7 @@ describe("health (.dede.yaml rotation rules)", () => {
     expect(res.code).toBe(1);
     expect(res.out).toContain(".env.prod.enc  K  overdue");
     expect(res.out).not.toContain(".env.dev.enc");
-    expect(res.err).toContain("1 overdue, 0 due soon, 0 ok, 2 without a rule");
+    expect(res.err).toContain("1 overdue, 0 due soon, 0 ok, 1 exempt (every: never), 1 without a rule");
     r.write(".dede.yaml", "rotate:\n  - every: soon\n");
     expect(r.dede(["health"]).code).toBe(4);
     r.write(".dede.yaml", "rotate:\n  - evry: 90d\n");

@@ -771,7 +771,7 @@ const fmt = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 function health(ps: Pair[], all: boolean): boolean {
   const rules = loadRules(gitDir(process.cwd())) ?? die(`no ${CONFIG} at the repo root; add rotation rules there (see README: Rotation)`, 4);
   const now = Date.now();
-  const n = { overdue: 0, soon: 0, ok: 0, unruled: 0 };
+  const n = { overdue: 0, soon: 0, ok: 0, exempt: 0, unruled: 0 };
   for (const p of ps) {
     const E = read(p.enc);
     if (E === undefined) continue;
@@ -785,7 +785,7 @@ function health(ps: Pair[], all: boolean): boolean {
     for (const [k, i] of Object.entries(at)) {
       const rule = rules.find((r) => r.keys.some((g) => new Bun.Glob(g).match(k)) && r.files.some((g) => new Bun.Glob(g).match(p.name)));
       if (!rule || (rule.every === undefined && rule.expires === undefined)) {
-        n.unruled++;
+        n[rule ? "exempt" : "unruled"]++;
         continue;
       }
       const changed = dates?.[i] ?? now;
@@ -805,7 +805,7 @@ function health(ps: Pair[], all: boolean): boolean {
       }
     }
   }
-  log(`dede health: ${n.overdue} overdue, ${n.soon} due soon, ${n.ok} ok, ${n.unruled} without a rule`);
+  log(`dede health: ${n.overdue} overdue, ${n.soon} due soon, ${n.ok} ok, ${n.exempt} exempt (every: never), ${n.unruled} without a rule`);
   return n.overdue === 0;
 }
 
