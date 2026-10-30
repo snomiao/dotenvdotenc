@@ -1201,3 +1201,71 @@ describe("key tree", () => {
     expect(other.read(".env.local")).toBe("A=1\n");
   });
 });
+
+describe("health (.dede.yaml rotation rules)", () => {
+  const old = (r: Repo, when: string) => {
+    r.git("add", "-A");
+    r.git("commit", "-q", `--date=${when}`, "-m", "secrets");
+  };
+  const soon = () => new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10);
+
+  test("overdue value: exit 1, named with its rule's note, never its value; unmatched values are counted", () => {
+    const r = new Repo();
+    r.write(".env.prod", "API_TOKEN=tok-secret\nNAME=public-ish\n");
+    r.dede(["enc"]);
+    r.write(".dede.yaml", 'rotate:\n  - keys: "*_TOKEN"\n    every: 90d\n    note: "Settings → Tokens"\n');
+    old(r, "2020-01-01T00:00:00Z");
+    const res = r.dede(["health"]);
+    expect(res.code).toBe(1);
+    expect(res.out).toMatch(/✗ \.env\.prod\.enc {2}API_TOKEN {2}overdue \d+d \(changed 2020-01-01, every 90d — Settings → Tokens\)/);
+    expect(res.out).not.toContain("NAME");
+    expect(res.err).toContain("1 overdue, 0 due soon, 0 ok, 1 without a rule");
+    expect(res.out + res.err).not.toContain("tok-secret");
+  });
+
+  test("a fixed expiry inside the warn window is due soon, exit 0; --all lists the ok ones", () => {
+    const r = new Repo();
+    r.write(".env.prod", "TS_AUTHKEY=k\nOTHER=v\n");
+    r.dede(["enc"]);
+    r.write(".dede.yaml", `rotate:\n  - keys: TS_AUTHKEY\n    expires: ${soon()}\n  - keys: "*"\n    every: 1y\n`);
+    old(r, new Date().toISOString());
+    const res = r.dede(["health", "--all"]);
+    expect(res.code).toBe(0);
+    expect(res.out).toMatch(/! \.env\.prod\.enc {2}TS_AUTHKEY {2}due in \d+d/);
+    expect(res.out).toMatch(/✓ \.env\.prod\.enc {2}OTHER {2}due in 36\dd/);
+  });
+
+  test("rotating one value resets its age only (unchanged ciphertext lines keep their blame)", () => {
+    const r = new Repo();
+    r.write(".env.prod", "A_TOKEN=1\nB_TOKEN=2\n");
+    r.dede(["enc"]);
+    r.write(".dede.yaml", 'rotate:\n  - keys: "*_TOKEN"\n    every: 30d\n    warn: 7d\n');
+    old(r, "2020-01-01T00:00:00Z");
+    r.write(".env.prod", "A_TOKEN=rotated\nB_TOKEN=2\n");
+    expect(r.dede(["enc"]).code).toBe(0);
+    old(r, new Date().toISOString());
+    const res = r.dede(["health"]);
+    expect(res.code).toBe(1);
+    expect(res.out).toContain("B_TOKEN  overdue");
+    expect(res.out).not.toContain("A_TOKEN");
+  });
+
+  test("files glob scopes a rule; never exempts; bad config and missing config exit 4", () => {
+    const r = new Repo();
+    r.write(".env.dev", "K=1\n");
+    r.write(".env.prod", "K=1\nPIN=2\n");
+    r.dede(["enc"]);
+    old(r, "2020-01-01T00:00:00Z");
+    expect(r.dede(["health"]).code).toBe(4);
+    r.write(".dede.yaml", 'rotate:\n  - keys: PIN\n    every: never\n  - files: ".env.prod"\n    every: 1y\n');
+    const res = r.dede(["health"]);
+    expect(res.code).toBe(1);
+    expect(res.out).toContain(".env.prod.enc  K  overdue");
+    expect(res.out).not.toContain(".env.dev.enc");
+    expect(res.err).toContain("1 overdue, 0 due soon, 0 ok, 2 without a rule");
+    r.write(".dede.yaml", "rotate:\n  - every: soon\n");
+    expect(r.dede(["health"]).code).toBe(4);
+    r.write(".dede.yaml", "rotate:\n  - evry: 90d\n");
+    expect(r.dede(["health"]).err).toContain("unknown field evry");
+  });
+});
