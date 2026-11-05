@@ -80,11 +80,12 @@ dotenvx's convention, nothing new:
 
 - `.env.local` ↔ `DOTENV_PUBLIC_KEY_LOCAL` (header of `.env.local.enc`) and `DOTENV_PRIVATE_KEY_LOCAL`
   (`.env` → no suffix, `.env.development.local` → `_DEVELOPMENT_LOCAL`).
-- The private key is read from the environment, else from `.env.keys` next to the file — nowhere
-  else. The key that matches the `.enc` header is used, whatever its name.
+- The private key is read from the environment, else from `.env.keys` next to the file, else from
+  the [key tree](#key-tree) those keys open — nowhere else. The key that matches the `.enc` header is
+  used, whatever its name.
 - `-fk <path>` / `--env-keys-file <path>` (or `DOTENV_KEYS_FILE`) points one run at another keys file.
 - `dede keys` lists every `.enc` here with the public key it needs and where that key was found
-  (environment, `.env.keys`, or missing). It never prints a private key.
+  (environment, `.env.keys`, a path through the key tree, or missing). It never prints a private key.
 - The first `dede enc` of a file reuses an existing key by that name, or generates one and appends it
   to `.env.keys` (mode 0600). **Back it up in the password manager** — it is the only copy, and
   teammates need it to run `dede dec`.
@@ -122,6 +123,60 @@ cd ~/src/myproj && rm .env.keys && dede keys link ~/vault/.env.keys.myproj
 
 On a new machine: restore `ME` from the password manager into the vault repo's `.env.keys`, run
 `dede dec`, then `dede keys link` from each project. `ME` becomes the one key to protect.
+
+### Key tree
+
+A committed keys file `.env.keys.<name>.enc` is a branch: when a key dede already holds opens it, the
+`DOTENV_PRIVATE_KEY_*` inside join the ring, and those may open further `.env.keys.<name>.enc` files,
+until nothing new opens. So one root key in `.env.keys` (or the environment) decrypts everything below
+it, without running `dede dec` on the keys files first:
+
+```text
+.env.keys                 DOTENV_PRIVATE_KEY_ME            (the one key you hold)
+├─ .env.keys.team.enc     DOTENV_PRIVATE_KEY_TEAM          (encrypted with ME)
+│  └─ .env.keys.ci.enc    DOTENV_PRIVATE_KEY_CI            (encrypted with TEAM)
+└─ .env.keys.myproj.enc   DOTENV_PRIVATE_KEY_PRODUCTION …  (encrypted with ME)
+```
+
+```sh
+dede enc .env.keys.team --key ME     # add a branch
+dede keys                            # ✓ .env.ci.enc  02ab…  .env.keys.ci.enc ← .env.keys.team.enc ← .env.keys
+```
+
+Branches are read from the directory of the env file and from the directory a linked `.env.keys`
+points into, so a project linked to a vault repo's keys file sees the vault's whole tree. Keys found
+this way stay in memory; nothing is written. A new `.enc` whose named key is in the tree reuses it.
+
+## Rotation (`dede health`)
+
+Put rotation rules in `.dede.yaml` at the repo root, and `dede health` reports which secrets are overdue
+(exit 1) or due soon. A value's age is the date its ciphertext line last changed in git: dede keeps the
+ciphertext of unchanged values, so `git blame` on the `.enc` moves only when the value itself changes.
+Rotating = edit the value, `dede enc`, commit; the clock restarts for that value only.
+
+```yaml
+# .dede.yaml — first matching rule wins; values no rule matches are counted, not checked
+rotate:
+  - keys: TAILSCALE_AUTHKEY        # glob(s) over value names (default: all)
+    expires: 2027-01-26            # the credential's own expiry date
+    note: "admin console → Keys"   # where to rotate it; printed in the report
+  - keys: ["*_TOTP_SECRET", "*_ACCOUNT_ID"]
+    every: never                   # exempt
+  - keys: ["*_TOKEN*", "*_API_KEY", "*_SECRET*"]
+    every: 90d                     # Nd, Nw, Nm (months), Ny
+    warn: 14d                      # "due soon" window (default 30d)
+  - files: ".env.prod"             # glob(s) over plaintext file names (default: all)
+    every: 1y
+```
+
+```sh
+dede health              # ✗ overdue / ! due soon, names and dates only (never values)
+dede health --all        # also ✓ the ones in date
+dede health .env.prod    # one file
+```
+
+It prints names and dates, never a value, so it can run in CI on a schedule (it needs the full git
+history: `fetch-depth: 0`) without any private key.
 
 ## Guard (pre-commit)
 

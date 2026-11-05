@@ -20,13 +20,16 @@ const USAGE = `dede — sync gitignored .env* files with committed dotenvx-encry
   dede guard [--all]                pre-commit: block staged plaintext env files, keys, unencrypted values
   dede setup                        add .gitignore rules and the pre-commit hook
   dede keys                         which key each .enc here needs, and whether it is held
+  dede health [--all] [file|glob…]  rotation check against the rules in .dede.yaml: overdue (exit 1)
+                                    and due-soon values, aged by git blame of their .enc line
   dede keys link <path>             make ./.env.keys a symlink to another checkout's .env.keys
 
   -fk, --env-keys-file <path>       use this keys file instead of ./.env.keys (also DOTENV_KEYS_FILE)
   --key <NAME>                      encrypt a new .enc with the existing DOTENV_PRIVATE_KEY_<NAME>
                                     (e.g. back up a keys file: dede enc .env.keys.myproj --key ME)
 
-Private keys: DOTENV_PRIVATE_KEY_<SUFFIX> in the environment, else ./.env.keys (dotenvx convention).`;
+Private keys: DOTENV_PRIVATE_KEY_<SUFFIX> in the environment, else ./.env.keys (dotenvx convention),
+else the key tree: any .env.keys.<name>.enc a held key opens adds the keys inside it, recursively.`;
 
 const PREFIX = "encrypted:";
 const TMP = ".env.dede-tmp-";
@@ -83,17 +86,73 @@ export const suffixOf = (name: string) => (name === ".env" ? "" : "_" + name.sli
 const isEnvName = (name: string) => NAME_RE.test(name) && !name.endsWith(".enc") && !SKIP.has(name) && !name.startsWith(TMP);
 
 // Keys come from the environment, then one keys file: ./.env.keys next to the env file, or an
-// explicit -fk / DOTENV_KEYS_FILE. No other place is searched.
+// explicit -fk / DOTENV_KEYS_FILE. From there the key tree grows (treeFor); nothing else is searched.
 let keysOverride: string | undefined;
 const keysFileFor = (dir: string) => keysOverride ?? join(dir, ".env.keys");
 
-function ringFor(dir: string): Record<string, string> {
-  return keyringSync({ fk: [keysFileFor(dir)], processEnv: process.env });
+// Key tree: a committed keys file `.env.keys.<name>.enc` (next to the env file, or next to the
+// keys file a link points at) is opened in memory once a held key fits it, and its
+// DOTENV_PRIVATE_KEY_* join the ring, repeatedly until nothing new opens. So one root key in
+// .env.keys reaches every key below it. Nothing is written; the keys never leave the process.
+interface Tree {
+  ring: Record<string, string>; // public key → private key
+  from: Record<string, string>; // public key → where it was found, for `dede keys`
+  byName: Record<string, string>; // DOTENV_PRIVATE_KEY_* name → private key, from the tree's files
 }
+const KEYS_ENC_RE = /^\.env\.keys\.[A-Za-z0-9_.-]+\.enc$/;
+const trees = new Map<string, Tree>();
+
+function treeFor(dir: string): Tree {
+  const file = keysFileFor(dir);
+  const cached = trees.get(`${dir}\0${file}`);
+  if (cached) return cached;
+  const envRing = keyringSync({ fk: [], processEnv: process.env });
+  const fileRing = existsSync(file) ? keyringSync({ fk: [file], processEnv: {} }) : {};
+  const t: Tree = { ring: keyringSync({ fk: [file], processEnv: process.env }), from: {}, byName: {} };
+  const link = isSymlink(file) ? ` → ${rel(realpathSync(file))}` : "";
+  for (const pub of Object.keys(t.ring)) t.from[pub] = envRing[pub] ? "environment" : fileRing[pub] ? `${rel(file)}${link}` : "keys";
+  const homes = new Set([resolve(dir), ...(existsSync(file) ? [dirname(realpathSync(file))] : [])]);
+  const nodes = [...homes].flatMap((d) => readdirSync(d).filter((n) => KEYS_ENC_RE.test(n)).sort().map((n) => join(d, n)));
+  const opened = new Set<string>();
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const node of nodes) {
+      if (opened.has(node)) continue;
+      let plain: Values;
+      let via: string;
+      try {
+        const { publicKey, body } = splitEnc(lf(readFileSync(node, "utf8")), node);
+        if (!t.ring[publicKey]) continue; // maybe a later round opens it
+        via = t.from[publicKey];
+        plain = decryptAll(body, t.ring[publicKey], node).plain;
+      } catch {
+        opened.add(node); // malformed or undecryptable: not part of the tree
+        continue;
+      }
+      opened.add(node);
+      for (const [name, vs] of Object.entries(plain)) {
+        if (!name.startsWith("DOTENV_PRIVATE_KEY")) continue;
+        for (const priv of (vs.at(-1) ?? "").split(",").map((s) => s.trim())) {
+          if (!/^[0-9a-fA-F]{64}$/.test(priv)) continue;
+          t.byName[name] ??= priv;
+          const pub = keypair(priv).publicKey;
+          if (t.ring[pub]) continue;
+          t.ring[pub] = priv;
+          t.from[pub] = `${rel(node)} ← ${via}`;
+          grew = true;
+        }
+      }
+    }
+  }
+  trees.set(`${dir}\0${file}`, t);
+  return t;
+}
+
+const ringFor = (dir: string) => treeFor(dir).ring;
 
 function privateKeyFor(pub: string, pair: Pair): string {
   const priv = ringFor(dirname(pair.plain))[pub];
-  if (!priv) die(`${rel(pair.enc)}: no private key (set DOTENV_PRIVATE_KEY${suffixOf(pair.name)}, add it to ${rel(keysFileFor(dirname(pair.plain)))}, or use -fk / \`dede keys link\`)`, 3);
+  if (!priv) die(`${rel(pair.enc)}: no private key (set DOTENV_PRIVATE_KEY${suffixOf(pair.name)}, add it to ${rel(keysFileFor(dirname(pair.plain)))} or to a .env.keys.<name>.enc a held key opens, or use -fk / \`dede keys link\`)`, 3);
   return priv!;
 }
 
@@ -106,21 +165,22 @@ function assertKeysFileSafe(path: string): void {
 // `--key NAME`: the key a new .enc is encrypted with, instead of the one named after the file.
 let keyChoice: string | undefined;
 
-function keyByName(keyName: string, keysPath: string): string {
+function keyByName(keyName: string, dir: string): string {
+  const keysPath = keysFileFor(dir);
   const fromFile = existsSync(keysPath) ? scan(readFileSync(keysPath, "utf8")).parsed[keyName]?.at(-1) : undefined;
-  return (process.env[keyName] || fromFile || "").split(",")[0].trim();
+  return (process.env[keyName] || fromFile || treeFor(dir).byName[keyName] || "").split(",")[0].trim();
 }
 
-// Existing key for a new .enc (env or the keys file, by dotenvx name), else a fresh one saved to the keys file.
+// Existing key for a new .enc (env, the keys file or the key tree, by dotenvx name), else a fresh one saved to the keys file.
 function obtainKey(pair: Pair): { publicKey: string; privateKey: string } {
   const keysPath = keysFileFor(dirname(pair.plain));
   if (keyChoice) {
-    const chosen = keyByName(`DOTENV_PRIVATE_KEY_${keyChoice}`, keysPath);
-    if (!chosen) die(`--key ${keyChoice}: DOTENV_PRIVATE_KEY_${keyChoice} not found in the environment or ${rel(keysPath)}`, 3);
+    const chosen = keyByName(`DOTENV_PRIVATE_KEY_${keyChoice}`, dirname(pair.plain));
+    if (!chosen) die(`--key ${keyChoice}: DOTENV_PRIVATE_KEY_${keyChoice} not found in the environment, ${rel(keysPath)} or its key tree`, 3);
     return keypair(chosen);
   }
   const keyName = `DOTENV_PRIVATE_KEY${suffixOf(pair.name)}`;
-  const existing = keyByName(keyName, keysPath);
+  const existing = keyByName(keyName, dirname(pair.plain));
   if (existing) return keypair(existing);
   assertKeysFileSafe(keysPath);
   const kp = keypair();
@@ -341,6 +401,7 @@ function read(path: string): string | undefined {
 }
 
 function writeAtomic(path: string, text: string, mode: number): void {
+  trees.clear(); // a new key or keys file may change the key tree
   if (existsSync(path) && lstatSync(path).isSymbolicLink()) die(`${rel(path)} is a symlink; refusing`, 4);
   const tmp = join(dirname(path), `${TMP}${process.pid}-${randomBytes(4).toString("hex")}`);
   const fd = openSync(tmp, "wx", mode);
@@ -438,7 +499,7 @@ function enc(pair: Pair, force: boolean): void {
     return log(`created ${rel(pair.enc)}`);
   }
   if (keyChoice) {
-    const chosen = keyByName(`DOTENV_PRIVATE_KEY_${keyChoice}`, keysFileFor(dirname(pair.plain)));
+    const chosen = keyByName(`DOTENV_PRIVATE_KEY_${keyChoice}`, dirname(pair.plain));
     if (chosen && keypair(chosen).publicKey !== v.pub) die(`${rel(pair.enc)} is encrypted with another key; --key only chooses the key for a new .enc`, 4);
   }
   if (v.C === v.D) {
@@ -634,18 +695,128 @@ function guard(all: boolean): void {
 
 // ---------- keys ----------
 
+// ---------- health: rotation rules ----------
+
+// .dede.yaml at the repo root holds rotation rules. A value's age is the date its ciphertext line
+// last changed (git blame): dede keeps the ciphertext of unchanged values, so the line only moves
+// when the value does. First matching rule wins; a value no rule matches is not checked.
+//
+//   rotate:
+//     - keys: "*_TOKEN*"            # glob(s) over value names (default: all)
+//       files: ".env.prod"          # glob(s) over plaintext file names (default: all)
+//       every: 90d                  # max age: Nd, Nw, Nm (months), Ny
+//       expires: 2027-01-26         # or a fixed date (e.g. a token's own expiry)
+//       warn: 30d                   # "due soon" window (default 30d)
+//       note: "Settings → Tokens"   # where to rotate it; shown in the report
+interface Rule {
+  keys: string[];
+  files: string[];
+  every?: number; // days
+  expires?: number; // epoch ms
+  warn: number; // days
+  note?: string;
+}
+const DAY = 86_400_000;
+const CONFIG = ".dede.yaml";
+
+function days(v: unknown, where: string): number {
+  const m = /^(\d+)\s*([dwmy])$/.exec(String(v).trim());
+  if (!m) die(`${where}: "${v}" is not a duration like 90d, 12w, 6m or 1y`, 4);
+  return Number(m![1]) * { d: 1, w: 7, m: 30, y: 365 }[m![2] as "d" | "w" | "m" | "y"];
+}
+
+function loadRules(top: string): Rule[] | undefined {
+  const file = join(top, CONFIG);
+  if (!existsSync(file)) return undefined;
+  let doc: { rotate?: unknown };
+  try {
+    doc = (Bun.YAML.parse(readFileSync(file, "utf8")) ?? {}) as { rotate?: unknown };
+  } catch (e) {
+    return die(`${rel(file)}: ${(e as Error).message}`, 4);
+  }
+  if (doc.rotate === undefined) return [];
+  if (!Array.isArray(doc.rotate)) die(`${rel(file)}: rotate must be a list of rules`, 4);
+  const list = (v: unknown) => (v === undefined ? ["*"] : Array.isArray(v) ? v.map(String) : [String(v)]);
+  return (doc.rotate as Record<string, unknown>[]).map((r, i) => {
+    const where = `${rel(file)}: rotate[${i}]`;
+    for (const k of Object.keys(r ?? {})) if (!["keys", "files", "every", "expires", "warn", "note"].includes(k)) die(`${where}: unknown field ${k}`, 4);
+    const expires = r.expires === undefined ? undefined : Date.parse(r.expires instanceof Date ? r.expires.toISOString() : String(r.expires));
+    if (expires !== undefined && Number.isNaN(expires)) die(`${where}: expires "${r.expires}" is not a date (YYYY-MM-DD)`, 4);
+    return {
+      keys: list(r.keys),
+      files: list(r.files),
+      every: r.every === undefined || r.every === "never" ? undefined : days(r.every, where),
+      expires,
+      warn: r.warn === undefined ? 30 : days(r.warn, where),
+      note: r.note === undefined ? undefined : String(r.note),
+    };
+  });
+}
+
+// When each line of a committed file last changed (epoch ms); uncommitted lines count as now.
+function lineDates(file: string): number[] | undefined {
+  const r = git(["blame", "--line-porcelain", "-M", "-C", "--", basename(file)], dirname(file));
+  if (!r.ok) return undefined;
+  const dates: number[] = [];
+  let t = 0;
+  for (const line of r.out.split("\n")) {
+    if (line.startsWith("author-time ")) t = Number(line.slice(12)) * 1000;
+    else if (line.startsWith("\t")) dates.push(t);
+  }
+  return dates;
+}
+
+const fmt = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+
+function health(ps: Pair[], all: boolean): boolean {
+  const rules = loadRules(gitDir(process.cwd())) ?? die(`no ${CONFIG} at the repo root; add rotation rules there (see README: Rotation)`, 4);
+  const now = Date.now();
+  const n = { overdue: 0, soon: 0, ok: 0, exempt: 0, unruled: 0 };
+  for (const p of ps) {
+    const E = read(p.enc);
+    if (E === undefined) continue;
+    const lines = lf(E).split("\n");
+    const dates = lineDates(p.enc);
+    const at: Record<string, number> = {};
+    lines.forEach((line, i) => {
+      const k = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_.-]*)\s*=/.exec(line)?.[1];
+      if (k && !k.startsWith("DOTENV_PUBLIC_KEY")) at[k] = i; // last assignment wins, as in dotenv
+    });
+    for (const [k, i] of Object.entries(at)) {
+      const rule = rules.find((r) => r.keys.some((g) => new Bun.Glob(g).match(k)) && r.files.some((g) => new Bun.Glob(g).match(p.name)));
+      if (!rule || (rule.every === undefined && rule.expires === undefined)) {
+        n[rule ? "exempt" : "unruled"]++;
+        continue;
+      }
+      const changed = dates?.[i] ?? now;
+      const dueBy = Math.min(rule.every === undefined ? Infinity : changed + rule.every * DAY, rule.expires ?? Infinity);
+      const left = Math.floor((dueBy - now) / DAY);
+      const why = [dates ? `changed ${fmt(changed)}` : "not committed", rule.every && `every ${rule.every}d`, rule.expires && `expires ${fmt(rule.expires)}`].filter(Boolean).join(", ");
+      const tail = `${why}${rule.note ? ` — ${rule.note}` : ""}`;
+      if (left < 0) {
+        n.overdue++;
+        console.log(`✗ ${rel(p.enc)}  ${k}  overdue ${-left}d (${tail})`);
+      } else if (left <= rule.warn) {
+        n.soon++;
+        console.log(`! ${rel(p.enc)}  ${k}  due in ${left}d (${tail})`);
+      } else {
+        n.ok++;
+        if (all) console.log(`✓ ${rel(p.enc)}  ${k}  due in ${left}d (${tail})`);
+      }
+    }
+  }
+  log(`dede health: ${n.overdue} overdue, ${n.soon} due soon, ${n.ok} ok, ${n.exempt} exempt (every: never), ${n.unruled} without a rule`);
+  return n.overdue === 0;
+}
+
 // Prints public-key prefixes and file names only, never a private key.
 function keysStatus(ps: Pair[]): boolean {
   let ok = true;
-  const envRing = keyringSync({ fk: [], processEnv: process.env });
   for (const p of ps) {
     const E = read(p.enc);
     if (E === undefined) continue;
     const { publicKey } = splitEnc(E, p.enc);
-    const file = keysFileFor(dirname(p.plain));
-    const fileRing = existsSync(file) ? keyringSync({ fk: [file], processEnv: {} }) : {};
-    const link = isSymlink(file) ? ` → ${rel(realpathSync(file))}` : "";
-    const from = envRing[publicKey] ? "environment" : fileRing[publicKey] ? `${rel(file)}${link}` : undefined;
+    const from = treeFor(dirname(p.plain)).from[publicKey];
     if (!from) ok = false;
     console.log(`${from ? "✓" : "✗"} ${rel(p.enc)}  ${publicKey.slice(0, 10)}…  ${from ?? `missing (DOTENV_PRIVATE_KEY${suffixOf(p.name)})`}`);
   }
@@ -745,10 +916,11 @@ function setupHusky(top: string, pkgPath: string): void {
 function pairs(args: string[], mode: "enc" | "dec" | "any"): Pair[] {
   const cwd = process.cwd();
   const found: { path: string; explicit: boolean }[] = [];
-  if (args.length === 0) for (const n of readdirSync(cwd)) found.push({ path: join(cwd, n), explicit: false });
+  // Sorted: readdir and glob order is the filesystem's (unsorted on Linux); output and new keys should not depend on it.
+  if (args.length === 0) for (const n of readdirSync(cwd).sort()) found.push({ path: join(cwd, n), explicit: false });
   for (const a of args) {
     if (/[*?[{]/.test(a)) {
-      for (const f of new Bun.Glob(a).scanSync({ cwd, dot: true, onlyFiles: true }))
+      for (const f of [...new Bun.Glob(a).scanSync({ cwd, dot: true, onlyFiles: true })].sort())
         if (!/(^|[\\/])(node_modules|\.git)[\\/]/.test(f)) found.push({ path: join(cwd, f), explicit: false });
     } else found.push({ path: resolve(cwd, a), explicit: true });
   }
@@ -846,6 +1018,9 @@ export function main(argv: string[]): number {
         break;
       case "setup":
         setup();
+        break;
+      case "health":
+        if (!health(pairs(args, "dec"), rest.includes("--all"))) code = 1;
         break;
       case "keys":
         if (args[0] === "link") keysLink(args[1]);

@@ -1131,3 +1131,141 @@ describe("dede get", () => {
     expect(res.out).toBe("");
   });
 });
+
+describe("key tree", () => {
+  const ROOT = "a".repeat(64);
+  const MID = "b".repeat(64);
+  // ROOT (in .env.keys) opens .env.keys.mid.enc → MID opens .env.keys.leaf.enc → LOCAL opens .env.local.enc
+  const tree = () => {
+    const r = new Repo();
+    r.write(".env.local", "A=1\n");
+    expect(r.dede(["enc"]).code).toBe(0);
+    const local = /DOTENV_PRIVATE_KEY_LOCAL=([0-9a-f]{64})/.exec(r.read(".env.keys"))![1];
+    r.write(".env.keys", `DOTENV_PRIVATE_KEY_ROOT=${ROOT}\nDOTENV_PRIVATE_KEY_MID=${MID}\n`);
+    r.write(".env.keys.leaf", `DOTENV_PRIVATE_KEY_LOCAL=${local}\n`);
+    expect(r.dede(["enc", ".env.keys.leaf", "--key", "MID"]).code).toBe(0);
+    r.write(".env.keys.mid", `DOTENV_PRIVATE_KEY_MID=${MID}\n`);
+    expect(r.dede(["enc", ".env.keys.mid", "--key", "ROOT"]).code).toBe(0);
+    for (const f of [".env.local", ".env.keys.leaf", ".env.keys.mid"]) r.rm(f);
+    r.write(".env.keys", `DOTENV_PRIVATE_KEY_ROOT=${ROOT}\n`);
+    return { r, local };
+  };
+
+  test("one root key in .env.keys opens keys two levels down; nothing extra is written", () => {
+    const { r } = tree();
+    expect(r.dede(["dec", ".env.local.enc"]).code).toBe(0);
+    expect(r.read(".env.local")).toBe("A=1\n");
+    expect(r.read(".env.keys")).toBe(`DOTENV_PRIVATE_KEY_ROOT=${ROOT}\n`);
+    expect(r.exists(".env.keys.mid")).toBe(false);
+    expect(r.exists(".env.keys.leaf")).toBe(false);
+    expect(r.dede(["get", "A", ".env.local.enc"]).out).toBe("1");
+  });
+
+  test("the root key can come from the environment", () => {
+    const { r } = tree();
+    r.rm(".env.keys");
+    expect(r.dede(["get", "A", ".env.local.enc"]).code).toBe(3);
+    expect(r.dede(["get", "A", ".env.local.enc"], { DOTENV_PRIVATE_KEY_ROOT: ROOT }).out).toBe("1");
+  });
+
+  test("dede keys shows the path through the tree and never a private key", () => {
+    const { r, local } = tree();
+    const res = r.dede(["keys"]);
+    expect(res.code).toBe(0);
+    expect(res.out).toContain(".env.local.enc");
+    expect(res.out).toContain(".env.keys.leaf.enc ← .env.keys.mid.enc ← .env.keys");
+    for (const k of [ROOT, MID, local]) expect(res.out + res.err).not.toContain(k);
+  });
+
+  test("a new .enc reuses its named key from the tree instead of minting one", () => {
+    const { r } = tree();
+    r.write(".env.local", "A=1\nB=2\n");
+    r.rm(".env.local.enc");
+    expect(r.dede(["enc", ".env.local"]).code).toBe(0);
+    expect(r.read(".env.keys")).toBe(`DOTENV_PRIVATE_KEY_ROOT=${ROOT}\n`);
+  });
+
+  test("without the root key the branch stays shut: exit 3", () => {
+    const { r } = tree();
+    r.write(".env.keys", `DOTENV_PRIVATE_KEY_OTHER=${"c".repeat(64)}\n`);
+    expect(r.dede(["dec", ".env.local.enc"]).code).toBe(3);
+    expect(r.exists(".env.local")).toBe(false);
+  });
+
+  test("a linked .env.keys grows the tree from the target's directory", () => {
+    const { r } = tree();
+    const other = new Repo();
+    expect(other.dede(["keys", "link", join(r.dir, ".env.keys")]).code).toBe(0);
+    other.write(".env.local.enc", r.read(".env.local.enc"));
+    expect(other.dede(["dec", ".env.local.enc"]).code).toBe(0);
+    expect(other.read(".env.local")).toBe("A=1\n");
+  });
+});
+
+describe("health (.dede.yaml rotation rules)", () => {
+  const old = (r: Repo, when: string) => {
+    r.git("add", "-A");
+    r.git("commit", "-q", `--date=${when}`, "-m", "secrets");
+  };
+  const soon = () => new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10);
+
+  test("overdue value: exit 1, named with its rule's note, never its value; unmatched values are counted", () => {
+    const r = new Repo();
+    r.write(".env.prod", "API_TOKEN=tok-secret\nNAME=public-ish\n");
+    r.dede(["enc"]);
+    r.write(".dede.yaml", 'rotate:\n  - keys: "*_TOKEN"\n    every: 90d\n    note: "Settings → Tokens"\n');
+    old(r, "2020-01-01T00:00:00Z");
+    const res = r.dede(["health"]);
+    expect(res.code).toBe(1);
+    expect(res.out).toMatch(/✗ \.env\.prod\.enc {2}API_TOKEN {2}overdue \d+d \(changed 2020-01-01, every 90d — Settings → Tokens\)/);
+    expect(res.out).not.toContain("NAME");
+    expect(res.err).toContain("1 overdue, 0 due soon, 0 ok, 0 exempt (every: never), 1 without a rule");
+    expect(res.out + res.err).not.toContain("tok-secret");
+  });
+
+  test("a fixed expiry inside the warn window is due soon, exit 0; --all lists the ok ones", () => {
+    const r = new Repo();
+    r.write(".env.prod", "TS_AUTHKEY=k\nOTHER=v\n");
+    r.dede(["enc"]);
+    r.write(".dede.yaml", `rotate:\n  - keys: TS_AUTHKEY\n    expires: ${soon()}\n  - keys: "*"\n    every: 1y\n`);
+    old(r, new Date().toISOString());
+    const res = r.dede(["health", "--all"]);
+    expect(res.code).toBe(0);
+    expect(res.out).toMatch(/! \.env\.prod\.enc {2}TS_AUTHKEY {2}due in \d+d/);
+    expect(res.out).toMatch(/✓ \.env\.prod\.enc {2}OTHER {2}due in 36\dd/);
+  });
+
+  test("rotating one value resets its age only (unchanged ciphertext lines keep their blame)", () => {
+    const r = new Repo();
+    r.write(".env.prod", "A_TOKEN=1\nB_TOKEN=2\n");
+    r.dede(["enc"]);
+    r.write(".dede.yaml", 'rotate:\n  - keys: "*_TOKEN"\n    every: 30d\n    warn: 7d\n');
+    old(r, "2020-01-01T00:00:00Z");
+    r.write(".env.prod", "A_TOKEN=rotated\nB_TOKEN=2\n");
+    expect(r.dede(["enc"]).code).toBe(0);
+    old(r, new Date().toISOString());
+    const res = r.dede(["health"]);
+    expect(res.code).toBe(1);
+    expect(res.out).toContain("B_TOKEN  overdue");
+    expect(res.out).not.toContain("A_TOKEN");
+  });
+
+  test("files glob scopes a rule; never exempts; bad config and missing config exit 4", () => {
+    const r = new Repo();
+    r.write(".env.dev", "K=1\n");
+    r.write(".env.prod", "K=1\nPIN=2\n");
+    r.dede(["enc"]);
+    old(r, "2020-01-01T00:00:00Z");
+    expect(r.dede(["health"]).code).toBe(4);
+    r.write(".dede.yaml", 'rotate:\n  - keys: PIN\n    every: never\n  - files: ".env.prod"\n    every: 1y\n');
+    const res = r.dede(["health"]);
+    expect(res.code).toBe(1);
+    expect(res.out).toContain(".env.prod.enc  K  overdue");
+    expect(res.out).not.toContain(".env.dev.enc");
+    expect(res.err).toContain("1 overdue, 0 due soon, 0 ok, 1 exempt (every: never), 1 without a rule");
+    r.write(".dede.yaml", "rotate:\n  - every: soon\n");
+    expect(r.dede(["health"]).code).toBe(4);
+    r.write(".dede.yaml", "rotate:\n  - evry: 90d\n");
+    expect(r.dede(["health"]).err).toContain("unknown field evry");
+  });
+});
