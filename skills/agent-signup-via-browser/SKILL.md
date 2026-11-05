@@ -28,6 +28,8 @@ Also:
 
 - Never print a password, API key, TOTP secret or code, recovery code or session token. Screenshots
   of key and recovery pages stay local and are never posted.
+- Never pass a secret to `rech fill`: it lands in the command line, the daemon log and the output.
+  Use `rech fill-secret`, which also refuses to type into a page outside `--allow-domain`.
 - `rech snapshot` prints form-field **values**. Redact it before reading:
   `redact() { sed -E 's/(textbox[^:]*:).*/\1 <value hidden>/'; }`.
 - Never submit browser-autofilled credentials. Clear the field and fill it with the generated value.
@@ -52,7 +54,7 @@ rech status                     # daemon reachable, right profile
    # if the site forbids symbols: pw=$(openssl rand -hex 20)
    printf 'SITE_PASSWORD="%s"\n' "$pw" >> <env-repo>/.env.<site>
    rech $P fill <email-ref> "<owner-email>"
-   rech $P fill <password-ref> "$pw"; unset pw
+   printf '%s\n' "$pw" | rech $P fill-secret <password-ref> --from-stdin --allow-domain <service-domain>; unset pw
    ```
    Then follow the `save-account-credentials` skill for every field from here on.
 3. **Submit** (only if no attestation checkbox needs approval, see the hard rules):
@@ -67,11 +69,17 @@ rech status                     # daemon reachable, right profile
    signup tab. Do not forward, archive or delete the owner's mail. If no mail arrives, check spam
    (`in:spam`) once, then tell the owner.
 5. **2FA.** If the service offers authenticator 2FA, choose "can't scan / enter key manually".
-   Save the setup key as `<SITE>_TOTP_SECRET` and generate the confirmation code from it locally
-   (RFC 6238, SHA1, 6 digits, 30 s). Save recovery codes as `<SITE>_RECOVERY_CODES` before clicking
+   Save the setup key as `<SITE>_TOTP_SECRET` and fill the confirmation code from it with
+   `rech $P fill-secret <code-ref> --totp-from-env <SITE>_TOTP_SECRET --env-file <env-repo>/.env.<site> --allow-domain <service-domain>`.
+   Save recovery codes as `<SITE>_RECOVERY_CODES` before clicking
    "I saved them". SMS 2FA ties the account to the owner's phone, so hand over.
 6. **API keys and webhooks.** Create test keys, and a webhook endpoint if the integration needs one.
-   Save each secret immediately (copy button, then `pbpaste` into the env file). Live keys usually
+   Save each secret immediately, without it reaching the terminal:
+   ```sh
+   rech $P read-secret <key-ref> --allow-domain <service-domain> |
+     { IFS= read -r v; printf 'SITE_TEST_SECRET_KEY="%s"\n' "$v" >> <env-repo>/.env.<site>; }
+   ```
+   If the page only offers a copy button, use `pbpaste` into the env file instead. Live keys usually
    need KYC, so record that in `<SITE>_STATUS`.
 7. **Encrypt and commit** (`dede enc`, `dede status`, commit, push) as in `save-account-credentials`.
 
