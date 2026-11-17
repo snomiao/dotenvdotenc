@@ -12,7 +12,8 @@ commit are the same file. `dede` keeps them apart:
 ```
 
 ```sh
-dede enc          # .env* → .env*.enc   (after you edit)
+dede enc          # .env* → .env*.enc   (after you edit), then asks to commit them
+dede enc -y       # same, and commits without asking
 dede dec          # .env*.enc → .env*   (after you pull)
 ```
 
@@ -34,6 +35,8 @@ Requires Bun. Without a global install, use `bunx dede …` or `node_modules/.bi
 
 ```
 dede enc [--force] [file|glob…]   plaintext → .enc   (default: every .env* in this directory)
+                                  then asks to commit the .enc files it wrote (-y/--yes: commit
+                                  without asking; no terminal and no -y: never commits)
 dede dec [--force] [file|glob…]   .enc → plaintext   (default: every .env*.enc in this directory)
 dede status [--quiet] [file|glob…] one line per file (--quiet: problems only); exit 1 unless all in sync
 dede diff [file|glob…]            which keys differ between plaintext and .enc (names only)

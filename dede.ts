@@ -6,12 +6,13 @@
 import { decrypt, encrypt, keypair, keyringSync, remove, scan, upsert } from "@dotenvx/primitives";
 import { spawnSync } from "node:child_process";
 import { createHash, createHmac, randomBytes } from "node:crypto";
-import { chmodSync, closeSync, existsSync, fsyncSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, realpathSync, renameSync, statSync, symlinkSync, writeSync } from "node:fs";
+import { chmodSync, closeSync, readSync, existsSync, fsyncSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, realpathSync, renameSync, statSync, symlinkSync, writeSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
 
 const USAGE = `dede — sync gitignored .env* files with committed dotenvx-encrypted .env*.enc files
 
-  dede enc [--force] [file|glob…]   plaintext → .enc   (default: every .env* here)
+  dede enc [--force] [-y] [file|glob…] plaintext → .enc (default: every .env* here); then asks
+                                    to commit the written .enc files (-y: commit without asking)
   dede dec [--force] [file|glob…]   .enc → plaintext   (default: every .env*.enc here)
   dede status [--quiet] [file|glob…] report sync state, exit 1 unless all in sync
   dede diff [file|glob…]            which keys differ between plaintext and .enc (names only)
@@ -164,6 +165,8 @@ function assertKeysFileSafe(path: string): void {
 
 // `--key NAME`: the key a new .enc is encrypted with, instead of the one named after the file.
 let keyChoice: string | undefined;
+// .enc files this run wrote, offered for commit after `dede enc`.
+let written: string[] = [];
 
 function keyByName(keyName: string, dir: string): string {
   const keysPath = keysFileFor(dir);
@@ -496,6 +499,7 @@ function enc(pair: Pair, force: boolean): void {
     const text = buildEnc(pair, kp.publicKey, kp.privateKey, v.P!, v.C!);
     writeAtomic(pair.enc, text, 0o644);
     saveState(pair, v.P!, text);
+    written.push(pair.enc);
     return log(`created ${rel(pair.enc)}`);
   }
   if (keyChoice) {
@@ -524,7 +528,37 @@ function enc(pair: Pair, force: boolean): void {
   const text = buildEnc(pair, v.pub!, v.priv!, P, rewrite(P, values(P, pair.plain)), v.old);
   writeAtomic(pair.enc, text, 0o644);
   saveState(pair, P, text);
+  written.push(pair.enc);
   log(note);
+}
+
+// Ask a yes/no question on the terminal; anything but y/yes (or no terminal at all) is no.
+function confirm(question: string): boolean {
+  if (!process.stdin.isTTY) return false;
+  process.stderr.write(`${question} [y/N] `);
+  const buf = Buffer.alloc(64);
+  let n = 0;
+  try {
+    n = readSync(0, buf, 0, buf.length, null);
+  } catch {
+    return false;
+  }
+  return /^\s*y(es)?\s*$/i.test(buf.toString("utf8", 0, n));
+}
+
+// After `dede enc`: commit just the .enc files it wrote (other staged changes stay staged, not committed).
+// -y commits without asking; without a terminal and without -y nothing is committed.
+function commitWritten(yes: boolean): number {
+  if (!written.length) return 0;
+  const names = written.map(rel);
+  const list = names.length > 3 ? `${names.slice(0, 3).join(", ")} +${names.length - 3}` : names.join(", ");
+  if (!yes && !confirm(`commit ${list}?`)) return 0;
+  const cwd = dirname(written[0]);
+  const add = spawnSync("git", ["add", "--", ...written], { cwd, stdio: ["ignore", "ignore", "inherit"] });
+  const commit = add.status === 0 && spawnSync("git", ["commit", "-q", "-m", `dede enc: ${list}`, "--", ...written], { cwd, stdio: ["ignore", "inherit", "inherit"] });
+  if (!commit || commit.status !== 0) return log(`dede: commit failed; the .enc files are written, commit them yourself`), 1;
+  log(`committed ${list}`);
+  return 0;
 }
 
 function dec(pair: Pair, force: boolean): void {
@@ -955,6 +989,7 @@ export function main(argv: string[]): number {
   const rest: string[] = [];
   keysOverride = process.env.DOTENV_KEYS_FILE || undefined;
   keyChoice = undefined;
+  written = [];
   for (let i = 0; i < raw.length; i++) {
     const a = raw[i];
     if (a === "-fk" || a === "--env-keys-file") {
@@ -968,8 +1003,9 @@ export function main(argv: string[]): number {
   }
   if (keysOverride) keysOverride = resolve(process.cwd(), keysOverride);
   const force = rest.includes("--force");
+  const yes = rest.includes("-y") || rest.includes("--yes");
   quiet = rest.includes("--quiet");
-  const args = rest.filter((a) => a !== "--force" && a !== "--all" && a !== "--quiet");
+  const args = rest.filter((a) => a !== "--force" && a !== "--all" && a !== "--quiet" && a !== "-y" && a !== "--yes");
   let code = 0;
   const each = (ps: Pair[], fn: (p: Pair) => void) => {
     for (const p of ps)
@@ -986,6 +1022,7 @@ export function main(argv: string[]): number {
     switch (cmd) {
       case "enc":
         each(pairs(args, "enc"), (p) => enc(p, force));
+        code = Math.max(code, commitWritten(yes));
         break;
       case "dec":
         each(pairs(args, "dec"), (p) => dec(p, force));

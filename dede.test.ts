@@ -1269,3 +1269,44 @@ describe("health (.dede.yaml rotation rules)", () => {
     expect(r.dede(["health"]).err).toContain("unknown field evry");
   });
 });
+
+describe("enc offers to commit what it wrote", () => {
+  test("-y commits only the written .enc files; other staged changes stay staged", () => {
+    const r = new Repo();
+    r.write("README", "x\n");
+    r.git("add", "README");
+    r.write(".env.a", "A=1\n");
+    r.write(".env.b", "B=1\n");
+    const res = r.dede(["enc", "-y"]);
+    expect(res.code).toBe(0);
+    expect(res.err).toContain("committed .env.a.enc, .env.b.enc");
+    expect(r.git("log", "-1", "--format=%s").trim()).toBe("dede enc: .env.a.enc, .env.b.enc");
+    expect(r.git("show", "--name-only", "--format=", "HEAD").trim().split("\n")).toEqual([".env.a.enc", ".env.b.enc"]);
+    expect(r.git("diff", "--cached", "--name-only").trim()).toBe("README");
+  });
+
+  test("-y commits only files this run changed, and nothing when all are in sync", () => {
+    const r = new Repo();
+    r.write(".env.a", "A=1\n");
+    r.write(".env.b", "B=1\n");
+    expect(r.dede(["enc", "--yes"]).code).toBe(0);
+    r.write(".env.b", "B=2\n");
+    expect(r.dede(["enc", "-y"]).code).toBe(0);
+    expect(r.git("show", "--name-only", "--format=", "HEAD").trim()).toBe(".env.b.enc");
+    const head = r.git("rev-parse", "HEAD");
+    const res = r.dede(["enc", "-y"]);
+    expect(res.code).toBe(0);
+    expect(res.err).not.toContain("committed");
+    expect(r.git("rev-parse", "HEAD")).toBe(head);
+  });
+
+  test("without a terminal and without -y, enc writes but does not commit or prompt", () => {
+    const r = new Repo();
+    r.write(".env.a", "A=1\n");
+    const res = r.dede(["enc"]);
+    expect(res.code).toBe(0);
+    expect(res.err).not.toContain("[y/N]");
+    expect(r.exists(".env.a.enc")).toBe(true);
+    expect(r.git("status", "--porcelain")).toContain("?? .env.a.enc");
+  });
+});
