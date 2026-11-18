@@ -275,7 +275,12 @@ const isTracked = (path: string) => git(["ls-files", "--error-unmatch", "--", ba
 const sha = (text: string) => createHash("sha256").update(lf(text)).digest("hex");
 // Display paths as git does, with `/`, on Windows too.
 const rel = (path: string) => (WIN ? relative(process.cwd(), path).replaceAll("\\", "/") : relative(process.cwd(), path)) || ".";
-const log = (msg: string) => console.error(msg);
+// Messages go to stderr. Bun's console.error paints every line red on a TTY, so write directly and
+// colour on purpose: dim for no-op lines, yellow for warnings, red for failures (NO_COLOR turns it off).
+const COLOR = !!process.stderr.isTTY && !process.env.NO_COLOR;
+const TONE = { ok: "2", warn: "33", err: "31" } as const;
+const log = (msg: string, tone?: keyof typeof TONE): void =>
+  void process.stderr.write(`${COLOR && tone ? `\x1b[${TONE[tone]}m${msg}\x1b[0m` : msg}\n`);
 // Contents are compared with LF endings: git's core.autocrlf (default on Windows) checks .enc out
 // with CRLF, and Windows editors may save the plaintext that way.
 const lf = (text: string) => text.replace(/\r\n/g, "\n");
@@ -433,7 +438,7 @@ function tighten(path: string): void {
 
 function preflight(pair: Pair): void {
   if (!isIgnored(pair.plain)) die(`${rel(pair.plain)} is not gitignored; run \`dede setup\` (or add \`.env*\` and \`!.env*.enc\` to .gitignore)`);
-  if (isIgnored(pair.enc)) log(`warning: ${rel(pair.enc)} is gitignored and won't be committed; add \`!.env*.enc\` after your .env ignore rules (or run \`dede setup\`)`);
+  if (isIgnored(pair.enc)) log(`warning: ${rel(pair.enc)} is gitignored and won't be committed; add \`!.env*.enc\` after your .env ignore rules (or run \`dede setup\`)`, "warn");
 }
 
 // ---------- sync ----------
@@ -508,7 +513,7 @@ function enc(pair: Pair, force: boolean): void {
   }
   if (v.C === v.D) {
     saveState(pair, v.P!, v.E);
-    return log(`${rel(pair.enc)}: in sync`);
+    return log(`${rel(pair.enc)}: in sync`, "ok");
   }
   const st = lastSync(pair);
   const d = drift(st, v.P!, v.E);
@@ -567,7 +572,7 @@ function dec(pair: Pair, force: boolean): void {
   if (v.E === undefined) die(`${rel(pair.enc)} not found${v.P !== undefined ? "; run `dede enc`" : ""}`);
   if (v.P !== undefined && v.C === v.D) {
     saveState(pair, v.P, v.E!);
-    return log(`${rel(pair.plain)}: in sync`);
+    return log(`${rel(pair.plain)}: in sync`, "ok");
   }
   if (v.P !== undefined && !force) {
     const st = lastSync(pair);
@@ -865,7 +870,7 @@ function keysLink(target: string | undefined): void {
   if (realpathSync(abs) === (existsSync(link) ? realpathSync(link) : "")) return log(`.env.keys already points to ${target}`);
   if (existsSync(link) || isSymlink(link)) die(`.env.keys already exists here; move it away first`, 1);
   assertKeysFileSafe(link);
-  if (!WIN && (statSync(abs).mode & 0o077) !== 0) log(`warning: ${target} is readable by other users; chmod 600 it`);
+  if (!WIN && (statSync(abs).mode & 0o077) !== 0) log(`warning: ${target} is readable by other users; chmod 600 it`, "warn");
   try {
     symlinkSync(target!, link, "file");
   } catch (e) {
@@ -1014,7 +1019,7 @@ export function main(argv: string[]): number {
       } catch (e) {
         // Library errors (e.g. an invalid private key) fail this file only; their text is not echoed.
         const err = e instanceof DedeError ? e : new DedeError(`${rel(p.enc)}: ${(e as Error).name ?? "error"} (invalid key or file?)`, 3);
-        log(`dede: ${err.message}`);
+        log(`dede: ${err.message}`, "err");
         code = Math.max(code, err.code);
       }
   };
@@ -1075,7 +1080,7 @@ export function main(argv: string[]): number {
     }
   } catch (e) {
     if (!(e instanceof DedeError)) throw e;
-    log(e.message.startsWith("dede") ? e.message : `dede: ${e.message}`);
+    log(e.message.startsWith("dede") ? e.message : `dede: ${e.message}`, "err");
     return e.code;
   }
   return code;
