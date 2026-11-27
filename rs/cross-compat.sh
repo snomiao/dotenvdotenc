@@ -18,7 +18,7 @@ case $BIN in /*) ;; *) BIN=$PWD/$BIN ;; esac
 [ -x "$BIN" ] || { echo "no binary at $BIN" >&2; exit 2; }
 DOTENVX=$REPO/node_modules/.bin/dotenvx
 
-WORK=$(mktemp -d)
+WORK=$(mktemp -d "${TMPDIR:-/tmp}/dede-cross-XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
 for name in $(env | sed -n 's/^\(DOTENV_[A-Za-z0-9_]*\)=.*/\1/p'); do unset "$name"; done
 unset NODE_ENV BUN_ENV BUN_OPTIONS NODE_OPTIONS NO_COLOR FORCE_COLOR DOTENVDOTENC_NO_NATIVE
@@ -33,6 +33,9 @@ n=0
 ok() { n=$((n + 1)); echo "ok $n - $1"; }
 fail() { echo "FAILED after $n checks: $1" >&2; exit 1; }
 same() { [ "$1" = "$2" ] || fail "$3: got '$1', expected '$2'"; }
+# edit <sed script> <file>: in place, keeping the file and its mode (GNU and
+# BSD sed spell -i differently).
+edit() { sed "$1" "$2" > "$WORK/edited" && cat "$WORK/edited" > "$2" && rm "$WORK/edited"; }
 # A repository with dede's ignore rules; the name is the directory under $WORK.
 repo() {
   mkdir -p "$WORK/$1" && cd "$WORK/$1"
@@ -73,13 +76,13 @@ line two" "$reader get of a value over two lines"
   checkout "write-$writer" "read-$reader-from-$writer"
   $reader dec 2> /dev/null
   cmp -s .env.prod "$WORK/write-$writer/.env.prod" || fail "$reader dec of $writer's .enc is not the plaintext"
-  same "$(stat -c %a .env.prod)" "600" "mode of the plaintext $reader wrote"
+  same "$(node "$REPO/rs/parity/files.mjs" stat %a .env.prod)" "600" "mode of the plaintext $reader wrote"
   same "$($writer status 2>&1)" "✓ .env.prod: in sync" "$writer status in $reader's checkout (the record $reader wrote)"
   ok "$reader decrypts $writer's .enc to the same bytes, and $writer agrees with the record $reader wrote"
 
   # The record the writer left is the reader's baseline for "what changed".
   cd "$WORK/write-$writer"
-  sed -i 's/dummy-1/dummy-2/' .env.prod
+  edit 's/dummy-1/dummy-2/' .env.prod
   same "$($reader status 2>&1 || true)" '✗ .env.prod: edited (API_KEY) (run `dede enc`)' "$reader status after an edit, against $writer's record"
   cp .env.prod.enc before.enc
   $reader enc 2> /dev/null
@@ -121,9 +124,9 @@ for pair in "ts rs" "rs ts"; do
   checkout "merge-$a" "merge-$a-peer-$b"
   $b dec 2> /dev/null
   # The peer changes TWO and publishes; the first changes ONE meanwhile.
-  sed -i 's/TWO=2/TWO=two/' .env.prod && $b enc 2> /dev/null
+  edit 's/TWO=2/TWO=two/' .env.prod && $b enc 2> /dev/null
   cd "$WORK/merge-$a"
-  sed -i 's/ONE=1/ONE=one/' .env.prod
+  edit 's/ONE=1/ONE=one/' .env.prod
   cp "$WORK/merge-$a-peer-$b/.env.prod.enc" .
   same "$($a status 2>&1 || true)" '✗ .env.prod: both changed, mergeable (run `dede enc`)' "$a status with its own edit and $b's .enc"
   same "$($a dec 2>&1)" '.env.prod: merged: from .enc (TWO), kept your edits (ONE); run `dede enc` to publish your edits' "$a dec merging $b's change"
@@ -138,9 +141,9 @@ THREE=3" "the merged plaintext"
   ok "$a merges an edit $b published into its own, and $b takes the result"
 
   # The same key on both sides: each refuses in the same words.
-  sed -i 's/THREE=3/THREE=b/' .env.prod && $b enc 2> /dev/null
+  edit 's/THREE=3/THREE=b/' .env.prod && $b enc 2> /dev/null
   cd "$WORK/merge-$a"
-  sed -i 's/THREE=3/THREE=a/' .env.prod
+  edit 's/THREE=3/THREE=a/' .env.prod
   cp "$WORK/merge-$a-peer-$b/.env.prod.enc" .
   refusal='dede: .env.prod: both sides changed THREE since the last sync; edit .env.prod to the value you want, then `dede enc --force`'
   same "$($a dec 2>&1 || true)" "$refusal" "$a dec on a conflict"

@@ -25,6 +25,7 @@ on the spot by dede.ts and thrown away with it.
 
 import os
 import pty
+import re
 import select
 import shutil
 import subprocess
@@ -111,7 +112,9 @@ def template():
     sh("git add .gitignore .env.prod.enc .env.stage.enc && git commit -q -m init", base)
     # .env.prod edited since; .env.stage's .enc damaged; .env.new not encrypted yet; .env.shared committed in plaintext.
     open(os.path.join(base, ".env.prod"), "a").write("NEW=1\n")
-    sh("sed -i -E 's/^(A=encrypted:.{40})./\\1x/' .env.stage.enc", base)
+    stage = os.path.join(base, ".env.stage.enc")
+    damaged = re.sub(r"^(A=encrypted:.{40}).", r"\1x", open(stage).read(), count=1, flags=re.M)
+    open(stage, "w").write(damaged)
     open(os.path.join(base, ".env.new"), "w").write("FRESH=1\n")
     open(os.path.join(base, ".env.shared"), "w").write("PUBLIC=1\n")
     sh("git add -f .env.shared && git commit -q -m public", base)
