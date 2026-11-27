@@ -34,6 +34,7 @@ const privateKeysOf = (text) =>
     .flatMap(([, values]) => values.flatMap((v) => v.split(",").map((s) => s.trim())));
 
 function enc(file, keySource = ".env.keys") {
+  if (!existsSync(file)) return console.log(`${file}: no such file`);
   const text = read(file);
   const header = /^(?:#\/.*\r?\n)*DOTENV_PUBLIC_KEY[A-Z0-9_]*="(0[23][0-9a-f]{64})"\r?\n/.exec(text);
   if (!header) return console.log(`${file}: NO HEADER\n${text}`);
@@ -63,12 +64,17 @@ function enc(file, keySource = ".env.keys") {
 }
 
 function keys(file, ...encFiles) {
+  if (!existsSync(file)) return console.log(`${file}: no such file`);
   const text = read(file);
   const found = privateKeysOf(text);
   let n = 0;
   console.log(text.replace(/[0-9a-f]{64}/g, (k) => (found.includes(k) ? `<private key ${(n = found.indexOf(k) + 1)}>` : k)));
   void n;
   for (const encFile of encFiles) {
+    if (!existsSync(encFile)) {
+      console.log(`${encFile}: no such file`);
+      continue;
+    }
     const header = /DOTENV_PUBLIC_KEY[A-Z0-9_]*="(0[23][0-9a-f]{64})"/.exec(read(encFile));
     const at = found.findIndex((k) => {
       try {

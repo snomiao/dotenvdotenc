@@ -588,6 +588,199 @@ add("keys link: .env.keys would not be gitignored", ["keys", "link", "../other/.
 add("keys link: outside any repository", ["keys", "link", "../other/.env.keys"], { repo: false, setup: ["mkdir ../other", keysFile({ _LOCAL: 1 }, "../other/.env.keys"), "chmod 600 ../other/.env.keys"], after: ["readlink .env.keys"] });
 add("keys link: then the keys are found through the link", ["keys"], { files: { ".env.local.enc": LOCAL_ENC }, setup: ["mkdir ../other", keysFile({ _LOCAL: 1 }, "../other/.env.keys"), "ln -s ../other/.env.keys .env.keys"] });
 
+// ═══════════════════════════ dec ═══════════════════════════
+
+/** What a case that writes looks at: both files (the .enc read back with key `digit` or the keys file), what is in the directory, the record. */
+const written = (name = ".env.local", keySource = "1") => [`cat ${name} 2>&1`, `${PROBE} enc ${name}.enc ${keySource}`, LS, `${PROBE} state`];
+const WRITTEN = written();
+
+for (const [scene, files] of Object.entries(SCENES)) {
+  add(`dec: ${scene}`, ["dec"], { files, setup: [K1], after: WRITTEN });
+  add(`dec --force: ${scene}`, ["dec", "--force"], { files, setup: [K1], after: WRITTEN });
+}
+for (const [scene, files] of Object.entries(ODD_SCENES)) add(`dec: ${scene}`, ["dec"], { files, setup: [K1], back: ODD_RECORD, after: WRITTEN });
+add("dec: a fresh checkout", ["dec"], { files: { ".env.local.enc": LOCAL_ENC, ".env.production.enc": PROD_ENC, ".env.enc": encFile(".env", 1, "A=1\n") }, setup: [SEVERAL_KEYS], after: ["cat .env .env.local .env.production", LS, `${PROBE} state`] });
+add("dec: no private key", ["dec"], { files: SCENES["no plaintext"], after: WRITTEN });
+add("dec: another key only", ["dec"], { files: SCENES["no plaintext"], keys: "_LOCAL=2", after: WRITTEN });
+add("dec: the key in the environment", ["dec"], { files: SCENES["no plaintext"], keys: "_LOCAL=1", after: WRITTEN });
+add("dec: -fk", ["dec", "-fk", "../k"], { files: SCENES["no plaintext"], setup: [keysFile({ _X: 1 }, "../k")], after: WRITTEN });
+add("dec: through the key tree", ["dec"], { files: TREE, setup: TREE_SETUP, after: ["cat .env.deep .env.local .env.production 2>&1", LS, `${PROBE} state`] });
+add("dec: one named file of several", ["dec", ".env.production"], { files: { ".env.local.enc": LOCAL_ENC, ".env.production.enc": PROD_ENC }, setup: [TWO_KEYS], after: [LS, "cat .env.production"] });
+add("dec: named by its .enc, and twice", ["dec", ".env.local.enc", ".env.local"], { files: { ".env.local.enc": LOCAL_ENC, ".env.production.enc": PROD_ENC }, setup: [TWO_KEYS], after: [LS] });
+add("dec: a named file that is not there", ["dec", ".env.staging"], { files: { ".env.local.enc": LOCAL_ENC }, setup: [K1], after: [LS] });
+add("dec: a named file without .enc, the plaintext is there", ["dec", ".env.staging"], { files: { ".env.staging": "S=1\n" }, setup: [K1], after: [LS] });
+add("dec: not an env file", ["dec", "notes.txt"], { files: { ".env.local.enc": LOCAL_ENC }, setup: [K1], after: [LS] });
+add("dec: nothing here", ["dec"], { after: [LS] });
+add("dec: one file fails, the others are decrypted", ["dec"], { files: { ".env.a.enc": encFile(".env.a", 1, "A=1\n"), ".env.b.enc": TAMPERED, ".env.c.enc": encFile(".env.c", 2, "C=1\n"), ".env.d.enc": encFile(".env.d", 1, "D=1\n") }, setup: [K1], after: ["cat .env.a .env.b .env.c .env.d 2>&1", LS, `${PROBE} state`] });
+add("dec: the plaintext would not be gitignored", ["dec"], { repo: "node_modules/\n", files: SCENES["no plaintext"], setup: [K1], after: [LS] });
+add("dec: outside any repository", ["dec"], { repo: false, files: SCENES["no plaintext"], setup: [K1], after: [LS] });
+add("dec: the .enc is gitignored too", ["dec"], { repo: ".env*\n", files: SCENES["no plaintext"], setup: [K1], after: [LS, "cat .env.local"] });
+add("dec: in a subdirectory with its own keys", ["dec", "app/.env.local"], { files: { "app/.env.local.enc": LOCAL_ENC }, setup: [keysFile({ _LOCAL: 1 }, "app/.env.keys")], after: ["cat app/.env.local", "ls -A app", `${PROBE} state`] });
+add("dec: the plaintext is a symlink", ["dec"], { files: { ".env.local.enc": LOCAL_ENC, "elsewhere": "OLD=1\n" }, setup: [K1, "ln -s elsewhere .env.local"], after: [LS, "cat elsewhere"] });
+add("dec: the plaintext is a symlink, named", ["dec", ".env.local"], { files: { ".env.local.enc": LOCAL_ENC, "elsewhere": "OLD=1\n" }, setup: [K1, "ln -s elsewhere .env.local"], after: [LS, "cat elsewhere"] });
+add("dec: the plaintext is a link to nowhere, named", ["dec", ".env.local"], { files: { ".env.local.enc": LOCAL_ENC }, setup: [K1, "ln -s nowhere .env.local"], after: [LS] });
+add("dec: the plaintext is committed", ["dec"], { repo: "", files: { ".env.local": "OLD=1\n", ".env.local.enc": LOCAL_ENC, ".gitignore": ".env.keys\n" }, setup: [IDENT, "git add .env.local && git commit -q -m plain", K1], after: [LS, "cat .env.local"] });
+add("dec: a loosely readable plaintext is replaced by one for the owner only", ["dec"], { files: SCENES[".enc changed"], setup: [K1, "chmod 644 .env.local"], after: WRITTEN });
+add("dec: with a wide-open umask the plaintext is still for the owner only", ["dec"], { files: SCENES["no plaintext"], setup: [K1], after: WRITTEN });
+cases[cases.length - 1].args = ["dec"];
+add("dec: a glob", ["dec", ".env.*"], { files: SCENES["no plaintext"], setup: [K1], back: "Bun.Glob does the matching", after: [LS] });
+add("dec: DOTENVDOTENC_NO_NATIVE=1", ["dec"], { files: SCENES["no plaintext"], setup: [K1], env: { DOTENVDOTENC_NO_NATIVE: "1" }, back: "DOTENVDOTENC_NO_NATIVE=1 hands everything back", after: WRITTEN });
+
+// What a plaintext may look like. `.env.production` is not among the files
+// bun loads, so nothing about its syntax sends the invocation back.
+const RICH = [
+  "# database",
+  "export DB_URL=\"postgres://user:p@ss@db.test:5432/app?x=1#frag\" # primary",
+  "DB_PASS='lit $X and `tick`'",
+  "  INDENTED = spaced value  ",
+  "MULTI=\"line one",
+  "line two\"",
+  "ESCAPED=\"a\\nb\\tc\"",
+  "JSON='{\"k\": [1, 2]}'",
+  "EMPTY=",
+  "",
+  "QUOTED_EMPTY=\"\"",
+  "DOLLAR=$HOME/$(whoami)",
+  "UNICODE=naïve café ✓ 😀",
+  "DUP=one",
+  "DUP=two",
+  "BACKTICK=`cmd`",
+  "EQUALS=a=b=c",
+  "LAST=",
+  "",
+].join("\n");
+const RICH_ENC = encFile(".env.production", 2, RICH);
+const K2P = keysFile({ _PRODUCTION: 2 });
+const WRITTEN_PROD = written(".env.production", "2");
+add("dec: every kind of value, from a fixed .enc", ["dec"], { files: { ".env.production.enc": RICH_ENC }, setup: [K2P], after: WRITTEN_PROD });
+add("dec: every kind of value, CRLF .enc", ["dec"], { files: { ".env.production.enc": RICH_ENC.replace(/\n/g, "\r\n") }, setup: [K2P], after: ["od -c .env.production | head -40", LS, `${PROBE} state`] });
+add("dec: an .enc with only a header", ["dec"], { files: { ".env.production.enc": `${BANNER}\nDOTENV_PUBLIC_KEY_PRODUCTION="${pub(2)}"\n` }, setup: [K2P], after: WRITTEN_PROD });
+add("dec: an .enc with comments only", ["dec"], { files: { ".env.production.enc": `${BANNER}\nDOTENV_PUBLIC_KEY_PRODUCTION="${pub(2)}"\n\n# nothing yet\n` }, setup: [K2P], after: WRITTEN_PROD });
+add("dec: an empty value last keeps the final newline", ["dec"], { files: { ".env.production.enc": encFile(".env.production", 2, "A=1\nB=\n") }, setup: [K2P], after: ["od -c .env.production"] });
+add("dec: values left empty in the .enc", ["dec"], { files: { ".env.production.enc": `${BANNER}\nDOTENV_PUBLIC_KEY_PRODUCTION="${pub(2)}"\n\nA=\nB=""\nC=''\n` }, setup: [K2P], after: ["od -c .env.production"] });
+add("dec: a keys file restored from its backup", ["dec", ".env.keys.myproj"], { files: {}, setup: [keysFile({ _ME: 1 }), treeNode("myproj", 1, { _PRODUCTION: 2, "": 3 })], after: [`${PROBE} keys .env.keys.myproj`, LS] });
+
+// ═══════════════════════════ enc ═══════════════════════════
+
+for (const [scene, files] of Object.entries(SCENES)) {
+  add(`enc: ${scene}`, ["enc"], { files, setup: [K1], after: WRITTEN });
+  add(`enc --force: ${scene}`, ["enc", "--force"], { files, setup: [K1], after: WRITTEN });
+}
+for (const [scene, files] of Object.entries(ODD_SCENES)) add(`enc: ${scene}`, ["enc"], { files, setup: [K1], back: ODD_RECORD, after: WRITTEN });
+// Unchanged values keep their ciphertext, so their lines in the .enc do not move.
+add("enc: an edit changes that line of the .enc only", ["enc"], { files: SCENES["plaintext edited"], setup: [K1], after: ["grep -n -e '^#' -e '^NAME=' -e '^DOTENV' .env.local.enc", "grep -c encrypted: .env.local.enc"] });
+add("enc: in sync leaves the .enc as it is", ["enc"], { files: SCENES["in sync"], setup: [K1], after: ["cat .env.local.enc"] });
+
+const FIRST = [`${PROBE} enc .env.local.enc .env.keys`, `${PROBE} keys .env.keys .env.local.enc`, LS, `${PROBE} state`];
+add("enc: the first time makes a key, the .enc and the record", ["enc"], { files: { ".env.local": LOCAL }, after: FIRST });
+add("enc: the first time, .env", ["enc"], { files: { ".env": "A=1\n" }, after: [`${PROBE} enc .env.enc .env.keys`, `${PROBE} keys .env.keys .env.enc`, LS, `${PROBE} state`] });
+add("enc: a key of that name in .env.keys is used", ["enc"], { files: { ".env.local": LOCAL }, setup: [K1], after: [...WRITTEN, "wc -l .env.keys"] });
+add("enc: a key of that name in the environment is used, no keys file", ["enc"], { files: { ".env.local": LOCAL }, keys: "_LOCAL=1", after: WRITTEN });
+add("enc: the environment before .env.keys", ["enc"], { files: { ".env.local": LOCAL }, setup: [keysFile({ _LOCAL: 2 })], keys: "_LOCAL=1", after: WRITTEN });
+add("enc: the first of several keys of that name", ["enc"], { files: { ".env.local": LOCAL }, setup: [keysFile({ _LOCAL: [1, 2] })], after: WRITTEN });
+add("enc: a key of another name in .env.keys is not used; a new one is added", ["enc"], { files: { ".env.local": LOCAL }, setup: [keysFile({ _OTHER: 1 })], after: FIRST });
+add("enc: a new key goes to a .env.keys without a final newline", ["enc"], { files: { ".env.local": LOCAL }, setup: ["printf 'OTHER=1' > .env.keys"], after: FIRST });
+add("enc: a key of that name in the key tree is used", ["enc"], { files: { ".env.production": PROD }, setup: [keysFile({ _ROOT: 1 }), treeNode("team", 1, { _PRODUCTION: 2 })], after: WRITTEN_PROD });
+add("enc: an invalid key of that name", ["enc"], { files: { ".env.local": LOCAL, ".env.production": PROD }, setup: [keysFile({ _LOCAL: 0, _PRODUCTION: 2 })], after: [LS] });
+add("enc: -fk, the new key goes there", ["enc", "-fk", "../vault/keys"], { files: { ".env.local": LOCAL }, setup: ["mkdir ../vault"], after: [`${PROBE} enc .env.local.enc ../vault/keys`, `${PROBE} keys ../vault/keys .env.local.enc`, LS, "stat -c '%a %n' ../vault/keys"] });
+add("enc: -fk to a file here that is not gitignored", ["enc", "-fk", "keys.txt"], { files: { ".env.local": LOCAL }, after: [LS] });
+add("enc: .env.keys is a link; the new key lands in its target", ["enc"], { files: { ".env.local": LOCAL }, setup: ["mkdir ../other", keysFile({ _OTHER: 3 }, "../other/.env.keys"), "ln -s ../other/.env.keys .env.keys"], after: [`${PROBE} enc .env.local.enc ../other/.env.keys`, `${PROBE} keys ../other/.env.keys .env.local.enc`, LS, "readlink .env.keys"] });
+add("enc: .env.keys would not be gitignored", ["enc"], { repo: ".env.local\n", files: { ".env.local": LOCAL }, after: [LS] });
+add("enc: the plaintext is not gitignored", ["enc"], { repo: "node_modules/\n", files: { ".env.local": LOCAL }, after: [LS] });
+add("enc: outside any repository", ["enc"], { repo: false, files: { ".env.local": LOCAL }, after: [LS] });
+add("enc: the .enc is gitignored too", ["enc"], { repo: ".env*\n", files: { ".env.local": LOCAL }, setup: [K1], after: WRITTEN });
+add("enc: nothing here", ["enc"], { after: [LS] });
+add("enc: only an .enc here", ["enc"], { files: SCENES["no plaintext"], setup: [K1], after: [LS] });
+add("enc: a named file that is not there, its .enc is", ["enc", ".env.local"], { files: SCENES["no plaintext"], setup: [K1], after: [LS] });
+add("enc: a named file that is not there at all", ["enc", ".env.nope"], { after: [LS] });
+add("enc: a loosely readable plaintext is tightened", ["enc"], { files: { ".env.local": LOCAL }, setup: [K1, "chmod 664 .env.local"], after: WRITTEN });
+add("enc: several files, each its own new key", ["enc"], { files: { ".env": "A=1\n", ".env.local": LOCAL, ".env.production": PROD, ".env.example": "A=\n" }, after: [`${PROBE} keys .env.keys .env.enc .env.local.enc .env.production.enc`, `${PROBE} enc .env.production.enc .env.keys`, LS, `${PROBE} state`] });
+add("enc: two named files", ["enc", ".env.production", ".env.local"], { files: { ".env": "A=1\n", ".env.local": LOCAL, ".env.production": PROD }, setup: [TWO_KEYS], after: [LS, `${PROBE} state`] });
+add("enc: one file fails, the others are encrypted", ["enc"], { files: { ".env.a": "A=1\n", ".env.b": "this is no assignment\n", ".env.c": "C=1\n" }, setup: [keysFile({ _A: 1, _B: 1, _C: 1 })], after: [LS, `${PROBE} state`] });
+add("enc: the plaintext is a symlink", ["enc"], { files: { "elsewhere": LOCAL }, setup: [K1, "ln -s elsewhere .env.local"], after: [LS] });
+add("enc: the plaintext is a symlink, named", ["enc", ".env.local"], { files: { "elsewhere": LOCAL }, setup: [K1, "ln -s elsewhere .env.local"], after: [LS] });
+add("enc: the .enc is a symlink", ["enc"], { files: { ".env.local": LOCAL, "elsewhere": LOCAL_ENC }, setup: [K1, "ln -s elsewhere .env.local.enc"], after: [LS] });
+add("enc: the .enc is a link to nowhere", ["enc"], { files: { ".env.local": LOCAL }, setup: [K1, "ln -s nowhere .env.local.enc"], after: [LS] });
+add("enc: the plaintext is committed", ["enc"], { repo: "", files: { ".env.shared": "PUBLIC=1\n", ".gitignore": ".env.keys\n" }, setup: [IDENT, "git add .env.shared && git commit -q -m public"], after: [LS] });
+add("enc: the plaintext is committed, named", ["enc", ".env.shared"], { repo: "", files: { ".env.shared": "PUBLIC=1\n", ".gitignore": ".env.keys\n" }, setup: [IDENT, "git add .env.shared && git commit -q -m public"], after: [LS] });
+add("enc: in a subdirectory, the key next to the file", ["enc", "app/.env.local"], { files: { "app/.env.local": LOCAL }, after: ["ls -A . app", `${PROBE} state`] });
+add("enc: a glob", ["enc", ".env.*"], { files: { ".env.local": LOCAL }, setup: [K1], back: "Bun.Glob does the matching", after: [LS] });
+add("enc: DOTENVDOTENC_NO_NATIVE=1", ["enc"], { files: { ".env.local": LOCAL }, setup: [K1], env: { DOTENVDOTENC_NO_NATIVE: "1" }, back: "DOTENVDOTENC_NO_NATIVE=1 hands everything back", after: WRITTEN });
+
+// What may and may not be committed.
+add("enc: every kind of value", ["enc"], { files: { ".env.production": RICH }, setup: [K2P], after: WRITTEN_PROD });
+add("enc: every kind of value, CRLF plaintext", ["enc"], { files: { ".env.production": RICH.replace(/\n/g, "\r\n") }, setup: [K2P], after: [`${PROBE} enc .env.production.enc 2 | od -c | head -30`, LS, `${PROBE} state`] });
+add("enc: every kind of value, then dec gives the plaintext back", ["dec"], { files: { ".env.production": RICH }, setup: [K2P, "sh <REPO>/rs/parity/run.sh bun <REPO>/dede.ts enc >/dev/null 2>&1", "mv .env.production original && rm -rf .git/dotenvdotenc"], after: ["cmp .env.production original && echo identical", LS] });
+add("enc: an empty plaintext", ["enc"], { files: { ".env.production": "" }, setup: [K2P], after: WRITTEN_PROD });
+add("enc: comments only", ["enc"], { files: { ".env.production": "# nothing yet\n\n" }, setup: [K2P], after: WRITTEN_PROD });
+add("enc: no newline at the end", ["enc"], { files: { ".env.production": "A=1\nB=2" }, setup: [K2P], after: [`${PROBE} enc .env.production.enc 2 | od -c | tail -4`] });
+add("enc: an empty value last keeps the final newline", ["enc"], { files: { ".env.production": "A=1\nB=\n" }, setup: [K2P], after: WRITTEN_PROD });
+for (const [what, text] of [
+  ["a line that is no assignment", "A=1\njust some words\n"],
+  ["text glued to a value as a comment", "PASSWORD=abc#def\n"],
+  ["text after a closing quote", "A=\"x\"y\n"],
+  ["a commented-out assignment with a long value", "A=1\n# OLD_TOKEN=abcdefghijklmnopqrstuvwxyz\n"],
+  ["a commented-out assignment with a short value is fine", "A=1\n# DEBUG=true\n"],
+  ["a comment with a URL carrying a password", "A=1\n# see https://user:hunter2@example.test/x\n"],
+  ["a comment with a plain URL is fine", "A=1\n# see https://example.test/x?y=1\n"],
+  ["a commented-out assignment of 16 characters counted as JavaScript counts them", "A=1\n# T=😀😀😀😀😀😀😀😀\n"],
+  ["a commented-out assignment of 15 such characters is fine", "A=1\n# T=😀😀😀😀😀😀😀x\n"],
+  ["a spaced comment after a value is fine", "A=1 # the answer\nB=\"two\" # words\n"],
+  ["a public key among the values of .env.production", `A=1\nDOTENV_PUBLIC_KEY_PRODUCTION="${pub(2)}"\n`],
+  ["a private key name among the values of .env.production", "A=1\nDOTENV_PRIVATE_KEY_PRODUCTION=nope\n"],
+  ["toString as a name", "A=1\ntoString=x\n"],
+  ["a name with a dot and one with a dash", "A.B=1\nC-D=2\n"],
+  ["a name that is a number", "1=one\nA=x\n10=ten\n2=two\n"],
+  ["a colon instead of an equals sign", "A: 1\n"],
+  ["an unterminated quote", "A=\"open\nB=1\n"],
+  ["a value with every regular expression character", "A=a|b\\c{d}(e)[f]^g$h+i*j?k.l-m\nB=\"$& $1 $$ $` $'\"\n"],
+  ["the same value under two names", "A=same\nB=same\nC=\"same\"\n"],
+  ["a name that is the end of another", "XA=1\nA=1\nAA=1\n"],
+  ["blank lines after an empty value", "A=\n\n\nB=2\n"],
+  ["a byte order mark", "﻿A=1\nB=2\n"],
+  ["a lone carriage return between two assignments", "A=1\rB=2\n"],
+  ["a value in a line separator's company", "A=1 B=2\n"],
+  ["bytes that are not UTF-8", null],
+]) {
+  add(`enc: ${what}`, ["enc"], { files: { ".env.production": text ?? "A=1\n" }, setup: [K2P, ...(text === null ? ["printf 'B=\\377\\376\\n' >> .env.production"] : [])], after: WRITTEN_PROD });
+}
+
+// --key NAME: the key for a new .enc.
+add("enc --key: a keys file backed up with a chosen key", ["enc", ".env.keys.myproj", "--key", "ME"], { files: {}, setup: [keysFile({ _ME: 1 }), keysFile({ _PRODUCTION: 2, "": 3 }, ".env.keys.myproj")], after: [`${PROBE} enc .env.keys.myproj.enc 1 | sed -E 's/[0-9a-f]{64}/<a private key>/g'`, LS, "wc -l .env.keys"] });
+add("enc --key: the key from the environment", ["enc", "--key", "CI", ".env.production"], { files: { ".env.production": PROD }, keys: "_CI=2", after: WRITTEN_PROD });
+add("enc --key: the key from the key tree", ["enc", "--key", "MID", ".env.production"], { files: { ".env.production": PROD }, setup: [keysFile({ _ROOT: 1 }), treeNode("team", 1, { _MID: 2 })], after: WRITTEN_PROD });
+add("enc --key: a key that is not held", ["enc", "--key", "NOPE", ".env.production"], { files: { ".env.production": PROD }, setup: [K1], after: [LS] });
+add("enc --key: without a name", ["enc", ".env.production", "--key"], { files: { ".env.production": PROD }, setup: [K1], after: [LS] });
+add("enc --key: a lower-case name", ["enc", "--key", "me", ".env.production"], { files: { ".env.production": PROD }, setup: [K1], after: [LS] });
+add("enc --key: the .enc is there and has that key", ["enc", "--key", "TWO"], { files: { ".env.production": PROD + "MORE=1\n", ".env.production.enc": PROD_ENC, "state.fixture": stateText({ ".env.production": [PROD, PROD_ENC] }) }, setup: [keysFile({ _TWO: 2 })], after: WRITTEN_PROD });
+add("enc --key: the .enc is there and has another key", ["enc", "--key", "ONE"], { files: { ".env.production": PROD + "MORE=1\n", ".env.production.enc": PROD_ENC }, setup: [keysFile({ _ONE: 1, _PRODUCTION: 2 })], after: [LS] });
+add("enc --key: the .enc is there and the chosen key is not held", ["enc", "--key", "NOPE"], { files: { ".env.production": PROD + "MORE=1\n", ".env.production.enc": PROD_ENC, "state.fixture": stateText({ ".env.production": [PROD, PROD_ENC] }) }, setup: [K2P], after: WRITTEN_PROD });
+add("enc: a keys file as plaintext may hold private keys", ["enc", ".env.keys.myproj"], { files: {}, setup: [keysFile({ _KEYS_MYPROJ: 1 }), keysFile({ _PRODUCTION: 2 }, ".env.keys.myproj")], after: [`${PROBE} enc .env.keys.myproj.enc 1 | sed -E 's/[0-9a-f]{64}/<a private key>/g'`, LS] });
+
+// -y: commit what was written.
+const COMMITTED = ["git log --format='%s%n%an <%ae>' 2>&1", "git status --porcelain", "git show --stat --format= HEAD 2>&1 | sed 's/ *|.*//'"];
+add("enc -y: commits the written .enc", ["enc", "-y"], { files: { ".env.local": LOCAL }, setup: [IDENT, "git add .gitignore && git commit -q -m init", K1], after: COMMITTED });
+add("enc --yes: the same", ["enc", "--yes"], { files: { ".env.local": LOCAL }, setup: [IDENT, "git add .gitignore && git commit -q -m init", K1], after: COMMITTED });
+add("enc -y: only the written .enc files; other staged changes stay staged", ["enc", "-y"], {
+  files: { ...SCENES["plaintext edited"], ".env.production": PROD, ".env.production.enc": PROD_ENC, "other.txt": "staged\n", ".env.a": "A=1\n", ".env.b": "B=1\n", ".env.c": "C=1\n" },
+  setup: [IDENT, "git add .gitignore .env.local.enc .env.production.enc && git commit -q -m init", keysFile({ _LOCAL: 1, _PRODUCTION: 2, _A: 1, _B: 1, _C: 1 }), "git add other.txt"],
+  after: COMMITTED,
+});
+add("enc -y: nothing written, nothing committed", ["enc", "-y"], { files: SCENES["in sync"], setup: [IDENT, "git add .gitignore .env.local.enc && git commit -q -m init", K1], after: COMMITTED });
+add("enc -y: the commit fails without an identity", ["enc", "-y"], { files: { ".env.local": LOCAL }, setup: ["git config --global user.useConfigOnly true", K1], after: ["git log --format=%s 2>&1 | head -3", "git status --porcelain"] });
+add("enc -y: a pre-commit hook that refuses", ["enc", "-y"], { files: { ".env.local": LOCAL }, setup: [IDENT, K1, "printf '#!/bin/sh\\necho hook says no >&2\\nexit 1\\n' > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit"], after: ["git log --format=%s 2>&1 | head -3", "git status --porcelain"] });
+add("enc -y: a hook sees the variables of the .env files bun loaded", ["enc", "-y"], { files: { ".env.local": LOCAL }, setup: [IDENT, K1, "printf '#!/bin/sh\\necho \"hook: API_KEY=$API_KEY NAME=$NAME\"\\n' > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit"], after: COMMITTED });
+add("enc -y: the .enc is gitignored, so git refuses to add it", ["enc", "-y"], { repo: ".env*\n", files: { ".env.local": LOCAL }, setup: [IDENT, K1], after: ["git status --porcelain"] });
+add("enc: without -y and without a terminal nothing is committed", ["enc"], { files: { ".env.local": LOCAL }, setup: [IDENT, "git add .gitignore && git commit -q -m init", K1], after: COMMITTED });
+add("enc -y: one file fails, the others are committed, exit code of the failure", ["enc", "-y"], { files: { ".env.a": "A=1\n", ".env.b": "no assignment\n" }, setup: [IDENT, keysFile({ _A: 1, _B: 1 })], after: COMMITTED });
+
+// The plaintext is one of the files bun loads; what bun would interpret sends the invocation back.
+add("enc: a $ in .env.local", ["enc"], { files: { ".env.local": "A=$HOME\n" }, setup: [K1], back: "bun expands $HOME when it loads .env.local", after: WRITTEN });
+add("enc: a value over two lines in .env", ["enc"], { files: { ".env": "A=\"one\ntwo\"\n" }, setup: [keysFile({ "": 1 })], back: "values over several lines in a file bun loads are not imitated", after: written(".env") });
+add("enc: export in .env.development", ["enc"], { files: { ".env.development": "export A=1\n" }, setup: [keysFile({ _DEVELOPMENT: 1 })], back: "export in a file bun loads is not imitated", after: written(".env.development") });
+add("enc: the same $ in .env.production, which bun does not load", ["enc"], { files: { ".env.production": "A=$HOME\n" }, setup: [K2P], after: WRITTEN_PROD });
+add("enc: the same $ in .env.local under NODE_ENV=test, when bun does not load it", ["enc"], { files: { ".env.local": "A=$HOME\n" }, setup: [K1], env: { NODE_ENV: "test" }, after: WRITTEN });
+
 // ═══════════════════════════ write ═══════════════════════════
 
 const out = { env: { TZ: "UTC", GIT_CONFIG_NOSYSTEM: "1", PARITY_GIT_LOG: "<HOME>/git.log" }, cases };
