@@ -6,14 +6,19 @@
 //   bun rs/vectors.gen.mjs --check    fails if the files are not what it writes
 //
 // Run it with bun, the runtime the published `dede` runs on. Every key in
-// here was made up for these files and protects nothing.
+// here was made up for these files and protects nothing. On Windows only
+// primitives.json is written or checked: path.json holds node:path's POSIX
+// rules as a POSIX system runs them (relative paths against /tmp), which the
+// port imitates on Linux and macOS, and the binary hands every invocation
+// back on Windows.
 
 import { createCipheriv, hkdfSync } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { decrypt, derive, keypair, remove, scan, upsert } from "@dotenvx/primitives";
 
-const here = dirname(new URL(import.meta.url).pathname);
+const here = dirname(fileURLToPath(import.meta.url));
 const check = process.argv.includes("--check");
 
 // A small deterministic generator, so the files are the same on every run.
@@ -303,7 +308,7 @@ function cryptoVectors() {
 // ───────────────────────── write ─────────────────────────
 
 const files = {
-  "path.json": JSON.stringify(pathVectors()),
+  ...(process.platform === "win32" ? {} : { "path.json": JSON.stringify(pathVectors()) }),
   "primitives.json": JSON.stringify({ sources: sources(), ...cryptoVectors() }),
 };
 
