@@ -30,7 +30,7 @@ pub fn run(argv: &[String]) -> Result<i32, HandBack> {
     }
     let env = Env::startup()?;
     let cwd = std::env::current_dir().map_err(|_| HandBack)?.into_os_string().into_string().map_err(|_| HandBack)?;
-    let out = crate::out::Out::for_this_process().ok_or(HandBack)?;
+    let out = crate::out::Out::for_this_process();
     let mut dede = Dede::new(env, cwd, out);
     let code = match main(&mut dede, argv) {
         Ok(code) => code,
@@ -42,7 +42,9 @@ pub fn run(argv: &[String]) -> Result<i32, HandBack> {
         }
         Err(HandBack) => return Err(HandBack),
     };
-    dede.out.flush();
+    // What went to standard error is red or not by rules of bun's that are
+    // not imitated here (see `out::error_colour`): the JavaScript answers.
+    dede.out.finish()?;
     Ok(code)
 }
 
@@ -99,14 +101,14 @@ fn main(dede: &mut Dede, argv: &[String]) -> Result<i32, HandBack> {
                 }
                 let pairs = dede.pairs(&args, Mode::Enc)?;
                 precheck(dede, &pairs, true, force)?;
-                dede.out.go_live();
+                dede.out.go_live()?;
                 each(dede, &pairs, &mut code, |dede, pair| dede.enc(pair, force))?;
                 code = code.max(dede.commit_written(yes));
             }
             Some("dec") => {
                 let pairs = dede.pairs(&args, Mode::Dec)?;
                 precheck(dede, &pairs, false, force)?;
-                dede.out.go_live();
+                dede.out.go_live()?;
                 each(dede, &pairs, &mut code, |dede, pair| dede.dec(pair, force))?;
             }
             Some("status") => {

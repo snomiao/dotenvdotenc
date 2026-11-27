@@ -107,6 +107,10 @@ impl Dede {
     }
 
     pub fn setup(&mut self) -> R<()> {
+        // It prints to standard error whatever happens.
+        if !self.out.colour_is_known() {
+            return Err(Stop::HandBack);
+        }
         let top = self.git_dir(&self.cwd)?;
         self.setup_precheck(&top)?;
         let gitignore = join(&top, ".gitignore");
@@ -123,7 +127,7 @@ impl Dede {
             // first write that fails still is: the TypeScript ends in an
             // uncaught error there, and nothing has been printed or changed.)
             self.write_atomic(&gitignore, &text, 0o644)?;
-            self.out.go_live();
+            self.out.go_live()?;
             if !ok(self)? {
                 return die(".gitignore still does not ignore .env* while keeping .env*.enc; check for conflicting rules (`git check-ignore -v .env.local.enc`)".into(), 1);
             }
@@ -202,7 +206,7 @@ impl Dede {
             }
         };
         self.write_atomic(&hook, &body, mode)?;
-        self.out.go_live();
+        self.out.go_live()?;
         self.log(&format!("{} {}: {what}", if previous.is_none() { "created" } else { "updated" }, self.rel(&hook)));
         Ok(())
     }
@@ -212,7 +216,7 @@ impl Dede {
         let text = with_husky(&raw)?;
         let mode = lstat_mode(package).map_err(|_| Stop::Thrown("Error"))?.1 & 0o777;
         self.write_atomic(package, &text, mode)?;
-        self.out.go_live();
+        self.out.go_live()?;
         let husky_dir = join(top, ".husky");
         fs::create_dir_all(&husky_dir).map_err(|_| Stop::Thrown("Error"))?;
         self.write_atomic(&join(&husky_dir, "pre-commit"), &format!("{HOOK_CMD}\n"), 0o644)?;

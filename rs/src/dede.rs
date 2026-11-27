@@ -1558,8 +1558,12 @@ impl Dede {
             if mode & 0o077 != 0 {
                 self.log(&format!("warning: {target} is readable by other users; chmod 600 it"));
             }
-            // The one change this command makes. If it fails, nothing has
-            // been printed yet and nothing has changed.
+            // The one change this command makes, after which it prints to
+            // standard error. If it fails, nothing has been printed yet and
+            // nothing has changed.
+            if !self.out.colour_is_known() {
+                return Err(Stop::HandBack);
+            }
             thrown(std::os::unix::fs::symlink(target, &link))?;
             self.log(&format!("linked .env.keys → {target}"));
             Ok(())
