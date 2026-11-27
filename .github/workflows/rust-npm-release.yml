@@ -67,6 +67,7 @@ jobs:
       # - the two taking turns on the same files, and dotenvx reading what the
       #   binary encrypts;
       # - both on a pseudo-terminal, under several TERM values;
+      # - `dede get` of both into a pipe or a socket read only after it exits;
       # - both where the file system refuses something (as the runner's user,
       #   with sudo making what belongs to root).
       parity: >-
@@ -81,6 +82,7 @@ jobs:
         --handback DOTENVDOTENC_PACKAGE_ROOT=dede.ts
         && sh rs/cross-compat.sh "$RUSTIFY_BIN_DIR/dotenvdotenc"
         && python3 rs/tty-compat.py "$RUSTIFY_BIN_DIR/dotenvdotenc"
+        && python3 rs/pipe-compat.py "$RUSTIFY_BIN_DIR/dotenvdotenc"
         && sh rs/perm-compat.sh "$RUSTIFY_BIN_DIR/dotenvdotenc"
       # After installing, on every platform. The parity job runs on Linux
       # only; these lines are all that macOS and Windows get. An unknown
