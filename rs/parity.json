@@ -16201,7 +16201,7 @@
    "setup": [
     "git init -q -b main",
     "{ printf 'DOTENV_PRIVATE_KEY_PROD=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
-    "node -e 'require(\"fs\").writeFileSync(\".env.prod\", \"# it's\\nA=it's\\nB=\\\"x\\\" # 'q\\n\" + \"C=1\\n\".repeat(50000))'"
+    "node -e 'require(\"fs\").writeFileSync(\".env.prod\", \"# it\\x27s\\nA=it\\x27s\\nB=\\\"x\\\" # \\x27q\\n# \" + \"c\".repeat(140000) + \"\\nZ=1\\n\")'"
    ],
    "after": [
     "cat <HOME>/git.log 2>&1"
