@@ -20,8 +20,8 @@ fn is_ported(command: Option<&str>) -> bool {
     match command {
         // Usage: `dede`, `dede help`, and what is no command at all.
         None => true,
-        Some("get" | "status" | "diff" | "keys" | "dec" | "enc" | "guard") => true,
-        Some("health" | "setup") => false,
+        Some("get" | "status" | "diff" | "keys" | "dec" | "enc" | "guard" | "health") => true,
+        Some("setup") => false,
         Some(_) => true,
     }
 }
@@ -165,6 +165,12 @@ fn main(dede: &mut Dede, argv: &[String]) -> Result<i32, HandBack> {
                 }
             }
             Some("guard") => dede.guard(all)?,
+            Some("health") => {
+                let pairs = dede.pairs(&args, Mode::Dec)?;
+                if !dede.health(&pairs, all)? {
+                    code = 1;
+                }
+            }
             Some("keys") => {
                 if args.first().map(String::as_str) == Some("link") {
                     dede.keys_link(args.get(1).map(String::as_str))?;

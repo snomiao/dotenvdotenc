@@ -8,6 +8,7 @@
 mod cli;
 mod dede;
 mod env;
+mod health;
 mod js;
 mod js_fallback;
 mod out;
