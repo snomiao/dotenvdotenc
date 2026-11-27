@@ -19,7 +19,10 @@
 // The first compares everything a case names; DOTENVDOTENC_PACKAGE_ROOT lets
 // the binary hand back what it does not answer itself. The second runs the
 // binary against a stand-in package and fails unless exactly the cases
-// marked `handback` reached the JavaScript.
+// marked `handback` for the system it runs on reached the JavaScript.
+// `sh rs/parity/proof.sh <parity.mjs> <binary>` runs both, in lanes side by
+// side, with every other proof, on Linux, macOS or Windows (Git Bash): what
+// the CI workflow runs on each.
 //
 // rs/parity/run.sh starts the command for a case (see there): it puts the
 // throwaway private keys a case asks for into the environment, and a `git`
