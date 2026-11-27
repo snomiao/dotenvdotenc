@@ -4832,21 +4832,24 @@
    ]
   },
   {
-   "name": "status: unmanaged files, from a subdirectory",
+   "name": "status: from a subdirectory; unmanaged files anywhere in the repository",
    "args": [
     "status"
    ],
    "files": {
-    ".gitignore": ".env*\n!.env*.enc\n",
-    ".env.root": "X=1\n",
-    "app/.env.prod": "X=1\n",
-    "app/deep/.env.deep": "X=1\n",
-    "other/.env.other": "X=1\n"
+    "../.gitignore": ".env*\n!.env*.enc\n/home/\n/tmp/\n/cache/\n",
+    "../.env.root": "X=1\n",
+    "../app/.env.prod": "X=1\n",
+    ".env.here": "X=1\n",
+    "deep/.env.deep": "X=1\n",
+    ".env.local": "# api\nAPI_KEY=dummy-2\nNAME=\"hello world\"\nNEW=added\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n",
+    "../record.fixture": "{\n  \"cwd/.env.local\": {\n    \"plain\": \"10e27778cbc5aed08467c70bcd900ddadee6d88614d77982258351637128bfca\",\n    \"enc\": \"2b3543dad1f3b6d170b3defe9f9487dc094362d6df6f0aace6d4901d2c424aee\",\n    \"salt\": \"000102030405060708090a0b0c0d0e0f\",\n    \"keys\": {\n      \"API_KEY\": \"370aad9b2bb3b7f8f851c2ec\",\n      \"NAME\": \"d192fbc5017851fa6ebf1cf4\"\n    },\n    \"notes\": \"3f929c751076e3fd5a17283b\"\n  }\n}\n"
    },
    "setup": [
-    "git init -q -b main",
-    "mkdir -p app/run && cd app/run && { printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
-    "true"
+    "git -C .. init -q -b main",
+    "mkdir -p ../.git/dotenvdotenc && mv ../record.fixture ../.git/dotenvdotenc/state.json",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys"
    ],
    "after": [
     "cat <HOME>/git.log 2>&1"
@@ -8487,6 +8490,45 @@
    ]
   },
   {
+   "name": "dec: run in a subdirectory of the repository",
+   "args": [
+    "dec"
+   ],
+   "files": {
+    "../.gitignore": ".env*\n!.env*.enc\n/home/\n/tmp/\n/cache/\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n"
+   },
+   "setup": [
+    "git -C .. init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys"
+   ],
+   "after": [
+    "cat .env.local",
+    "node <REPO>/rs/parity/probe.mjs state",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "dec: a file one directory up",
+   "args": [
+    "dec",
+    "../.env.local"
+   ],
+   "files": {
+    "../.gitignore": ".env*\n!.env*.enc\n/home/\n/tmp/\n/cache/\n",
+    "../.env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n"
+   },
+   "setup": [
+    "git -C .. init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > ../.env.keys"
+   ],
+   "after": [
+    "cat ../.env.local",
+    "node <REPO>/rs/parity/probe.mjs state",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
    "name": "dec: the plaintext is a symlink",
    "args": [
     "dec"
@@ -11177,6 +11219,50 @@
    ]
   },
   {
+   "name": "enc: run in a subdirectory of the repository",
+   "args": [
+    "enc"
+   ],
+   "files": {
+    "../.gitignore": ".env*\n!.env*.enc\n/home/\n/tmp/\n/cache/\n",
+    ".env.local": "# api\nAPI_KEY=dummy-1\nNAME=\"hello world\"\n"
+   },
+   "setup": [
+    "git -C .. init -q -b main"
+   ],
+   "after": [
+    "node <REPO>/rs/parity/probe.mjs enc .env.local.enc .env.keys",
+    "node <REPO>/rs/parity/probe.mjs keys .env.keys .env.local.enc",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "node <REPO>/rs/parity/probe.mjs state",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "enc: run in a subdirectory, edited since the last sync",
+   "args": [
+    "enc"
+   ],
+   "files": {
+    "../.gitignore": ".env*\n!.env*.enc\n/home/\n/tmp/\n/cache/\n",
+    ".env.local": "# api\nAPI_KEY=dummy-2\nNAME=\"hello world\"\nNEW=added\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n",
+    "../record.fixture": "{\n  \"cwd/.env.local\": {\n    \"plain\": \"10e27778cbc5aed08467c70bcd900ddadee6d88614d77982258351637128bfca\",\n    \"enc\": \"2b3543dad1f3b6d170b3defe9f9487dc094362d6df6f0aace6d4901d2c424aee\",\n    \"salt\": \"000102030405060708090a0b0c0d0e0f\",\n    \"keys\": {\n      \"API_KEY\": \"370aad9b2bb3b7f8f851c2ec\",\n      \"NAME\": \"d192fbc5017851fa6ebf1cf4\"\n    },\n    \"notes\": \"3f929c751076e3fd5a17283b\"\n  }\n}\n"
+   },
+   "setup": [
+    "git -C .. init -q -b main",
+    "mkdir -p ../.git/dotenvdotenc && mv ../record.fixture ../.git/dotenvdotenc/state.json",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys"
+   ],
+   "after": [
+    "cat .env.local 2>&1",
+    "node <REPO>/rs/parity/probe.mjs enc .env.local.enc 1",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "node <REPO>/rs/parity/probe.mjs state",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
    "name": "enc: a glob",
    "args": [
     "enc",
@@ -12460,6 +12546,1024 @@
     "node <REPO>/rs/parity/probe.mjs state",
     "cat <HOME>/git.log 2>&1"
    ]
+  },
+  {
+   "name": "guard: nothing staged",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: a real .enc passes",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "git add .env.local.enc"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: a real .enc with CRLF passes",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\r\n#/            public-key encryption for .env files          /\r\n#/       [how it works](https://dotenvx.com/encryption)     /\r\n#/----------------------------------------------------------/\r\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\r\n\r\n# api\r\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\r\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\r\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "git -c core.autocrlf=false add .env.local.enc"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: several kinds of file staged, all fine",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n",
+    "src/app.js": "console.log(1)\n",
+    ".env.example": "API_KEY=\n",
+    "a b/é.txt": "x\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "git add ."
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: a new plaintext env file",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod": "A=1\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "git add -f .env.prod"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: a new plaintext env file in a subdirectory, from another one",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    "app/.env.prod": "A=1\n",
+    "docs/x": ""
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "git add -f app/.env.prod"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: .env.keys",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "git add -f .env.keys"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: a keys file under another name",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "{ printf 'DOTENV_PRIVATE_KEY_X=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > keys.txt",
+    "git add keys.txt"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: a temp file of dede",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.dede-tmp-123-abcd0123": "A=1\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "git add -f .env.dede-tmp-123-abcd0123"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: an .enc with a value that is not encrypted",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\nPLAIN=oops\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "git add .env.local.enc"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: an .enc with plaintext glued after the ciphertext",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=#glued-secret\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "git add .env.local.enc"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: an .enc with a spaced comment after the ciphertext passes",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU= # fine\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "git add .env.local.enc"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: an .enc whose comment holds a credential; the line number counts the header",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n# OLD_TOKEN=abcdefghijklmnopqrstuvwxyz\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "git add .env.local.enc"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: an .enc whose comment holds a URL with a password",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# https://me:hunter2@example.test\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "git add .env.local.enc"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: an .enc with a line that is no assignment",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\noops plain words\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "git add .env.local.enc"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: an .enc without header",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local.enc": "API_KEY=encrypted:AAAA\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "git add .env.local.enc"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: an .enc with a name every JavaScript object has",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\nconstructor=encrypted:AAAA\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "git add .env.local.enc"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: an .enc that holds a private key name",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\nDOTENV_PRIVATE_KEY_X=encrypted:AAAA\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "git add .env.local.enc"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: an .enc of a keys file may hold private key names",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_PRODUCTION\":2}' ./.env.keys.team.enc",
+    "git add .env.keys.team.enc"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: an .enc that is a symlink is read as its target's name",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    "elsewhere": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "ln -s elsewhere .env.local.enc",
+    "git add .env.local.enc"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: an .enc that is no env name is not looked into",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    "notes.enc": "plain words\n",
+    ".env.example.enc": "A=1\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "git add -f notes.enc .env.example.enc"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: a private key in YAML, in JSON and in upper case",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "printf 'env:\\n  DOTENV_PRIVATE_KEY_PROD: \"%s\"\\n' \"$(printf %064d 0 | tr 0 1)\" > deploy.yml",
+    "printf '{\"DOTENV_PRIVATE_KEY\":\"%s\"}\\n' \"$(printf %064d 0 | tr 0 2)\" > secrets.json",
+    "printf 'DOTENV_PRIVATE_KEY_X=%s\\n' \"$(printf %064d 0 | tr 0 A)\" > upper.txt",
+    "printf 'DOTENV_PRIVATE_KEY_X=%s\\n' \"$(printf %063d 0 | tr 0 1)\" > short.txt",
+    "git add deploy.yml secrets.json upper.txt short.txt"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: an edit to a committed plaintext env file passes",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env.keys\n",
+    ".env.shared": "PUBLIC=1\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "git add .env.shared && git commit -q -m public",
+    "echo MORE=2 >> .env.shared && git add .env.shared"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: a private key added to a committed plaintext env file",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env.keys\n",
+    ".env.shared": "PUBLIC=1\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "git add .env.shared && git commit -q -m public",
+    "printf 'DOTENV_PRIVATE_KEY=%s\\n' \"$(printf %064d 0 | tr 0 1)\" >> .env.shared && git add .env.shared"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: a file renamed into an env name",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env.keys\n",
+    "config.txt": "A=1\nB=2\nC=3\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "git add config.txt && git commit -q -m config",
+    "git mv config.txt .env.renamed"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: a symlink replaced by a file with a key in it",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "ln -s elsewhere link && git add link && git commit -q -m link",
+    "rm link && printf 'DOTENV_PRIVATE_KEY=%s\\n' \"$(printf %064d 0 | tr 0 1)\" > link && git add link"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: a deleted plaintext env file is no concern",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env.keys\n",
+    ".env.shared": "PUBLIC=1\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "git add .env.shared && git commit -q -m public",
+    "git rm -q .env.shared"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: a file that is not text",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "printf '\\377\\376\\000binary' > blob.bin && git add blob.bin"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: an unmanaged plaintext env file blocks, staged or not",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod": "A=1\n",
+    "app/.env.stage": "B=1\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: what is not unmanaged: an .enc twin, *.local, examples, node_modules",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local": "A=1\n",
+    ".env.development.local": "A=1\n",
+    ".env.example": "A=\n",
+    ".env.sample": "A=\n",
+    ".env.template": "A=\n",
+    ".env.vault": "x\n",
+    ".env.me": "x\n",
+    ".env.prod": "API_KEY=dummy-prod\nURL=https://example.test/x?y=1\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_KEY=encrypted:BFjb1md8QOpAWzvWe7sB6BKlAeMO/mHMTX2iaFm2TbIfnuFgHUyX9myMXrJaVsfIXhuzDyIT4f31rWw5BX6uHclSamDWJANYwOWPOBQKKrbpJ48NEsbc/dLRfktyVihgrrt5jxlgUBe2BcY=\nURL=encrypted:BCvoebJb3GztyJ17cYlTRvd98tWfeR+Z1QH6YpQ/RL39xzIwmf1G7GqoGdHwQTejEXjMu2zAnaw6nD2J8NqKtJu/1mt6km/9APjuFLxo+pzc63qMOY9yY4hGAml/0MlDSxkzZCH8gz1LjM29gYqIHcq4Il2+FTtwueXD\n",
+    "node_modules/pkg/.env.test": "A=1\n",
+    "app/node_modules/.env.x": "A=1\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "{ printf 'DOTENV_PRIVATE_KEY_PROD=%s\\n' \"$(printf %064d 0 | tr 0 2)\"; } > .env.keys"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: an unmanaged file that is not ignored either",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": "node_modules/\n",
+    ".env.prod": "A=1\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: a committed plaintext env file is not unmanaged",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env.keys\n",
+    ".env.shared": "PUBLIC=1\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "git add .env.shared && git commit -q -m public"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: edits not encrypted yet, naming the keys",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local": "# api\nAPI_KEY=dummy-2\nNAME=\"hello world\"\nNEW=added\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n",
+    "state.fixture": "{\n  \".env.local\": {\n    \"plain\": \"10e27778cbc5aed08467c70bcd900ddadee6d88614d77982258351637128bfca\",\n    \"enc\": \"2b3543dad1f3b6d170b3defe9f9487dc094362d6df6f0aace6d4901d2c424aee\",\n    \"salt\": \"000102030405060708090a0b0c0d0e0f\",\n    \"keys\": {\n      \"API_KEY\": \"370aad9b2bb3b7f8f851c2ec\",\n      \"NAME\": \"d192fbc5017851fa6ebf1cf4\"\n    },\n    \"notes\": \"3f929c751076e3fd5a17283b\"\n  }\n}\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "mkdir -p .git/dotenvdotenc && mv state.fixture .git/dotenvdotenc/state.json",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: edits not encrypted yet, without the key at hand",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local": "# api\nAPI_KEY=dummy-2\nNAME=\"hello world\"\nNEW=added\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n",
+    "state.fixture": "{\n  \".env.local\": {\n    \"plain\": \"10e27778cbc5aed08467c70bcd900ddadee6d88614d77982258351637128bfca\",\n    \"enc\": \"2b3543dad1f3b6d170b3defe9f9487dc094362d6df6f0aace6d4901d2c424aee\",\n    \"salt\": \"000102030405060708090a0b0c0d0e0f\",\n    \"keys\": {\n      \"API_KEY\": \"370aad9b2bb3b7f8f851c2ec\",\n      \"NAME\": \"d192fbc5017851fa6ebf1cf4\"\n    },\n    \"notes\": \"3f929c751076e3fd5a17283b\"\n  }\n}\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "mkdir -p .git/dotenvdotenc && mv state.fixture .git/dotenvdotenc/state.json",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: edits not encrypted yet, a record without per-key hashes",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local": "# api\nAPI_KEY=dummy-2\nNAME=\"hello world\"\nNEW=added\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n",
+    "state.fixture": "{\n  \".env.local\": {\n    \"plain\": \"10e27778cbc5aed08467c70bcd900ddadee6d88614d77982258351637128bfca\",\n    \"enc\": \"2b3543dad1f3b6d170b3defe9f9487dc094362d6df6f0aace6d4901d2c424aee\"\n  }\n}\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "mkdir -p .git/dotenvdotenc && mv state.fixture .git/dotenvdotenc/state.json",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: in sync passes",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local": "# api\nAPI_KEY=dummy-1\nNAME=\"hello world\"\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n",
+    "state.fixture": "{\n  \".env.local\": {\n    \"plain\": \"10e27778cbc5aed08467c70bcd900ddadee6d88614d77982258351637128bfca\",\n    \"enc\": \"2b3543dad1f3b6d170b3defe9f9487dc094362d6df6f0aace6d4901d2c424aee\",\n    \"salt\": \"000102030405060708090a0b0c0d0e0f\",\n    \"keys\": {\n      \"API_KEY\": \"370aad9b2bb3b7f8f851c2ec\",\n      \"NAME\": \"d192fbc5017851fa6ebf1cf4\"\n    },\n    \"notes\": \"3f929c751076e3fd5a17283b\"\n  }\n}\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "mkdir -p .git/dotenvdotenc && mv state.fixture .git/dotenvdotenc/state.json",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: a pull that only changed the .enc does not block",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local": "# api\nAPI_KEY=dummy-1\nNAME=\"hello world\"\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDkiDI+KcJ19ExSsn8E7W9iShMxrbZoFE3jG0VwwoU5JGGQreuPK6ZhlHXUlPLwIk1gFvA12kJdcu3joVierMrFi8fHAASp8bhKwHCkfyBGTT2pFIdY/ofMP8B6fndMQHkolMJuDmGALykjh\"\nEXTRA=encrypted:BGeXy7iL6smLULLTxZwWzOV1oECwxyU6UPZpNtZBZvN5wls3wxPRlkKT7Kl09Xbz7OPMJZgr0Qh2fxJS1Oqtlt+n2PMZxJQTNfCBN6C++ffm3KKc2yR/Xq1bBKYp1rhoP4VLUYk25unO\n",
+    "state.fixture": "{\n  \".env.local\": {\n    \"plain\": \"10e27778cbc5aed08467c70bcd900ddadee6d88614d77982258351637128bfca\",\n    \"enc\": \"2b3543dad1f3b6d170b3defe9f9487dc094362d6df6f0aace6d4901d2c424aee\",\n    \"salt\": \"000102030405060708090a0b0c0d0e0f\",\n    \"keys\": {\n      \"API_KEY\": \"370aad9b2bb3b7f8f851c2ec\",\n      \"NAME\": \"d192fbc5017851fa6ebf1cf4\"\n    },\n    \"notes\": \"3f929c751076e3fd5a17283b\"\n  }\n}\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "mkdir -p .git/dotenvdotenc && mv state.fixture .git/dotenvdotenc/state.json",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: never synced and different, the key at hand",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local": "# api\nAPI_KEY=dummy-2\nNAME=\"hello world\"\nNEW=added\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDkiDI+KcJ19ExSsn8E7W9iShMxrbZoFE3jG0VwwoU5JGGQreuPK6ZhlHXUlPLwIk1gFvA12kJdcu3joVierMrFi8fHAASp8bhKwHCkfyBGTT2pFIdY/ofMP8B6fndMQHkolMJuDmGALykjh\"\nEXTRA=encrypted:BGeXy7iL6smLULLTxZwWzOV1oECwxyU6UPZpNtZBZvN5wls3wxPRlkKT7Kl09Xbz7OPMJZgr0Qh2fxJS1Oqtlt+n2PMZxJQTNfCBN6C++ffm3KKc2yR/Xq1bBKYp1rhoP4VLUYk25unO\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: never synced and different, no key: not compared",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local": "# api\nAPI_KEY=dummy-2\nNAME=\"hello world\"\nNEW=added\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDkiDI+KcJ19ExSsn8E7W9iShMxrbZoFE3jG0VwwoU5JGGQreuPK6ZhlHXUlPLwIk1gFvA12kJdcu3joVierMrFi8fHAASp8bhKwHCkfyBGTT2pFIdY/ofMP8B6fndMQHkolMJuDmGALykjh\"\nEXTRA=encrypted:BGeXy7iL6smLULLTxZwWzOV1oECwxyU6UPZpNtZBZvN5wls3wxPRlkKT7Kl09Xbz7OPMJZgr0Qh2fxJS1Oqtlt+n2PMZxJQTNfCBN6C++ffm3KKc2yR/Xq1bBKYp1rhoP4VLUYk25unO\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: never synced and the same",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local": "# api\nAPI_KEY=dummy-1\nNAME=\"hello world\"\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: never synced, a damaged .enc",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local": "# api\nAPI_KEY=dummy-1\nNAME=\"hello world\"\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFAmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: the .enc twin of an edited plaintext is a symlink",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local": "# api\nAPI_KEY=dummy-1\nNAME=\"hello world\"\n",
+    "elsewhere": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "ln -s elsewhere .env.local.enc"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: a symlinked plaintext with an .enc twin is passed over",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n",
+    "elsewhere": "# api\nAPI_KEY=dummy-2\nNAME=\"hello world\"\nNEW=added\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "ln -s elsewhere .env.local"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: several things wrong at once, in order",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local": "# api\nAPI_KEY=dummy-2\nNAME=\"hello world\"\nNEW=added\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n",
+    "state.fixture": "{\n  \".env.local\": {\n    \"plain\": \"10e27778cbc5aed08467c70bcd900ddadee6d88614d77982258351637128bfca\",\n    \"enc\": \"2b3543dad1f3b6d170b3defe9f9487dc094362d6df6f0aace6d4901d2c424aee\",\n    \"salt\": \"000102030405060708090a0b0c0d0e0f\",\n    \"keys\": {\n      \"API_KEY\": \"370aad9b2bb3b7f8f851c2ec\",\n      \"NAME\": \"d192fbc5017851fa6ebf1cf4\"\n    },\n    \"notes\": \"3f929c751076e3fd5a17283b\"\n  }\n}\n",
+    ".env.prod": "A=1\n",
+    ".env.stage": "A=1\n",
+    ".env.stage.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_STAGE=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\nA=encrypted:BGiW41q9kO4op2r9s7cenN9AVpO4IP2gVmDw9uW88yxyDVmY/K3Y3PVVYQPlATGPyCjWjYWAL67/4B3mkkt9ltu4WasaJZZma0qXmeLIdA4kP0dAtcK3PqgLvpxBjfjgReY=\nB=plain\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "mkdir -p .git/dotenvdotenc && mv state.fixture .git/dotenvdotenc/state.json",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "git add -f .env.stage .env.stage.enc .env.keys"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: from a subdirectory",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    "../.gitignore": ".env*\n!.env*.enc\n/home/\n/tmp/\n/cache/\n",
+    "../.env.root": "X=1\n",
+    "../app/.env.stage.enc": "A=1\n",
+    ".env.here.enc": "B=1\n",
+    ".env.local": "# api\nAPI_KEY=dummy-2\nNAME=\"hello world\"\nNEW=added\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n",
+    "../record.fixture": "{\n  \"cwd/.env.local\": {\n    \"plain\": \"10e27778cbc5aed08467c70bcd900ddadee6d88614d77982258351637128bfca\",\n    \"enc\": \"2b3543dad1f3b6d170b3defe9f9487dc094362d6df6f0aace6d4901d2c424aee\",\n    \"salt\": \"000102030405060708090a0b0c0d0e0f\",\n    \"keys\": {\n      \"API_KEY\": \"370aad9b2bb3b7f8f851c2ec\",\n      \"NAME\": \"d192fbc5017851fa6ebf1cf4\"\n    },\n    \"notes\": \"3f929c751076e3fd5a17283b\"\n  }\n}\n"
+   },
+   "setup": [
+    "git -C .. init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "mkdir -p ../.git/dotenvdotenc && mv ../record.fixture ../.git/dotenvdotenc/state.json",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "git add ../app/.env.stage.enc .env.here.enc"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: outside any repository",
+   "args": [
+    "guard"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: --all: every tracked file",
+   "args": [
+    "guard",
+    "--all"
+   ],
+   "files": {
+    ".gitignore": ".env.keys\n.env.local\n",
+    ".env.shared": "PUBLIC=1\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n",
+    "src/x.js": "1\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "git add . && git commit -q -m all"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: --all: a tracked keys file, a tracked key, a tracked bad .enc",
+   "args": [
+    "guard",
+    "--all"
+   ],
+   "files": {
+    ".gitignore": "node_modules/\n",
+    ".env.bad.enc": "A=1\n",
+    "src/x.js": "1\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "{ printf 'DOTENV_PRIVATE_KEY_X=%s\\n' \"$(printf %064d 0 | tr 0 2)\"; } > old.txt",
+    "git add . && git commit -q -m all"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: --all does not look at what is staged as new",
+   "args": [
+    "guard",
+    "--all"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod": "A=1\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "git add -f .env.prod"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "guard: a staged file larger than bun's buffer",
+   "args": [
+    "guard"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init",
+    "head -c 1500000 /dev/zero | tr '\\0' a > big.txt && git add big.txt"
+   ],
+   "handback": "bun cuts the output of git off at about 1 MiB"
+  },
+  {
+   "name": "guard: DOTENVDOTENC_NO_NATIVE=1",
+   "args": [
+    "guard"
+   ],
+   "env": {
+    "DOTENVDOTENC_NO_NATIVE": "1"
+   },
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod": "A=1\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .gitignore && git commit -q -m init"
+   ],
+   "handback": "DOTENVDOTENC_NO_NATIVE=1 hands everything back"
   }
  ]
 }

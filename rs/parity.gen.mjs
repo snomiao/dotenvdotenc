@@ -486,11 +486,14 @@ add("status: unmanaged files elsewhere in the repository", ["status"], {
   files: { ...SCENES["in sync"], "app/.env.prod": "X=1\n", "app/.env.local": "X=1\n", "app/.env.example": "X=\n", "app/.env.managed": "X=1\n", "app/.env.managed.enc": encFile(".env.managed", 1, "X=1\n"), "node_modules/pkg/.env.test": "X=1\n", "app/node_modules/pkg/.env.x": "X=1\n" },
   setup: [K1],
 });
-add("status: unmanaged files, from a subdirectory", ["status"], {
-  files: { ".env.root": "X=1\n", "app/.env.prod": "X=1\n", "app/deep/.env.deep": "X=1\n", "other/.env.other": "X=1\n" },
-  setup: ["mkdir -p app/run && cd app/run && " + keysFile({ _LOCAL: 1 })],
+// The case directory as a subdirectory (`cwd/`) of a repository one level up.
+const ABOVE = { "../.gitignore": `${IGNORE}/home/\n/tmp/\n/cache/\n` };
+const INIT_ABOVE = "git -C .. init -q -b main";
+add("status: from a subdirectory; unmanaged files anywhere in the repository", ["status"], {
+  repo: false,
+  files: { ...ABOVE, "../.env.root": "X=1\n", "../app/.env.prod": "X=1\n", ".env.here": "X=1\n", "deep/.env.deep": "X=1\n", ".env.local": EDITED, ".env.local.enc": LOCAL_ENC, "../record.fixture": stateText({ "cwd/.env.local": [LOCAL, LOCAL_ENC] }) },
+  setup: [INIT_ABOVE, "mkdir -p ../.git/dotenvdotenc && mv ../record.fixture ../.git/dotenvdotenc/state.json", K1],
 });
-cases[cases.length - 1].setup.push("true");
 add("status: an unmanaged file that is not ignored", ["status"], { repo: "node_modules/\n", files: { ".env.prod": "X=1\n" } });
 add("status: a committed plaintext file is public config", ["status"], { repo: "", files: { ".env.shared": "PUBLIC=1\n", ".env.local": LOCAL, ".env.local.enc": LOCAL_ENC, ".gitignore": ".env.local\n.env.keys\n" }, setup: [IDENT, "git add .env.shared .gitignore && git commit -q -m public", K1] });
 add("status: a committed plaintext file, named", ["status", ".env.shared"], { repo: "", files: { ".env.shared": "PUBLIC=1\n", ".gitignore": ".env.keys\n" }, setup: [IDENT, "git add .env.shared && git commit -q -m public"] });
@@ -616,6 +619,8 @@ add("dec: the plaintext would not be gitignored", ["dec"], { repo: "node_modules
 add("dec: outside any repository", ["dec"], { repo: false, files: SCENES["no plaintext"], setup: [K1], after: [LS] });
 add("dec: the .enc is gitignored too", ["dec"], { repo: ".env*\n", files: SCENES["no plaintext"], setup: [K1], after: [LS, "cat .env.local"] });
 add("dec: in a subdirectory with its own keys", ["dec", "app/.env.local"], { files: { "app/.env.local.enc": LOCAL_ENC }, setup: [keysFile({ _LOCAL: 1 }, "app/.env.keys")], after: ["cat app/.env.local", "ls -A app", `${PROBE} state`] });
+add("dec: run in a subdirectory of the repository", ["dec"], { repo: false, files: { ...ABOVE, ".env.local.enc": LOCAL_ENC }, setup: [INIT_ABOVE, K1], after: ["cat .env.local", `${PROBE} state`] });
+add("dec: a file one directory up", ["dec", "../.env.local"], { repo: false, files: { ...ABOVE, "../.env.local.enc": LOCAL_ENC }, setup: [INIT_ABOVE, keysFile({ _LOCAL: 1 }, "../.env.keys")], after: ["cat ../.env.local", `${PROBE} state`] });
 add("dec: the plaintext is a symlink", ["dec"], { files: { ".env.local.enc": LOCAL_ENC, "elsewhere": "OLD=1\n" }, setup: [K1, "ln -s elsewhere .env.local"], after: [LS, "cat elsewhere"] });
 add("dec: the plaintext is a symlink, named", ["dec", ".env.local"], { files: { ".env.local.enc": LOCAL_ENC, "elsewhere": "OLD=1\n" }, setup: [K1, "ln -s elsewhere .env.local"], after: [LS, "cat elsewhere"] });
 add("dec: the plaintext is a link to nowhere, named", ["dec", ".env.local"], { files: { ".env.local.enc": LOCAL_ENC }, setup: [K1, "ln -s nowhere .env.local"], after: [LS] });
@@ -704,6 +709,8 @@ add("enc: the .enc is a link to nowhere", ["enc"], { files: { ".env.local": LOCA
 add("enc: the plaintext is committed", ["enc"], { repo: "", files: { ".env.shared": "PUBLIC=1\n", ".gitignore": ".env.keys\n" }, setup: [IDENT, "git add .env.shared && git commit -q -m public"], after: [LS] });
 add("enc: the plaintext is committed, named", ["enc", ".env.shared"], { repo: "", files: { ".env.shared": "PUBLIC=1\n", ".gitignore": ".env.keys\n" }, setup: [IDENT, "git add .env.shared && git commit -q -m public"], after: [LS] });
 add("enc: in a subdirectory, the key next to the file", ["enc", "app/.env.local"], { files: { "app/.env.local": LOCAL }, after: ["ls -A . app", `${PROBE} state`] });
+add("enc: run in a subdirectory of the repository", ["enc"], { repo: false, files: { ...ABOVE, ".env.local": LOCAL }, setup: [INIT_ABOVE], after: [...FIRST] });
+add("enc: run in a subdirectory, edited since the last sync", ["enc"], { repo: false, files: { ...ABOVE, ".env.local": EDITED, ".env.local.enc": LOCAL_ENC, "../record.fixture": stateText({ "cwd/.env.local": [LOCAL, LOCAL_ENC] }) }, setup: [INIT_ABOVE, "mkdir -p ../.git/dotenvdotenc && mv ../record.fixture ../.git/dotenvdotenc/state.json", K1], after: WRITTEN });
 add("enc: a glob", ["enc", ".env.*"], { files: { ".env.local": LOCAL }, setup: [K1], back: "Bun.Glob does the matching", after: [LS] });
 add("enc: DOTENVDOTENC_NO_NATIVE=1", ["enc"], { files: { ".env.local": LOCAL }, setup: [K1], env: { DOTENVDOTENC_NO_NATIVE: "1" }, back: "DOTENVDOTENC_NO_NATIVE=1 hands everything back", after: WRITTEN });
 
@@ -780,6 +787,74 @@ add("enc: a value over two lines in .env", ["enc"], { files: { ".env": "A=\"one\
 add("enc: export in .env.development", ["enc"], { files: { ".env.development": "export A=1\n" }, setup: [keysFile({ _DEVELOPMENT: 1 })], back: "export in a file bun loads is not imitated", after: written(".env.development") });
 add("enc: the same $ in .env.production, which bun does not load", ["enc"], { files: { ".env.production": "A=$HOME\n" }, setup: [K2P], after: WRITTEN_PROD });
 add("enc: the same $ in .env.local under NODE_ENV=test, when bun does not load it", ["enc"], { files: { ".env.local": "A=$HOME\n" }, setup: [K1], env: { NODE_ENV: "test" }, after: WRITTEN });
+
+// ═══════════════════════════ guard ═══════════════════════════
+
+const BASE = [IDENT, "git add .gitignore && git commit -q -m init"];
+const guard = (name, o = {}, args = ["guard"]) => add(`guard: ${name}`, args, { ...o, setup: [...BASE, ...(o.setup || [])] });
+guard("nothing staged");
+guard("a real .enc passes", { files: { ".env.local.enc": LOCAL_ENC }, setup: ["git add .env.local.enc"] });
+guard("a real .enc with CRLF passes", { files: { ".env.local.enc": LOCAL_ENC.replace(/\n/g, "\r\n") }, setup: ["git -c core.autocrlf=false add .env.local.enc"] });
+guard("several kinds of file staged, all fine", { files: { ".env.local.enc": LOCAL_ENC, "src/app.js": "console.log(1)\n", ".env.example": "API_KEY=\n", "a b/é.txt": "x\n" }, setup: ["git add ."] });
+guard("a new plaintext env file", { files: { ".env.prod": "A=1\n" }, setup: ["git add -f .env.prod"] });
+guard("a new plaintext env file in a subdirectory, from another one", { files: { "app/.env.prod": "A=1\n", "docs/x": "" }, setup: ["git add -f app/.env.prod"] });
+guard(".env.keys", { setup: [K1, "git add -f .env.keys"] });
+guard("a keys file under another name", { setup: [keysFile({ _X: 1 }, "keys.txt"), "git add keys.txt"] });
+guard("a temp file of dede", { files: { ".env.dede-tmp-123-abcd0123": "A=1\n" }, setup: ["git add -f .env.dede-tmp-123-abcd0123"] });
+guard("an .enc with a value that is not encrypted", { files: { ".env.local.enc": `${LOCAL_ENC}PLAIN=oops\n` }, setup: ["git add .env.local.enc"] });
+guard("an .enc with plaintext glued after the ciphertext", { files: { ".env.local.enc": LOCAL_ENC.replace(/^(API_KEY=encrypted:\S+)$/m, "$1#glued-secret") }, setup: ["git add .env.local.enc"] });
+guard("an .enc with a spaced comment after the ciphertext passes", { files: { ".env.local.enc": LOCAL_ENC.replace(/^(API_KEY=encrypted:\S+)$/m, "$1 # fine") }, setup: ["git add .env.local.enc"] });
+guard("an .enc whose comment holds a credential; the line number counts the header", { files: { ".env.local.enc": `${LOCAL_ENC}# OLD_TOKEN=abcdefghijklmnopqrstuvwxyz\n` }, setup: ["git add .env.local.enc"] });
+guard("an .enc whose comment holds a URL with a password", { files: { ".env.local.enc": LOCAL_ENC.replace("# api", "# https://me:hunter2@example.test") }, setup: ["git add .env.local.enc"] });
+guard("an .enc with a line that is no assignment", { files: { ".env.local.enc": `${LOCAL_ENC}oops plain words\n` }, setup: ["git add .env.local.enc"] });
+guard("an .enc without header", { files: { ".env.local.enc": "API_KEY=encrypted:AAAA\n" }, setup: ["git add .env.local.enc"] });
+guard("an .enc with a name every JavaScript object has", { files: { ".env.local.enc": `${LOCAL_ENC}constructor=encrypted:AAAA\n` }, setup: ["git add .env.local.enc"] });
+guard("an .enc that holds a private key name", { files: { ".env.local.enc": `${LOCAL_ENC}DOTENV_PRIVATE_KEY_X=encrypted:AAAA\n` }, setup: ["git add .env.local.enc"] });
+guard("an .enc of a keys file may hold private key names", { setup: [K1, treeNode("team", 1, { _PRODUCTION: 2 }), "git add .env.keys.team.enc"] });
+guard("an .enc that is a symlink is read as its target's name", { files: { "elsewhere": LOCAL_ENC }, setup: ["ln -s elsewhere .env.local.enc", "git add .env.local.enc"] });
+guard("an .enc that is no env name is not looked into", { files: { "notes.enc": "plain words\n", ".env.example.enc": "A=1\n" }, setup: ["git add -f notes.enc .env.example.enc"] });
+guard("a private key in YAML, in JSON and in upper case", {
+  setup: [
+    `printf 'env:\\n  DOTENV_PRIVATE_KEY_PROD: "%s"\\n' "${key(1)}" > deploy.yml`,
+    `printf '{"DOTENV_PRIVATE_KEY":"%s"}\\n' "${key(2)}" > secrets.json`,
+    `printf 'DOTENV_PRIVATE_KEY_X=%s\\n' "$(printf %064d 0 | tr 0 A)" > upper.txt`,
+    `printf 'DOTENV_PRIVATE_KEY_X=%s\\n' "$(printf %063d 0 | tr 0 1)" > short.txt`,
+    "git add deploy.yml secrets.json upper.txt short.txt",
+  ],
+});
+guard("an edit to a committed plaintext env file passes", { repo: ".env.keys\n", files: { ".env.shared": "PUBLIC=1\n" }, setup: ["git add .env.shared && git commit -q -m public", "echo MORE=2 >> .env.shared && git add .env.shared"] });
+guard("a private key added to a committed plaintext env file", { repo: ".env.keys\n", files: { ".env.shared": "PUBLIC=1\n" }, setup: ["git add .env.shared && git commit -q -m public", `printf 'DOTENV_PRIVATE_KEY=%s\\n' "${key(1)}" >> .env.shared && git add .env.shared`] });
+guard("a file renamed into an env name", { repo: ".env.keys\n", files: { "config.txt": "A=1\nB=2\nC=3\n" }, setup: ["git add config.txt && git commit -q -m config", "git mv config.txt .env.renamed"] });
+guard("a symlink replaced by a file with a key in it", { setup: ["ln -s elsewhere link && git add link && git commit -q -m link", `rm link && printf 'DOTENV_PRIVATE_KEY=%s\\n' "${key(1)}" > link && git add link`] });
+guard("a deleted plaintext env file is no concern", { repo: ".env.keys\n", files: { ".env.shared": "PUBLIC=1\n" }, setup: ["git add .env.shared && git commit -q -m public", "git rm -q .env.shared"] });
+guard("a file that is not text", { setup: ["printf '\\377\\376\\000binary' > blob.bin && git add blob.bin"] });
+guard("an unmanaged plaintext env file blocks, staged or not", { files: { ".env.prod": "A=1\n", "app/.env.stage": "B=1\n" } });
+guard("what is not unmanaged: an .enc twin, *.local, examples, node_modules", { files: { ".env.local": "A=1\n", ".env.development.local": "A=1\n", ".env.example": "A=\n", ".env.sample": "A=\n", ".env.template": "A=\n", ".env.vault": "x\n", ".env.me": "x\n", ".env.prod": PROD, ".env.prod.enc": encFile(".env.prod", 2, PROD), "node_modules/pkg/.env.test": "A=1\n", "app/node_modules/.env.x": "A=1\n" }, setup: [keysFile({ _PROD: 2 })] });
+guard("an unmanaged file that is not ignored either", { repo: "node_modules/\n", files: { ".env.prod": "A=1\n" } });
+guard("a committed plaintext env file is not unmanaged", { repo: ".env.keys\n", files: { ".env.shared": "PUBLIC=1\n" }, setup: ["git add .env.shared && git commit -q -m public"] });
+guard("edits not encrypted yet, naming the keys", { files: SCENES["plaintext edited"], setup: [K1] });
+guard("edits not encrypted yet, without the key at hand", { files: SCENES["plaintext edited"] });
+guard("edits not encrypted yet, a record without per-key hashes", { files: SCENES["plaintext edited, record without per-key hashes"], setup: [K1] });
+guard("in sync passes", { files: SCENES["in sync"], setup: [K1] });
+guard("a pull that only changed the .enc does not block", { files: SCENES[".enc changed"], setup: [K1] });
+guard("never synced and different, the key at hand", { files: SCENES["differ, never recorded"], setup: [K1] });
+guard("never synced and different, no key: not compared", { files: SCENES["differ, never recorded"] });
+guard("never synced and the same", { files: SCENES["in sync, never recorded"], setup: [K1] });
+guard("never synced, a damaged .enc", { files: { ".env.local": LOCAL, ".env.local.enc": TAMPERED }, setup: [K1] });
+guard("the .enc twin of an edited plaintext is a symlink", { files: { ".env.local": LOCAL, "elsewhere": LOCAL_ENC }, setup: [K1, "ln -s elsewhere .env.local.enc"] });
+guard("a symlinked plaintext with an .enc twin is passed over", { files: { ".env.local.enc": LOCAL_ENC, "elsewhere": EDITED }, setup: [K1, "ln -s elsewhere .env.local"] });
+guard("several things wrong at once, in order", { files: { ...SCENES["plaintext edited"], ".env.prod": "A=1\n", ".env.stage": "A=1\n", ".env.stage.enc": `${encFile(".env.stage", 1, "A=1\n")}B=plain\n` }, setup: [K1, "git add -f .env.stage .env.stage.enc .env.keys"] });
+add("guard: from a subdirectory", ["guard"], {
+  repo: false,
+  files: { ...ABOVE, "../.env.root": "X=1\n", "../app/.env.stage.enc": "A=1\n", ".env.here.enc": "B=1\n", ".env.local": EDITED, ".env.local.enc": LOCAL_ENC, "../record.fixture": stateText({ "cwd/.env.local": [LOCAL, LOCAL_ENC] }) },
+  setup: [INIT_ABOVE, IDENT, "mkdir -p ../.git/dotenvdotenc && mv ../record.fixture ../.git/dotenvdotenc/state.json", K1, "git add ../app/.env.stage.enc .env.here.enc"],
+});
+add("guard: outside any repository", ["guard"], { repo: false });
+guard("--all: every tracked file", { repo: ".env.keys\n.env.local\n", files: { ".env.shared": "PUBLIC=1\n", ".env.local.enc": LOCAL_ENC, "src/x.js": "1\n" }, setup: ["git add . && git commit -q -m all"] }, ["guard", "--all"]);
+guard("--all: a tracked keys file, a tracked key, a tracked bad .enc", { repo: "node_modules/\n", files: { ".env.bad.enc": "A=1\n", "src/x.js": "1\n" }, setup: [K1, keysFile({ _X: 2 }, "old.txt"), "git add . && git commit -q -m all"] }, ["guard", "--all"]);
+guard("--all does not look at what is staged as new", { files: { ".env.prod": "A=1\n" }, setup: ["git add -f .env.prod"] }, ["guard", "--all"]);
+guard("a staged file larger than bun's buffer", { setup: ["head -c 1500000 /dev/zero | tr '\\0' a > big.txt && git add big.txt"], back: "bun cuts the output of git off at about 1 MiB" });
+guard("DOTENVDOTENC_NO_NATIVE=1", { files: { ".env.prod": "A=1\n" }, env: { DOTENVDOTENC_NO_NATIVE: "1" }, back: "DOTENVDOTENC_NO_NATIVE=1 hands everything back" });
 
 // ═══════════════════════════ write ═══════════════════════════
 
