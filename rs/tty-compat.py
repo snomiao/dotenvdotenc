@@ -7,7 +7,15 @@ asks "commit …? [y/N]" only there, and only there do standard output and
 standard error arrive in one stream, in the order they were written. Each
 scene below runs once per implementation in a copy of the same directory, on
 a pseudo-terminal, and the two must print the same bytes, exit the same way
-and leave the same commits.
+and leave the same commits. A third run of the binary, with a stand-in
+package whose JavaScript only says it was reached, shows whether the binary
+answered the scene itself or handed it back, and that has to be what the
+scene says.
+
+Where standard output is a terminal and standard error is not, bun colours
+errors by TERM, COLORTERM, CI and more, by a rule that is not imitated: the
+binary hands back whatever would print to standard error there, unless
+NO_COLOR or FORCE_COLOR decides. Scenes under several TERM values hold that.
 
     python3 rs/tty-compat.py [path/to/the/binary]     (after `bun install`)
 
@@ -28,7 +36,9 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BIN = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else os.path.join(REPO, "rs/target/release/dotenvdotenc")
 WORK = tempfile.mkdtemp(prefix="dede-tty-")
 
-ENV = {k: v for k, v in os.environ.items() if not k.startswith("DOTENV_") and k not in ("NODE_ENV", "BUN_ENV", "BUN_OPTIONS", "NODE_OPTIONS", "NO_COLOR", "FORCE_COLOR", "DOTENVDOTENC_NO_NATIVE")}
+# What decides colours is left out too (CI sets some of these), so that each
+# scene says it.
+ENV = {k: v for k, v in os.environ.items() if not k.startswith("DOTENV_") and k not in ("NODE_ENV", "BUN_ENV", "BUN_OPTIONS", "NODE_OPTIONS", "NO_COLOR", "FORCE_COLOR", "DOTENVDOTENC_NO_NATIVE", "COLORTERM", "CI", "GITHUB_ACTIONS", "TMUX", "TERM_PROGRAM", "NODE_DISABLE_COLORS")}
 ENV.update(HOME=os.path.join(WORK, "home"), XDG_CONFIG_HOME=os.path.join(WORK, "home/.config"), XDG_CACHE_HOME=os.path.join(WORK, "cache"), GIT_CONFIG_NOSYSTEM="1", TZ="UTC", TERM="xterm-256color")
 os.makedirs(ENV["HOME"])
 
@@ -37,6 +47,12 @@ IMPLEMENTATIONS = {
     # The package root lets the binary hand back what it does not answer (the question of `enc`).
     "Rust": ["env", "DOTENVDOTENC_PACKAGE_ROOT=" + REPO, BIN],
 }
+MARKER = b"__DEDE_HANDED_BACK__"
+STAND_IN = os.path.join(WORK, "stand-in")
+os.makedirs(STAND_IN)
+open(os.path.join(STAND_IN, "package.json"), "w").write('{"name": "stand-in", "version": "0.0.0"}\n')
+open(os.path.join(STAND_IN, "dede.ts"), "w").write(f"process.stdout.write({MARKER.decode()!r});\n")
+STAND_IN_RUN = ["env", "DOTENVDOTENC_PACKAGE_ROOT=" + STAND_IN, BIN]
 
 
 def sh(line, cwd):
@@ -50,7 +66,8 @@ def on_a_terminal(command, cwd, answer=None, terminals=("in", "out", "err"), env
     terminal and the pipes received."""
     master, slave = pty.openpty()
     stream = lambda name: slave if name in terminals else (subprocess.DEVNULL if name == "in" else subprocess.PIPE)
-    process = subprocess.Popen(command, cwd=cwd, env=env or ENV, stdin=stream("in"), stdout=stream("out"), stderr=stream("err"), start_new_session=True)
+    env = {name: value for name, value in (env or ENV).items() if value is not None}
+    process = subprocess.Popen(command, cwd=cwd, env=env, stdin=stream("in"), stdout=stream("out"), stderr=stream("err"), start_new_session=True)
     os.close(slave)
     readers = {master: b""}
     for pipe in (process.stdout, process.stderr):
@@ -102,58 +119,106 @@ def template():
 
 
 ALL = ("in", "out", "err")
+NATIVE, BACK = False, True
 SCENES = [
-    # (what, arguments, what is typed at the question, which streams are a terminal, variables)
-    ("get ends the value with a newline", ["get", "API_KEY", ".env.prod"], None, ALL, {}),
-    ("get into a pipe, errors to the terminal", ["get", "API_KEY", ".env.prod"], None, ("in", "err"), {}),
-    ("get of a name that is not there", ["get", "MISSING", ".env.prod"], None, ALL, {}),
-    ("get of a name that is not there, into a pipe", ["get", "MISSING", ".env.prod"], None, ("in", "err"), {}),
-    ("status: both streams in the order they were written", ["status"], None, ALL, {}),
-    ("status: errors to a file, the rest to the terminal", ["status"], None, ("in", "out"), {}),
-    ("status: only standard input is a terminal", ["status"], None, ("in",), {}),
-    ("status with NO_COLOR=1", ["status"], None, ALL, {"NO_COLOR": "1"}),
-    ("status with FORCE_COLOR=0, errors to the terminal", ["status"], None, ("err",), {"FORCE_COLOR": "0"}),
-    ("status with FORCE_COLOR=0, errors to a file", ["status"], None, ("in", "out"), {"FORCE_COLOR": "0"}),
-    ("diff", ["diff"], None, ALL, {}),
-    ("keys", ["keys"], None, ALL, {}),
-    ("the usage", ["help"], None, ALL, {}),
-    ("an unknown command", ["frobnicate"], None, ALL, {}),
-    ("enc asks before it commits; no", ["enc", ".env.prod", ".env.new"], b"n\n", ALL, {}),
-    ("enc asks before it commits; yes", ["enc", ".env.prod", ".env.new"], b"y\n", ALL, {}),
-    ("enc asks before it commits; YES with spaces around", ["enc", ".env.new"], b"  YES \n", ALL, {}),
-    ("enc asks before it commits; just the return key", ["enc", ".env.new"], b"\n", ALL, {}),
-    ("enc -y does not ask", ["enc", "-y", ".env.prod", ".env.new"], None, ALL, {}),
-    ("enc with nothing to write does not ask", ["enc", ".env.shared"], None, ALL, {}),
-    ("enc without a terminal on standard input does not ask", ["enc", ".env.new"], None, ("out", "err"), {}),
-    ("dec --force", ["dec", "--force", ".env.prod"], None, ALL, {}),
-    ("guard", ["guard"], None, ALL, {}),
-    ("setup", ["setup"], None, ALL, {}),
+    # (what, arguments, what is typed at the question, which streams are a terminal, variables, handed back?)
+    ("get ends the value with a newline", ["get", "API_KEY", ".env.prod"], None, ALL, {}, NATIVE),
+    ("get into a pipe, errors to the terminal", ["get", "API_KEY", ".env.prod"], None, ("in", "err"), {}, NATIVE),
+    ("get of a name that is not there", ["get", "MISSING", ".env.prod"], None, ALL, {}, NATIVE),
+    ("get of a name that is not there, into a pipe", ["get", "MISSING", ".env.prod"], None, ("in", "err"), {}, NATIVE),
+    ("status: both streams in the order they were written", ["status"], None, ALL, {}, NATIVE),
+    ("status: errors to a file, the rest to the terminal", ["status"], None, ("in", "out"), {}, BACK),
+    ("status: only standard input is a terminal", ["status"], None, ("in",), {}, NATIVE),
+    ("status with NO_COLOR=1", ["status"], None, ALL, {"NO_COLOR": "1"}, NATIVE),
+    ("status with FORCE_COLOR=0, errors to the terminal", ["status"], None, ("err",), {"FORCE_COLOR": "0"}, NATIVE),
+    ("status with FORCE_COLOR=0, errors to a file", ["status"], None, ("in", "out"), {"FORCE_COLOR": "0"}, NATIVE),
+    ("diff", ["diff"], None, ALL, {}, NATIVE),
+    ("keys", ["keys"], None, ALL, {}, NATIVE),
+    ("the usage", ["help"], None, ALL, {}, NATIVE),
+    ("an unknown command", ["frobnicate"], None, ALL, {}, NATIVE),
+    ("enc asks before it commits; no", ["enc", ".env.prod", ".env.new"], b"n\n", ALL, {}, BACK),
+    ("enc asks before it commits; yes", ["enc", ".env.prod", ".env.new"], b"y\n", ALL, {}, BACK),
+    ("enc asks before it commits; YES with spaces around", ["enc", ".env.new"], b"  YES \n", ALL, {}, BACK),
+    ("enc asks before it commits; just the return key", ["enc", ".env.new"], b"\n", ALL, {}, BACK),
+    ("enc -y does not ask", ["enc", "-y", ".env.prod", ".env.new"], None, ALL, {}, NATIVE),
+    ("enc with nothing to write does not ask", ["enc", ".env.shared"], None, ALL, {}, BACK),
+    ("enc without a terminal on standard input does not ask", ["enc", ".env.new"], None, ("out", "err"), {}, NATIVE),
+    ("dec --force", ["dec", "--force", ".env.prod"], None, ALL, {}, NATIVE),
+    ("guard", ["guard"], None, ALL, {}, NATIVE),
+    ("setup", ["setup"], None, ALL, {}, NATIVE),
+]
+# Standard output a terminal, standard error a pipe: bun's colour depends on
+# the terminal's name and more, so what prints an error goes back; NO_COLOR
+# and FORCE_COLOR decide, and what prints no error stays.
+OUT_ONLY = ("in", "out")
+for label, variables in [
+    ("TERM unset", {"TERM": None}),
+    ("TERM empty", {"TERM": ""}),
+    ("TERM=dumb", {"TERM": "dumb"}),
+    ("TERM=xterm", {"TERM": "xterm"}),
+    ("TERM=alacritty", {"TERM": "alacritty"}),
+    ("TERM=unknown", {"TERM": "unknown"}),
+    ("TERM unset, COLORTERM=truecolor", {"TERM": None, "COLORTERM": "truecolor"}),
+    ("TERM=dumb, COLORTERM=truecolor", {"TERM": "dumb", "COLORTERM": "truecolor"}),
+    ("TERM unset, CI=true", {"TERM": None, "CI": "true"}),
+    ("TERM=dumb, CI=true", {"TERM": "dumb", "CI": "true"}),
+    ("TERM unset, GITHUB_ACTIONS=true", {"TERM": None, "GITHUB_ACTIONS": "true"}),
+    ("TERM unset, TMUX set", {"TERM": None, "TMUX": "/tmp/tmux-0/default,1,0"}),
+    ("TERM=dumb, NO_COLOR empty", {"TERM": "dumb", "NO_COLOR": ""}),
+    ("TERM=dumb, NO_COLOR=0", {"TERM": "dumb", "NO_COLOR": "0"}),
+]:
+    SCENES.append((f"an error, standard error a pipe, {label}", ["get"], None, OUT_ONLY, variables, BACK))
+for label, variables in [
+    ("TERM=dumb, FORCE_COLOR=1", {"TERM": "dumb", "FORCE_COLOR": "1"}),
+    ("TERM unset, FORCE_COLOR=true", {"TERM": None, "FORCE_COLOR": "true"}),
+    ("TERM=xterm, FORCE_COLOR=0", {"TERM": "xterm", "FORCE_COLOR": "0"}),
+    ("TERM=xterm, NO_COLOR=1", {"TERM": "xterm", "NO_COLOR": "1"}),
+    ("TERM unset, NO_COLOR=1, FORCE_COLOR=0", {"TERM": None, "NO_COLOR": "1", "FORCE_COLOR": "0"}),
+]:
+    SCENES.append((f"an error, standard error a pipe, {label}", ["get"], None, OUT_ONLY, variables, NATIVE))
+SCENES += [
+    ("get prints its value, standard error a pipe, TERM=dumb", ["get", "API_KEY", ".env.prod"], None, OUT_ONLY, {"TERM": "dumb"}, NATIVE),
+    ("get of a name that is not there, standard error a pipe, TERM=dumb", ["get", "MISSING", ".env.prod"], None, OUT_ONLY, {"TERM": "dumb"}, BACK),
+    ("the usage, standard error a pipe, TERM unset", ["help"], None, OUT_ONLY, {"TERM": None}, NATIVE),
+    ("enc -y, standard error a pipe, TERM unset", ["enc", "-y", ".env.new"], None, OUT_ONLY, {"TERM": None}, BACK),
+    ("enc -y, standard error a pipe, TERM unset, FORCE_COLOR=1", ["enc", "-y", ".env.new"], None, OUT_ONLY, {"TERM": None, "FORCE_COLOR": "1"}, NATIVE),
+    ("dec --force, standard error a pipe, TERM=xterm", ["dec", "--force", ".env.prod"], None, OUT_ONLY, {"TERM": "xterm"}, BACK),
+    ("setup, standard error a pipe, TERM=dumb", ["setup"], None, OUT_ONLY, {"TERM": "dumb"}, BACK),
+    ("guard, standard error a pipe, TERM unset", ["guard"], None, OUT_ONLY, {"TERM": None}, BACK),
+    ("keys, standard error a pipe, TERM unset: a notice on standard error", ["keys"], None, OUT_ONLY, {"TERM": None}, BACK),
+    ("keys of one file, standard error a pipe, TERM unset: nothing on standard error", ["keys", ".env.prod"], None, OUT_ONLY, {"TERM": None}, NATIVE),
 ]
 
 
 def main():
     base = template()
     failed = 0
-    for number, (what, arguments, answer, terminals, variables) in enumerate(SCENES, 1):
+    for number, (what, arguments, answer, terminals, variables, handed_back) in enumerate(SCENES, 1):
         seen = {}
+        env = {**ENV, **variables}
         for name, command in IMPLEMENTATIONS.items():
             cwd = os.path.join(WORK, f"{number}-{name}")
             shutil.copytree(base, cwd, symlinks=True)
-            code, output = on_a_terminal(command + arguments, cwd, answer, terminals, {**ENV, **variables})
+            code, output = on_a_terminal(command + arguments, cwd, answer, terminals, env)
             log = subprocess.run("git log --format=%s && git status --porcelain", shell=True, cwd=cwd, env=ENV, capture_output=True).stdout
             seen[name] = (code, output, log)
-        if seen["TypeScript"] == seen["Rust"]:
+        cwd = os.path.join(WORK, f"{number}-stand-in")
+        shutil.copytree(base, cwd, symlinks=True)
+        reached = any(MARKER in part for part in on_a_terminal(STAND_IN_RUN + arguments, cwd, answer, terminals, env)[1])
+        if seen["TypeScript"] == seen["Rust"] and reached == handed_back:
             code, output, _ = seen["Rust"]
-            print(f"ok {number} - {what}: exit {code}, {sum(map(len, output))} bytes, {'red' if any(b'[31m' in part for part in output) else 'plain'} errors")
+            print(f"ok {number} - {what}: exit {code}, {sum(map(len, output))} bytes, {'red' if any(b'[31m' in part for part in output) else 'plain'} errors, {'handed back' if reached else 'answered by the binary'}")
         else:
             failed += 1
             print(f"DIFFER {number} - {what}")
+            if reached != handed_back:
+                print(f"    the binary {'handed it back' if reached else 'answered it'}; the scene says it {'goes back' if handed_back else 'is answered by the binary'}")
             for name, (code, output, log) in seen.items():
                 print(f"    {name}: exit {code}\n      {output!r}\n      {log!r}")
     shutil.rmtree(WORK, ignore_errors=True)
     if failed:
         sys.exit(f"{failed} of {len(SCENES)} scenes differ")
-    print(f"all {len(SCENES)} scenes are the same on a terminal")
+    print(f"all {len(SCENES)} scenes are the same on a terminal, and handed back where they say so")
 
 
 main()
