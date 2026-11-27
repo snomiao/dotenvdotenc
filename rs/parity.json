@@ -2089,6 +2089,9 @@
    "capture": "files",
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -2113,6 +2116,9 @@
    "capture": "files",
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -2138,6 +2144,9 @@
    "capture": "files",
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -4350,6 +4359,9 @@
    "capture": "files",
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -5889,6 +5901,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -5912,6 +5927,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -5934,6 +5952,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -6892,6 +6913,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -6923,6 +6947,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -6947,7 +6974,10 @@
     "mkdir -p .git/dotenvdotenc && mv state.fixture .git/dotenvdotenc/state.json",
     "ln -s ../other/.env.keys .env.keys"
    ],
-   "handback": "the TypeScript ends in an uncaught ENOENT"
+   "handback": "the TypeScript ends in an uncaught ENOENT",
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
+   }
   },
   {
    "name": "keys: a glob",
@@ -7121,6 +7151,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -7472,6 +7505,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -7497,6 +7533,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -7521,6 +7560,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -7608,6 +7650,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -9966,6 +10011,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -9991,6 +10039,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -10014,6 +10065,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -12551,6 +12605,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -12836,6 +12893,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -12859,6 +12919,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -12882,6 +12945,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -12904,6 +12970,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -14912,6 +14981,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -15051,6 +15123,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -15431,6 +15506,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -15455,6 +15533,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -16573,6 +16654,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -17072,6 +17156,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -17229,6 +17316,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -17619,6 +17709,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -18961,6 +19054,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -19086,7 +19182,10 @@
     "cat package.json",
     "ls -A | grep -v '^\\.git$' | node <REPO>/rs/parity/files.mjs stat '%a %F %n'"
    ],
-   "handback": "the TypeScript writes and then ends in an uncaught error; seen before the first write"
+   "handback": "the TypeScript writes and then ends in an uncaught error; seen before the first write",
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
+   }
   },
   {
    "name": "setup: .husky is a directory and its pre-commit a directory",
@@ -19129,6 +19228,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -19144,7 +19246,10 @@
     "ls -A real/sub",
     "cat real/.git/dotenvdotenc/state.json"
    ],
-   "handback": "a sync record that is not of the shape dede writes is not imitated"
+   "handback": "a sync record that is not of the shape dede writes is not imitated",
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
+   }
   },
   {
    "name": "enc: a file reached through a link into a repository",
@@ -19162,6 +19267,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -21221,6 +21329,9 @@
    "capture": "files",
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a PATH without git: rs/parity/run.sh makes it of links to bun, node, env and sh, which Git Bash makes copies without .exe, so the binary finds no bun to hand back to"
    }
   },
   {
@@ -21249,6 +21360,9 @@
    "capture": "files",
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -21273,6 +21387,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a PATH without git: rs/parity/run.sh makes it of links to bun, node, env and sh, which Git Bash makes copies without .exe, so the binary finds no bun to hand back to"
    }
   },
   {
@@ -21297,6 +21414,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a PATH without git: rs/parity/run.sh makes it of links to bun, node, env and sh, which Git Bash makes copies without .exe, so the binary finds no bun to hand back to"
    }
   },
   {
@@ -21321,6 +21441,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a PATH without git: rs/parity/run.sh makes it of links to bun, node, env and sh, which Git Bash makes copies without .exe, so the binary finds no bun to hand back to"
    }
   },
   {
@@ -21456,6 +21579,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a file name Windows does not keep (a control character, or a dot at its end)"
    }
   },
   {
@@ -21556,6 +21682,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a file name Windows does not keep (a control character, or a dot at its end)"
    }
   },
   {
@@ -21951,6 +22080,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -21976,6 +22108,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a PATH without git: rs/parity/run.sh makes it of links to bun, node, env and sh, which Git Bash makes copies without .exe, so the binary finds no bun to hand back to"
    }
   },
   {
@@ -22301,6 +22436,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a PATH without git: rs/parity/run.sh makes it of links to bun, node, env and sh, which Git Bash makes copies without .exe, so the binary finds no bun to hand back to"
    }
   },
   {
@@ -22324,6 +22462,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a PATH without git: rs/parity/run.sh makes it of links to bun, node, env and sh, which Git Bash makes copies without .exe, so the binary finds no bun to hand back to"
    }
   },
   {
@@ -22348,6 +22489,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a umask, which Windows programs do not have (under Git Bash's umask 0777 the wrapper cannot start the command at all)"
    }
   },
   {
@@ -22372,6 +22516,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a umask, which Windows programs do not have (under Git Bash's umask 0777 the wrapper cannot start the command at all)"
    }
   },
   {
@@ -22604,6 +22751,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a PATH without git: rs/parity/run.sh makes it of links to bun, node, env and sh, which Git Bash makes copies without .exe, so the binary finds no bun to hand back to"
    }
   },
   {
@@ -22847,6 +22997,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -22869,6 +23022,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a PATH without git: rs/parity/run.sh makes it of links to bun, node, env and sh, which Git Bash makes copies without .exe, so the binary finds no bun to hand back to"
    }
   },
   {
@@ -23270,6 +23426,9 @@
    },
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a PATH without git: rs/parity/run.sh makes it of links to bun, node, env and sh, which Git Bash makes copies without .exe, so the binary finds no bun to hand back to"
    }
   },
   {
@@ -23914,6 +24073,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a PATH without git: rs/parity/run.sh makes it of links to bun, node, env and sh, which Git Bash makes copies without .exe, so the binary finds no bun to hand back to"
    }
   },
   {
@@ -24675,6 +24837,9 @@
    "capture": "files",
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -24695,7 +24860,10 @@
     "ls -A | grep -v '^\\.git$' | node <REPO>/rs/parity/files.mjs stat '%a %F %n'"
    ],
    "handback": "a file bun cannot read as text",
-   "capture": "files"
+   "capture": "files",
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
+   }
   },
   {
    "name": "bun env: lines that are only spaces or a tab",
@@ -25013,6 +25181,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -25035,6 +25206,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -25056,6 +25230,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -25077,6 +25254,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -25098,6 +25278,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -25693,6 +25876,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -25773,7 +25959,10 @@
     "cat .gitignore 2>&1",
     "find . -path ./.git/objects -prune -o -path '*/.git/objects' -prune -o -name '*.sample' -prune -o -print | sort | node <REPO>/rs/parity/files.mjs stat '%a %F %n'"
    ],
-   "handback": "the TypeScript updates .gitignore and then ends in an uncaught error"
+   "handback": "the TypeScript updates .gitignore and then ends in an uncaught error",
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
+   }
   },
   {
    "name": "recheck2: setup: core.hooksPath .husky/_, .husky/_ a link to ../hk, hk/pre-commit a directory",
@@ -25790,7 +25979,10 @@
     "cat .gitignore 2>&1",
     "find . -path ./.git/objects -prune -o -path '*/.git/objects' -prune -o -name '*.sample' -prune -o -print | sort | node <REPO>/rs/parity/files.mjs stat '%a %F %n'"
    ],
-   "handback": "the TypeScript updates .gitignore and then ends in an uncaught error"
+   "handback": "the TypeScript updates .gitignore and then ends in an uncaught error",
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
+   }
   },
   {
    "name": "recheck2: setup: core.hooksPath hooks, hooks a link to .husky/_, .husky/pre-commit a directory",
@@ -25807,7 +25999,10 @@
     "cat .gitignore 2>&1",
     "find . -path ./.git/objects -prune -o -path '*/.git/objects' -prune -o -name '*.sample' -prune -o -print | sort | node <REPO>/rs/parity/files.mjs stat '%a %F %n'"
    ],
-   "handback": "the TypeScript updates .gitignore and then ends in an uncaught error"
+   "handback": "the TypeScript updates .gitignore and then ends in an uncaught error",
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
+   }
   },
   {
    "name": "recheck2: setup: core.hooksPath .husky/_, .husky/_ a link to a regular file",
@@ -25825,7 +26020,10 @@
     "cat .gitignore 2>&1",
     "find . -path ./.git/objects -prune -o -path '*/.git/objects' -prune -o -name '*.sample' -prune -o -print | sort | node <REPO>/rs/parity/files.mjs stat '%a %F %n'"
    ],
-   "handback": "the TypeScript updates .gitignore and then ends in an uncaught error"
+   "handback": "the TypeScript updates .gitignore and then ends in an uncaught error",
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
+   }
   },
   {
    "name": "recheck2: setup: core.hooksPath absolute through a link to .husky, .husky/pre-commit a directory",
@@ -25842,7 +26040,10 @@
     "cat .gitignore 2>&1",
     "find . -path ./.git/objects -prune -o -path '*/.git/objects' -prune -o -name '*.sample' -prune -o -print | sort | node <REPO>/rs/parity/files.mjs stat '%a %F %n'"
    ],
-   "handback": "the TypeScript updates .gitignore and then ends in an uncaught error"
+   "handback": "the TypeScript updates .gitignore and then ends in an uncaught error",
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
+   }
   },
   {
    "name": "recheck2: setup: the rules are there; core.hooksPath .husky/_ a link to ../hk, hk/post-merge a directory",
@@ -25863,7 +26064,10 @@
     "for h in pre-commit post-merge post-checkout; do if [ -e hk/$h ]; then node <REPO>/rs/parity/files.mjs stat '--- %a %F %n' hk/$h; [ -f hk/$h ] && cat hk/$h; fi; done; true",
     "find . -path ./.git/objects -prune -o -path '*/.git/objects' -prune -o -name '*.sample' -prune -o -print | sort | node <REPO>/rs/parity/files.mjs stat '%a %F %n'"
    ],
-   "handback": "the TypeScript writes hk/pre-commit and then ends in an uncaught error"
+   "handback": "the TypeScript writes hk/pre-commit and then ends in an uncaught error",
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
+   }
   },
   {
    "name": "recheck2: setup: core.hooksPath in the user's .gitconfig through a link to a .husky/_ whose .husky/pre-commit is a directory",
@@ -25880,7 +26084,10 @@
     "cat .gitignore 2>&1",
     "find . -path ./.git/objects -prune -o -path '*/.git/objects' -prune -o -name '*.sample' -prune -o -print | sort | node <REPO>/rs/parity/files.mjs stat '%a %F %n'"
    ],
-   "handback": "the TypeScript updates .gitignore and then ends in an uncaught error"
+   "handback": "the TypeScript updates .gitignore and then ends in an uncaught error",
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
+   }
   },
   {
    "name": "recheck2: setup: control: .husky a link to real, core.hooksPath .husky/_, all fine",
@@ -25902,6 +26109,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -25924,6 +26134,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -25946,6 +26159,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -25967,6 +26183,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -25983,7 +26202,10 @@
     "cat .gitignore 2>&1",
     "find . -path ./.git/objects -prune -o -path '*/.git/objects' -prune -o -name '*.sample' -prune -o -print | sort | node <REPO>/rs/parity/files.mjs stat '%a %F %n'"
    ],
-   "handback": "the TypeScript updates .gitignore and then ends in an uncaught error"
+   "handback": "the TypeScript updates .gitignore and then ends in an uncaught error",
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
+   }
   },
   {
    "name": "recheck2: setup: .git/hooks a link to a directory whose pre-commit is a directory",
@@ -26000,7 +26222,10 @@
     "cat .gitignore 2>&1",
     "find . -path ./.git/objects -prune -o -path '*/.git/objects' -prune -o -name '*.sample' -prune -o -print | sort | node <REPO>/rs/parity/files.mjs stat '%a %F %n'"
    ],
-   "handback": "the TypeScript updates .gitignore and then ends in an uncaught error"
+   "handback": "the TypeScript updates .gitignore and then ends in an uncaught error",
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
+   }
   },
   {
    "name": "recheck2: setup: .git/hooks a link to nowhere",
@@ -26020,6 +26245,9 @@
    ],
    "handback": {
     "win32": "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)"
+   },
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
    }
   },
   {
@@ -26077,7 +26305,10 @@
     "cat .gitignore 2>&1",
     "find . -path ./.git/objects -prune -o -path '*/.git/objects' -prune -o -name '*.sample' -prune -o -print | sort | node <REPO>/rs/parity/files.mjs stat '%a %F %n'"
    ],
-   "handback": "the TypeScript updates .gitignore and then ends in an uncaught error"
+   "handback": "the TypeScript updates .gitignore and then ends in an uncaught error",
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
+   }
   },
   {
    "name": "recheck2: setup: in a linked worktree, the main repository's pre-commit hook a directory",
@@ -26159,7 +26390,10 @@
    "after": [
     "cat wt/.gitignore 2>&1"
    ],
-   "handback": "the TypeScript updates .gitignore and then ends in an uncaught error"
+   "handback": "the TypeScript updates .gitignore and then ends in an uncaught error",
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
+   }
   },
   {
    "name": "recheck2: setup: inside a submodule",
@@ -26312,7 +26546,10 @@
     "ls -A w",
     "cat realgit/dotenvdotenc/state.json"
    ],
-   "handback": "a sync record that is not an object"
+   "handback": "a sync record that is not an object",
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
+   }
   },
   {
    "name": "recheck2: dec: run from a directory reached through a link, the record a list",
@@ -26333,7 +26570,10 @@
     "ls -A real/sub",
     "cat real/.git/dotenvdotenc/state.json"
    ],
-   "handback": "a sync record that is not an object"
+   "handback": "a sync record that is not an object",
+   "skip": {
+    "win32": "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"
+   }
   },
   {
    "name": "recheck2: enc, double quotes, 98198 bytes: the largest whose ciphertext stays within the margin",

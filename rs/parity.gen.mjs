@@ -1227,6 +1227,19 @@ for (const c of cases) if (c.args[0] === "get" && !c.capture) c.capture = "files
 // meant to reach the JavaScript.
 const WINDOWS = "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)";
 for (const c of cases) if (typeof c.handback !== "string") c.handback = { ...c.handback, win32: WINDOWS };
+// What cannot mean the same there, as the cases first run on Windows 11 in
+// Git Bash showed (every other case reaches dede.ts through the binary and
+// behaves as dede.ts started directly does):
+const WINDOWS_SKIPS = [
+  [(c) => (c.setup || []).some((line) => /\bln -s/.test(line)), "a symbolic link: Git Bash's ln -s copies the target instead (and fails where there is none), so the case has no link"],
+  [(c) => Object.keys(c.files || {}).some((file) => file.split("/").some((part) => part !== "." && part !== ".." && /[\x00-\x1f<>:"|?*\\]|[ .]$/.test(part))), "a file name Windows does not keep (a control character, or a dot at its end)"],
+  [(c) => c.env?.X_NOGIT, "a PATH without git: rs/parity/run.sh makes it of links to bun, node, env and sh, which Git Bash makes copies without .exe, so the binary finds no bun to hand back to"],
+  [(c) => c.env?.X_UMASK, "a umask, which Windows programs do not have (under Git Bash's umask 0777 the wrapper cannot start the command at all)"],
+];
+for (const c of cases) {
+  const why = WINDOWS_SKIPS.find(([applies]) => applies(c))?.[1];
+  if (why) c.skip = { ...c.skip, win32: why };
+}
 
 // ═══════════════════════════ write ═══════════════════════════
 
