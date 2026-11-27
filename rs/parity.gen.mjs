@@ -1079,6 +1079,28 @@ add("large: enc, both sides changed in files too large to merge here", ["enc"], 
   back: MARGIN,
 });
 
+// A possible merge in enc is bounded per name (rs/src/dede.rs
+// merged_enc_bound): both files twice, plus per name and place the longest
+// ciphertext it can get, against the same margin. Here the .enc is made by
+// dede.ts, then changed on both sides since the record, so the binary
+// merges: 23 values of 1,000 bytes come to 126,840 units (answered), 24 to
+// 132,340 (handed back), and an edited file of 450 short values to about
+// 100,000 (at 2c2a075, which counted every ciphertext of both sides, it went
+// back).
+const BOTH_CHANGED = (count, size) => [
+  KPROD,
+  WRITE(".env.prod", `Array.from({ length: ${count} }, (_, i) => "V_" + i + "=" + String(i).padStart(${size}, "v") + "\\n").join("")`),
+  "X_CD= PARITY_GIT_LOG= sh <REPO>/rs/parity/run.sh bun <REPO>/dede.ts enc 2>/dev/null",
+  "cp .git/dotenvdotenc/state.json state.synced",
+  "sed -i 's/^V_8=v/V_8=w/' .env.prod && X_CD= PARITY_GIT_LOG= sh <REPO>/rs/parity/run.sh bun <REPO>/dede.ts enc 2>/dev/null",
+  "mv state.synced .git/dotenvdotenc/state.json && sed -i 's/^V_8=w/V_8=v/; s/^V_7=v/V_7=x/' .env.prod",
+];
+const MERGED_AFTER = [LS, `${PROBE} enc .env.prod.enc .env.keys | grep -c '^V_'`, `${PROBE} enc .env.prod.enc .env.keys | grep -E '^V_[78]=' | cut -c1-12`, "grep -E '^V_[78]=' .env.prod | cut -c1-12", "sha256sum .env.prod", `${PROBE} state`];
+add("large: enc, both sides changed in 23 values of 1,000 bytes: merged here", ["enc"], { setup: BOTH_CHANGED(23, 1000), after: MERGED_AFTER });
+add("large: enc, both sides changed in 24 values of 1,000 bytes: past the margin", ["enc"], { setup: BOTH_CHANGED(24, 1000), after: MERGED_AFTER, back: MARGIN });
+add("large: enc, both sides changed in a file of 450 short values: merged here", ["enc"], { setup: BOTH_CHANGED(450, 9), after: MERGED_AFTER });
+add("large: dec, both sides changed in a file of 450 short values: merged here", ["dec"], { setup: BOTH_CHANGED(450, 9), after: MERGED_AFTER });
+
 // ═══════════════════════════ setup: what the pre-read sees ═══════════════════════════
 //
 // Before its first write setup looks at everything it will read, make or

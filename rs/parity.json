@@ -16285,6 +16285,114 @@
    "handback": "within the margin kept from what bun's regular expressions give up on"
   },
   {
+   "name": "large: enc, both sides changed in 23 values of 1,000 bytes: merged here",
+   "args": [
+    "enc"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_PROD=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "node -e 'require(\"fs\").writeFileSync(\".env.prod\", Array.from({ length: 23 }, (_, i) => \"V_\" + i + \"=\" + String(i).padStart(1000, \"v\") + \"\\n\").join(\"\"))'",
+    "X_CD= PARITY_GIT_LOG= sh <REPO>/rs/parity/run.sh bun <REPO>/dede.ts enc 2>/dev/null",
+    "cp .git/dotenvdotenc/state.json state.synced",
+    "sed -i 's/^V_8=v/V_8=w/' .env.prod && X_CD= PARITY_GIT_LOG= sh <REPO>/rs/parity/run.sh bun <REPO>/dede.ts enc 2>/dev/null",
+    "mv state.synced .git/dotenvdotenc/state.json && sed -i 's/^V_8=w/V_8=v/; s/^V_7=v/V_7=x/' .env.prod"
+   ],
+   "after": [
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "node <REPO>/rs/parity/probe.mjs enc .env.prod.enc .env.keys | grep -c '^V_'",
+    "node <REPO>/rs/parity/probe.mjs enc .env.prod.enc .env.keys | grep -E '^V_[78]=' | cut -c1-12",
+    "grep -E '^V_[78]=' .env.prod | cut -c1-12",
+    "sha256sum .env.prod",
+    "node <REPO>/rs/parity/probe.mjs state",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "large: enc, both sides changed in 24 values of 1,000 bytes: past the margin",
+   "args": [
+    "enc"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_PROD=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "node -e 'require(\"fs\").writeFileSync(\".env.prod\", Array.from({ length: 24 }, (_, i) => \"V_\" + i + \"=\" + String(i).padStart(1000, \"v\") + \"\\n\").join(\"\"))'",
+    "X_CD= PARITY_GIT_LOG= sh <REPO>/rs/parity/run.sh bun <REPO>/dede.ts enc 2>/dev/null",
+    "cp .git/dotenvdotenc/state.json state.synced",
+    "sed -i 's/^V_8=v/V_8=w/' .env.prod && X_CD= PARITY_GIT_LOG= sh <REPO>/rs/parity/run.sh bun <REPO>/dede.ts enc 2>/dev/null",
+    "mv state.synced .git/dotenvdotenc/state.json && sed -i 's/^V_8=w/V_8=v/; s/^V_7=v/V_7=x/' .env.prod"
+   ],
+   "after": [
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "node <REPO>/rs/parity/probe.mjs enc .env.prod.enc .env.keys | grep -c '^V_'",
+    "node <REPO>/rs/parity/probe.mjs enc .env.prod.enc .env.keys | grep -E '^V_[78]=' | cut -c1-12",
+    "grep -E '^V_[78]=' .env.prod | cut -c1-12",
+    "sha256sum .env.prod",
+    "node <REPO>/rs/parity/probe.mjs state"
+   ],
+   "handback": "within the margin kept from what bun's regular expressions give up on"
+  },
+  {
+   "name": "large: enc, both sides changed in a file of 450 short values: merged here",
+   "args": [
+    "enc"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_PROD=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "node -e 'require(\"fs\").writeFileSync(\".env.prod\", Array.from({ length: 450 }, (_, i) => \"V_\" + i + \"=\" + String(i).padStart(9, \"v\") + \"\\n\").join(\"\"))'",
+    "X_CD= PARITY_GIT_LOG= sh <REPO>/rs/parity/run.sh bun <REPO>/dede.ts enc 2>/dev/null",
+    "cp .git/dotenvdotenc/state.json state.synced",
+    "sed -i 's/^V_8=v/V_8=w/' .env.prod && X_CD= PARITY_GIT_LOG= sh <REPO>/rs/parity/run.sh bun <REPO>/dede.ts enc 2>/dev/null",
+    "mv state.synced .git/dotenvdotenc/state.json && sed -i 's/^V_8=w/V_8=v/; s/^V_7=v/V_7=x/' .env.prod"
+   ],
+   "after": [
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "node <REPO>/rs/parity/probe.mjs enc .env.prod.enc .env.keys | grep -c '^V_'",
+    "node <REPO>/rs/parity/probe.mjs enc .env.prod.enc .env.keys | grep -E '^V_[78]=' | cut -c1-12",
+    "grep -E '^V_[78]=' .env.prod | cut -c1-12",
+    "sha256sum .env.prod",
+    "node <REPO>/rs/parity/probe.mjs state",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "large: dec, both sides changed in a file of 450 short values: merged here",
+   "args": [
+    "dec"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_PROD=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "node -e 'require(\"fs\").writeFileSync(\".env.prod\", Array.from({ length: 450 }, (_, i) => \"V_\" + i + \"=\" + String(i).padStart(9, \"v\") + \"\\n\").join(\"\"))'",
+    "X_CD= PARITY_GIT_LOG= sh <REPO>/rs/parity/run.sh bun <REPO>/dede.ts enc 2>/dev/null",
+    "cp .git/dotenvdotenc/state.json state.synced",
+    "sed -i 's/^V_8=v/V_8=w/' .env.prod && X_CD= PARITY_GIT_LOG= sh <REPO>/rs/parity/run.sh bun <REPO>/dede.ts enc 2>/dev/null",
+    "mv state.synced .git/dotenvdotenc/state.json && sed -i 's/^V_8=w/V_8=v/; s/^V_7=v/V_7=x/' .env.prod"
+   ],
+   "after": [
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "node <REPO>/rs/parity/probe.mjs enc .env.prod.enc .env.keys | grep -c '^V_'",
+    "node <REPO>/rs/parity/probe.mjs enc .env.prod.enc .env.keys | grep -E '^V_[78]=' | cut -c1-12",
+    "grep -E '^V_[78]=' .env.prod | cut -c1-12",
+    "sha256sum .env.prod",
+    "node <REPO>/rs/parity/probe.mjs state",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
    "name": "setup: core.hooksPath in the user's .gitconfig names a directory",
    "args": [
     "setup"
