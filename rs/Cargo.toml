@@ -1,0 +1,15 @@
+[package]
+name = "dotenvdotenc"
+version = "0.0.0"
+edition = "2021"
+description = "dede: keep gitignored .env* files in sync with committed dotenvx-encrypted .env*.enc twins"
+license = "MIT"
+
+[[bin]]
+name = "dotenvdotenc"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+strip = true
