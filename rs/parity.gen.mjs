@@ -124,10 +124,14 @@ const GIT_LOG = "cat <HOME>/git.log 2>&1";
 const FILES = "node <REPO>/rs/parity/files.mjs";
 const LS = `ls -A | grep -v '^\\.git$' | ${FILES} stat '%a %F %n'`;
 
+/** Why a get that prints into a pipe or a socket is handed back on macOS (see "systems" at the end). */
+const MACOS_PIPE = "on macOS the binary hands back a get that prints into a pipe or a socket: their room is asked of Linux only (rs/src/out.rs stdout_takes)";
+
 const cases = [];
 /**
  * One case. `o.repo`: false for no repository, else the .gitignore text (default: dede's rules).
- * `o.keys`: PARITY_KEYS for the environment. `o.back`: why the case is meant to reach the JavaScript.
+ * `o.keys`: PARITY_KEYS for the environment. `o.back`: why the case is meant to reach the JavaScript,
+ * on every system, or per system (`{ darwin: "why" }`, see "systems" below). `o.capture`: as the runner reads it.
  */
 function add(name, args, o = {}) {
   const repo = o.repo === undefined ? IGNORE : o.repo;
@@ -142,9 +146,10 @@ function add(name, args, o = {}) {
   // A case that is handed back may have asked git a few things before it
   // was (the JavaScript then asks them again), so what git was asked is only
   // compared where the binary answers.
-  testCase.after = [...(o.after || []), ...(o.back ? [] : [GIT_LOG])];
+  testCase.after = [...(o.after || []), ...(typeof o.back === "string" ? [] : [GIT_LOG])];
   if (!testCase.after.length) delete testCase.after;
   if (o.normalize) testCase.normalize = o.normalize;
+  if (o.capture) testCase.capture = o.capture;
   if (o.back) testCase.handback = o.back;
   if (cases.some((c) => c.name === name)) throw new Error(`two cases named ${JSON.stringify(name)}`);
   cases.push(testCase);
@@ -200,6 +205,12 @@ const RAW_ENC = encFile(".env.local", 1, RAW);
 const K1 = keysFile({ _LOCAL: 1 });
 
 add("get: one value, the key in .env.keys, no plaintext", ["get", "API_KEY"], { files: { ".env.local.enc": LOCAL_ENC }, setup: [K1] });
+// Every other get case prints into regular files (see "systems" at the end);
+// these keep the runner's pipes, which node makes sockets.
+add("get: into a pipe, one value", ["get", "API_KEY"], { files: { ".env.local.enc": LOCAL_ENC }, setup: [K1], capture: "pipes", back: { darwin: MACOS_PIPE } });
+add("get: into a pipe, a value over several lines", ["get", "MULTI"], { files: { ".env.local.enc": encFile(".env.local", 1, 'MULTI="one\ntwo\nthree"\n') }, setup: [K1], capture: "pipes", back: { darwin: MACOS_PIPE } });
+add("get: into a pipe, a name that is not there", ["get", "MISSING"], { files: { ".env.local.enc": LOCAL_ENC }, setup: [K1], capture: "pipes" });
+add("get: into a pipe, an empty value", ["get", "EMPTY"], { files: { ".env.local.enc": encFile(".env.local", 1, "EMPTY=\n") }, setup: [K1], capture: "pipes" });
 add("get: a quoted value", ["get", "NAME"], { files: { ".env.local.enc": LOCAL_ENC }, setup: [K1] });
 add("get: with the plaintext beside it (bun loads .env.local)", ["get", "API_KEY"], { files: { ".env.local": LOCAL, ".env.local.enc": LOCAL_ENC }, setup: [K1] });
 for (const name of ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M"]) {
@@ -1187,6 +1198,26 @@ for (const testCase of recheck.cases) {
   cases.push(testCase);
 }
 
+// ═══════════════════════════ systems ═══════════════════════════
+//
+// The same cases run on Linux, macOS and Windows: rustify's parity runner
+// reads "handback" and "skip" per system, keyed as node's process.platform
+// names them. What differs is said here, for every case, rather than in each.
+//
+// `dede get` prints its value with process.stdout.write, which under bun does
+// not wait for a pipe or a socket: what does not fit at that moment is lost
+// at the exit, on Linux and on macOS alike (macOS 27, bun 1.4.4: 65,536 bytes
+// of a larger value reach a pipe read after the exit, 8,192 a socket). The
+// binary answers a get into a pipe or a socket only where the room is
+// certain, and it asks Linux alone for the room (rs/src/out.rs
+// stdout_takes); on macOS it hands every such get back that has a value to
+// print. The runner gives a program pipes (sockets, from node), so every get
+// case prints into regular files ("capture": "files"), where both
+// implementations write all of it on every system and every byte is
+// compared. The cases that say "capture": "pipes" keep the runner's pipes;
+// rs/pipe-compat.py is the proof for pipes and sockets read slowly.
+for (const c of cases) if (c.args[0] === "get" && !c.capture) c.capture = "files";
+
 // ═══════════════════════════ write ═══════════════════════════
 
 const out = { env: { TZ: "UTC", GIT_CONFIG_NOSYSTEM: "1", PARITY_GIT_LOG: "<HOME>/git.log" }, cases };
@@ -1205,5 +1236,7 @@ if (flags.has("--check")) {
   console.error(`rs/parity.json is up to date (${cases.length} cases)`);
 } else {
   fs.writeFileSync(target, text);
-  console.error(`wrote rs/parity.json (${cases.length} cases, ${cases.filter((c) => c.handback).length} of them handed back)`);
+  const on = (system) => cases.filter((c) => !c.skip?.[system] && (typeof c.handback === "string" || c.handback?.[system])).length;
+  const skipped = (system) => cases.filter((c) => c.skip?.[system]).length;
+  console.error(`wrote rs/parity.json (${cases.length} cases; handed back on linux ${on("linux")}, darwin ${on("darwin")}, win32 ${on("win32")}; skipped on darwin ${skipped("darwin")}, win32 ${skipped("win32")})`);
 }

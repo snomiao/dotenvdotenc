@@ -103,6 +103,7 @@ function add(name, args, o = {}) {
   testCase.after = [...(o.after || [LS]), ...(o.back || o.nolog ? [] : [GIT_LOG])];
   if (o.back) testCase.handback = o.back;
   if (o.timeout) testCase.timeout = o.timeout;
+  if (o.capture) testCase.capture = o.capture;
   if (cases.some((c) => c.name === name)) throw new Error(`two cases named ${JSON.stringify(name)}`);
   cases.push(testCase);
 }
@@ -243,7 +244,7 @@ const BIG = "v".repeat(70000) + "é😀\n".repeat(10) + "end";
 // socket has room for at that moment; the binary now prints natively only
 // where the room is certain, and 70,000 bytes into the runner's socket go
 // back: rs/pipe-compat.py.)
-add("get: a value larger than a pipe's buffer", ["get", "BIG"], { files: { ".env.local.enc": `${HEAD1}BIG="${seal(1, BIG, "big")}"\n` }, setup: [K1], after: [], back: "more than the binary is sure a socket takes at once; under bun process.stdout.write may lose the rest" });
+add("get: a value larger than a pipe's buffer", ["get", "BIG"], { files: { ".env.local.enc": `${HEAD1}BIG="${seal(1, BIG, "big")}"\n` }, setup: [K1], after: [], capture: "pipes", back: "more than the binary is sure a socket takes at once; under bun process.stdout.write may lose the rest" });
 add("get: git is not installed", ["get", "API_KEY"], { files: { ".env.local": LOCAL, ".env.local.enc": LOCAL_ENC }, setup: [K1], env: { X_NOGIT: "1" }, nolog: true });
 add("get: run from a directory reached through a symlink", ["get", "API_KEY", "../.env.local"], { files: { ".env.local.enc": LOCAL_ENC }, setup: [K1, "mkdir -p real/sub && ln -s real/sub link"], env: { X_CD: "link" } });
 
