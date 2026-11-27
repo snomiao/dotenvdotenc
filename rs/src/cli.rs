@@ -20,7 +20,8 @@ fn is_ported(command: Option<&str>) -> bool {
     match command {
         // Usage: `dede`, `dede help`, and what is no command at all.
         None => true,
-        Some("enc" | "dec" | "status" | "diff" | "get" | "guard" | "keys" | "health" | "setup") => false,
+        Some("get") => true,
+        Some("enc" | "dec" | "status" | "diff" | "guard" | "keys" | "health" | "setup") => false,
         Some(_) => true,
     }
 }
