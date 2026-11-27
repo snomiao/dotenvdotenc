@@ -33,8 +33,18 @@ fn main() {
         // `HandBack` for everything else: an invocation or a state of the
         // machine it does not imitate exactly. It says so before anything has
         // been printed or changed.
-        if let Ok(code) = cli::run(&args) {
-            std::process::exit(code);
+        //
+        // A panic is a bug in this port. While nothing has been printed or
+        // changed, the JavaScript can still answer in its place.
+        std::panic::set_hook(Box::new(|_| {}));
+        match std::panic::catch_unwind(|| cli::run(&args)) {
+            Ok(Ok(code)) => std::process::exit(code),
+            Ok(Err(env::HandBack)) => {}
+            Err(_) if out::has_gone_live() => {
+                eprintln!("dede: stopped at something this build does not handle; run it again with DOTENVDOTENC_NO_NATIVE=1");
+                std::process::exit(1);
+            }
+            Err(_) => {}
         }
     }
     js_fallback::run(JS_ENTRY)

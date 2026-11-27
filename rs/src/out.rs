@@ -14,6 +14,15 @@
 //! That is reproduced, since it is what users of the published dede see.
 
 use std::io::{IsTerminal, Write};
+use std::sync::atomic::{AtomicBool, Ordering};
+
+/// Set once a command has started to write (see `go_live`): from then on the
+/// invocation cannot be handed back any more, whatever happens.
+static LIVE: AtomicBool = AtomicBool::new(false);
+
+pub fn has_gone_live() -> bool {
+    LIVE.load(Ordering::Relaxed)
+}
 
 pub struct Out {
     pending: Vec<(Stream, String)>,
@@ -94,6 +103,7 @@ impl Out {
     /// From here on everything is written as it comes.
     pub fn go_live(&mut self) {
         self.live = true;
+        LIVE.store(true, Ordering::Relaxed);
         self.flush();
     }
 

@@ -119,9 +119,11 @@ impl Dede {
                 if previous.is_empty() || previous.ends_with('\n') { "" } else { "\n" },
                 if previous.is_empty() { "" } else { "\n" }
             );
-            // From here on files change; nothing below is handed back.
-            self.out.go_live();
+            // Once a file has changed nothing is handed back any more. (A
+            // first write that fails still is: the TypeScript ends in an
+            // uncaught error there, and nothing has been printed or changed.)
             self.write_atomic(&gitignore, &text, 0o644)?;
+            self.out.go_live();
             if !ok(self)? {
                 return die(".gitignore still does not ignore .env* while keeping .env*.enc; check for conflicting rules (`git check-ignore -v .env.local.enc`)".into(), 1);
             }
@@ -183,7 +185,6 @@ impl Dede {
         if has_shebang && regex(r"^#!.*\b(sh|bash|zsh|dash)\b", "").find(previous.as_deref().unwrap_or("")).is_none() {
             return die(format!("{} is not a shell script; add `{command}` to it yourself", self.rel(&hook)), 1);
         }
-        self.out.go_live();
         fs::create_dir_all(dir).map_err(|_| Stop::Thrown("Error"))?;
         // First thing after the shebang, so a later `exec`/`exit` in an existing hook cannot skip it.
         let (body, mode) = match &previous {
@@ -201,6 +202,7 @@ impl Dede {
             }
         };
         self.write_atomic(&hook, &body, mode)?;
+        self.out.go_live();
         self.log(&format!("{} {}: {what}", if previous.is_none() { "created" } else { "updated" }, self.rel(&hook)));
         Ok(())
     }
@@ -209,8 +211,8 @@ impl Dede {
         let raw = read_file(package)?;
         let text = with_husky(&raw)?;
         let mode = lstat_mode(package).map_err(|_| Stop::Thrown("Error"))?.1 & 0o777;
-        self.out.go_live();
         self.write_atomic(package, &text, mode)?;
+        self.out.go_live();
         let husky_dir = join(top, ".husky");
         fs::create_dir_all(&husky_dir).map_err(|_| Stop::Thrown("Error"))?;
         self.write_atomic(&join(&husky_dir, "pre-commit"), &format!("{HOOK_CMD}\n"), 0o644)?;
