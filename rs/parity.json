@@ -14687,6 +14687,1284 @@
     "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
    ],
    "handback": "DOTENVDOTENC_NO_NATIVE=1 hands everything back"
+  },
+  {
+   "name": "setup: a fresh repository",
+   "args": [
+    "setup"
+   ],
+   "setup": [
+    "git init -q -b main"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: a second time changes nothing",
+   "args": [
+    "setup"
+   ],
+   "setup": [
+    "git init -q -b main",
+    "sh <REPO>/rs/parity/run.sh bun <REPO>/dede.ts setup 2>/dev/null"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: the rules are there already",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n"
+   },
+   "setup": [
+    "git init -q -b main"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: a .gitignore with other rules",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    ".gitignore": "node_modules/\ndist/\n"
+   },
+   "setup": [
+    "git init -q -b main"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: a .gitignore without a final newline",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    ".gitignore": "node_modules/"
+   },
+   "setup": [
+    "git init -q -b main"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: a .gitignore that ignores .env but would ignore the .enc too",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    ".gitignore": ".env*\n"
+   },
+   "setup": [
+    "git init -q -b main"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: a .gitignore whose later rule un-ignores .env.local: the block goes after it",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n!.env.local\n"
+   },
+   "setup": [
+    "git init -q -b main"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: the rules come from .git/info/exclude",
+   "args": [
+    "setup"
+   ],
+   "setup": [
+    "git init -q -b main",
+    "printf '.env*\\n!.env*.enc\\n' >> .git/info/exclude"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: .gitignore is a symlink",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    "elsewhere": "x\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "ln -s elsewhere .gitignore"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "cat elsewhere",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: an existing hook: the guard goes right after its first line",
+   "args": [
+    "setup"
+   ],
+   "setup": [
+    "git init -q -b main",
+    "printf '#!/bin/sh\\necho before\\nexec other-tool \"$@\"\\n' > .git/hooks/pre-commit && chmod 755 .git/hooks/pre-commit"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: an existing hook without a first line for the shell",
+   "args": [
+    "setup"
+   ],
+   "setup": [
+    "git init -q -b main",
+    "printf 'echo plain\\n' > .git/hooks/pre-commit"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: an existing hook that is only a first line, without a newline",
+   "args": [
+    "setup"
+   ],
+   "setup": [
+    "git init -q -b main",
+    "printf '#!/usr/bin/env bash' > .git/hooks/pre-commit && chmod 700 .git/hooks/pre-commit"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: an existing hook keeps its mode",
+   "args": [
+    "setup"
+   ],
+   "setup": [
+    "git init -q -b main",
+    "printf '#!/bin/sh\\ntrue\\n' > .git/hooks/pre-commit && chmod 644 .git/hooks/pre-commit",
+    "printf '#!/bin/zsh\\ntrue\\n' > .git/hooks/post-merge && chmod 750 .git/hooks/post-merge"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: an existing hook that already calls dede guard",
+   "args": [
+    "setup"
+   ],
+   "setup": [
+    "git init -q -b main",
+    "printf '#!/bin/sh\\nnpx dede guard\\n' > .git/hooks/pre-commit",
+    "printf '#!/bin/sh\\ndede status --quiet\\n' > .git/hooks/post-checkout"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: an existing hook that is not a shell script",
+   "args": [
+    "setup"
+   ],
+   "setup": [
+    "git init -q -b main",
+    "printf '#!/usr/bin/env python3\\nprint(1)\\n' > .git/hooks/pre-commit"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: a post-merge hook that is not a shell script: pre-commit is installed first",
+   "args": [
+    "setup"
+   ],
+   "setup": [
+    "git init -q -b main",
+    "printf '#!/usr/bin/env node\\n' > .git/hooks/post-merge"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: an existing hook that is a symlink",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    "elsewhere": "#!/bin/sh\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "ln -s ../../elsewhere .git/hooks/pre-commit"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: core.hooksPath names a directory",
+   "args": [
+    "setup"
+   ],
+   "setup": [
+    "git init -q -b main",
+    "git config core.hooksPath .githooks"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .githooks/$h ]; then stat -c '--- %a %n' .githooks/$h; cat .githooks/$h; fi; done; ls -A .githooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: core.hooksPath is husky's .husky/_",
+   "args": [
+    "setup"
+   ],
+   "setup": [
+    "git init -q -b main",
+    "git config core.hooksPath .husky/_",
+    "mkdir -p .husky/_"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .husky/$h ]; then stat -c '--- %a %n' .husky/$h; cat .husky/$h; fi; done; ls -A .husky 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: core.hooksPath is .husky/_/ and there is a package.json",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    "package.json": "{}\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config core.hooksPath .husky/_/"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .husky/$h ]; then stat -c '--- %a %n' .husky/$h; cat .husky/$h; fi; done; ls -A .husky 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "cat package.json",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: core.hooksPath starts with ~",
+   "args": [
+    "setup"
+   ],
+   "setup": [
+    "git init -q -b main",
+    "git config core.hooksPath '~/my hooks'"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e \"$HOME/my hooks\"/$h ]; then stat -c '--- %a %n' \"$HOME/my hooks\"/$h; cat \"$HOME/my hooks\"/$h; fi; done; ls -A \"$HOME/my hooks\" 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: a .husky directory without core.hooksPath",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    "package.json": "{}\n",
+    ".husky/pre-push": "true\n"
+   },
+   "setup": [
+    "git init -q -b main"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .husky/$h ]; then stat -c '--- %a %n' .husky/$h; cat .husky/$h; fi; done; ls -A .husky 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "cat package.json",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: lefthook.yml: a snippet to paste",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    "lefthook.yml": "pre-push:\n  commands: {}\n",
+    "package.json": "{}\n"
+   },
+   "setup": [
+    "git init -q -b main"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "cat lefthook.yml package.json",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: .lefthook.yaml that already has the guard",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    ".lefthook.yaml": "pre-commit:\n  commands:\n    x:\n      run: dede guard\n"
+   },
+   "setup": [
+    "git init -q -b main"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: lefthook.yaml before .lefthook.yml",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    "lefthook.yaml": "a: 1\n",
+    ".lefthook.yml": "run: dede guard\n"
+   },
+   "setup": [
+    "git init -q -b main"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: a package.json: husky is set up",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    "package.json": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\",\n  \"private\": true\n}\n"
+   },
+   "setup": [
+    "git init -q -b main"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .husky/$h ]; then stat -c '--- %a %n' .husky/$h; cat .husky/$h; fi; done; ls -A .husky 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "cat package.json",
+    "stat -c '%a %n' package.json",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: a package.json with four spaces, a prepare script and its own mode",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    "package.json": "{\n    \"name\": \"app\",\n    \"scripts\": {\n        \"prepare\": \"node build.js\",\n        \"test\": \"x\"\n    },\n    \"devDependencies\": {\n        \"typescript\": \"^5\"\n    }\n}"
+   },
+   "setup": [
+    "git init -q -b main",
+    "chmod 600 package.json"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .husky/$h ]; then stat -c '--- %a %n' .husky/$h; cat .husky/$h; fi; done; ls -A .husky 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "cat package.json",
+    "stat -c '%a %n' package.json",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: a package.json with tabs, where husky is already a dependency and in prepare",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    "package.json": "{\n\t\"scripts\": {\"prepare\": \"husky\"},\n\t\"dependencies\": {\"husky\": \"^9\"},\n\t\"files\": [\"a\", \"b\"],\n\t\"count\": 3,\n\t\"nothing\": null\n}\n"
+   },
+   "setup": [
+    "git init -q -b main"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .husky/$h ]; then stat -c '--- %a %n' .husky/$h; cat .husky/$h; fi; done; ls -A .husky 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "cat package.json",
+    "stat -c '%a %n' package.json",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: a package.json on one line",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    "package.json": "{\"name\":\"app\",\"scripts\":null,\"devDependencies\":null}"
+   },
+   "setup": [
+    "git init -q -b main"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .husky/$h ]; then stat -c '--- %a %n' .husky/$h; cat .husky/$h; fi; done; ls -A .husky 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "cat package.json",
+    "stat -c '%a %n' package.json",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: a package.json with keys that are numbers and text beyond ASCII",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    "package.json": "{\n  \"name\": \"café \\u2028 \\\"q\\\"\",\n  \"2\": \"two\",\n  \"1\": \"one\",\n  \"é\": {\"x\": []}\n}\n"
+   },
+   "setup": [
+    "git init -q -b main"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .husky/$h ]; then stat -c '--- %a %n' .husky/$h; cat .husky/$h; fi; done; ls -A .husky 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "cat package.json",
+    "stat -c '%a %n' package.json",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: husky's own hooks are kept where they exist",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    "package.json": "{}\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "mkdir .husky.tmp && printf 'mine\\n' > .husky.tmp/post-merge && mkdir -p node_modules/.bin && true"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .husky/$h ]; then stat -c '--- %a %n' .husky/$h; cat .husky/$h; fi; done; ls -A .husky 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "cat package.json",
+    "stat -c '%a %n' package.json",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: husky is installed: it is run",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    "package.json": "{}\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "mkdir -p node_modules/.bin && printf '#!/bin/sh\\necho ran in \"$(pwd)\" > husky.ran\\n' > node_modules/.bin/husky && chmod +x node_modules/.bin/husky"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .husky/$h ]; then stat -c '--- %a %n' .husky/$h; cat .husky/$h; fi; done; ls -A .husky 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "cat package.json",
+    "stat -c '%a %n' package.json",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "cat husky.ran",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: husky is installed and fails",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    "package.json": "{}\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "mkdir -p node_modules/.bin && printf '#!/bin/sh\\nexit 3\\n' > node_modules/.bin/husky && chmod +x node_modules/.bin/husky"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .husky/$h ]; then stat -c '--- %a %n' .husky/$h; cat .husky/$h; fi; done; ls -A .husky 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "cat package.json",
+    "stat -c '%a %n' package.json",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: a package.json that is a symlink",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    "real.json": "{}\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "ln -s real.json package.json"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "cat real.json",
+    "ls -A .husky 2>&1",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: a package.json that is not JSON",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    "package.json": "{ name: app }\n"
+   },
+   "setup": [
+    "git init -q -b main"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done"
+   ],
+   "handback": "JSON.parse fails and the TypeScript ends in an uncaught SyntaxError"
+  },
+  {
+   "name": "setup: a package.json with a number that is no plain integer",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    "package.json": "{\"version\": 1.50}\n"
+   },
+   "setup": [
+    "git init -q -b main"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "cat package.json",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done"
+   ],
+   "handback": "JSON.stringify would write the number back in JavaScript's form"
+  },
+  {
+   "name": "setup: a package.json whose scripts are no object",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    "package.json": "{\"scripts\": \"none\"}\n"
+   },
+   "setup": [
+    "git init -q -b main"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "cat package.json",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done"
+   ],
+   "handback": "the TypeScript ends in an uncaught TypeError"
+  },
+  {
+   "name": "setup: a package.json that is a list",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    "package.json": "[]\n"
+   },
+   "setup": [
+    "git init -q -b main"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "cat package.json",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done"
+   ],
+   "handback": "what JavaScript does with a package.json that is no object is not imitated"
+  },
+  {
+   "name": "setup: outside any repository",
+   "args": [
+    "setup"
+   ],
+   "after": [
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: run in a subdirectory: the repository's .gitignore and hooks",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    "../.gitignore": "/home/\n/tmp/\n/cache/\n"
+   },
+   "setup": [
+    "git -C .. init -q -b main"
+   ],
+   "after": [
+    "cat ../.gitignore",
+    "for h in pre-commit post-merge post-checkout; do if [ -e ../.git/hooks/$h ]; then stat -c '--- %a %n' ../.git/hooks/$h; cat ../.git/hooks/$h; fi; done; ls -A ../.git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: in a linked worktree the hooks are the repository's",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    "../main/README": "x\n"
+   },
+   "setup": [
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "cd ../main && git init -q -b main && git add . && git commit -q -m init && git worktree add -q ../wt -b side",
+    "mv ../wt/.git . && echo \"$PWD/.git\" > ../main/.git/worktrees/wt/gitdir"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e ../main/.git/hooks/$h ]; then stat -c '--- %a %n' ../main/.git/hooks/$h; cat ../main/.git/hooks/$h; fi; done; ls -A ../main/.git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: DOTENVDOTENC_NO_NATIVE=1",
+   "args": [
+    "setup"
+   ],
+   "env": {
+    "DOTENVDOTENC_NO_NATIVE": "1"
+   },
+   "setup": [
+    "git init -q -b main"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done"
+   ],
+   "handback": "DOTENVDOTENC_NO_NATIVE=1 hands everything back"
+  },
+  {
+   "name": "colour: FORCE_COLOR=\"1\" makes what goes to stderr red, into a pipe too",
+   "args": [
+    "status"
+   ],
+   "env": {
+    "FORCE_COLOR": "1"
+   },
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env": "A=1\n",
+    ".env.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\nA=encrypted:BGiW41q9kO4op2r9s7cenN9AVpO4IP2gVmDw9uW88yxyDVmY/K3Y3PVVYQPlATGPyCjWjYWAL67/4B3mkkt9ltu4WasaJZZma0qXmeLIdA4kP0dAtcK3PqgLvpxBjfjgReY=\n",
+    ".env.local": "# api\nAPI_KEY=dummy-2\nNAME=\"hello world\"\nNEW=added\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFAmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n",
+    ".env.production.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PRODUCTION=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_KEY=encrypted:BFjb1md8QOpAWzvWe7sB6BKlAeMO/mHMTX2iaFm2TbIfnuFgHUyX9myMXrJaVsfIXhuzDyIT4f31rWw5BX6uHclSamDWJANYwOWPOBQKKrbpJ48NEsbc/dLRfktyVihgrrt5jxlgUBe2BcY=\nURL=encrypted:BCvoebJb3GztyJ17cYlTRvd98tWfeR+Z1QH6YpQ/RL39xzIwmf1G7GqoGdHwQTejEXjMu2zAnaw6nD2J8NqKtJu/1mt6km/9APjuFLxo+pzc63qMOY9yY4hGAml/0MlDSxkzZCH8gz1LjM29gYqIHcq4Il2+FTtwueXD\n",
+    ".env.staging": "S=1\n",
+    ".env.example": "API_KEY=\n",
+    ".env.keys.backup": "X=1\n",
+    "state.fixture": "{\n  \".env\": {\n    \"plain\": \"91d6a3d55e9fea7911c537afae6607c77fa8bc0f3a76c375e104ac5a8cfa84db\",\n    \"enc\": \"2f1fa13813148cf2294a0869cb071e1cf6fef72542a3187e25a27cf947e89560\",\n    \"salt\": \"000102030405060708090a0b0c0d0e0f\",\n    \"keys\": {\n      \"A\": \"926e5d629e8fc6cb173d200a\"\n    },\n    \"notes\": \"798a9665a1349589b86639d5\"\n  },\n  \".env.local\": {\n    \"plain\": \"10e27778cbc5aed08467c70bcd900ddadee6d88614d77982258351637128bfca\",\n    \"enc\": \"2b3543dad1f3b6d170b3defe9f9487dc094362d6df6f0aace6d4901d2c424aee\",\n    \"salt\": \"000102030405060708090a0b0c0d0e0f\",\n    \"keys\": {\n      \"API_KEY\": \"370aad9b2bb3b7f8f851c2ec\",\n      \"NAME\": \"d192fbc5017851fa6ebf1cf4\"\n    },\n    \"notes\": \"3f929c751076e3fd5a17283b\"\n  }\n}\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "mkdir -p .git/dotenvdotenc && mv state.fixture .git/dotenvdotenc/state.json",
+    "{ printf 'DOTENV_PRIVATE_KEY=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; printf 'DOTENV_PRIVATE_KEY_PRODUCTION=%s\\n' \"$(printf %064d 0 | tr 0 2)\"; } > .env.keys"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "colour: FORCE_COLOR=\"\" makes what goes to stderr red, into a pipe too",
+   "args": [
+    "status"
+   ],
+   "env": {
+    "FORCE_COLOR": ""
+   },
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env": "A=1\n",
+    ".env.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\nA=encrypted:BGiW41q9kO4op2r9s7cenN9AVpO4IP2gVmDw9uW88yxyDVmY/K3Y3PVVYQPlATGPyCjWjYWAL67/4B3mkkt9ltu4WasaJZZma0qXmeLIdA4kP0dAtcK3PqgLvpxBjfjgReY=\n",
+    ".env.local": "# api\nAPI_KEY=dummy-2\nNAME=\"hello world\"\nNEW=added\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFAmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n",
+    ".env.production.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PRODUCTION=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_KEY=encrypted:BFjb1md8QOpAWzvWe7sB6BKlAeMO/mHMTX2iaFm2TbIfnuFgHUyX9myMXrJaVsfIXhuzDyIT4f31rWw5BX6uHclSamDWJANYwOWPOBQKKrbpJ48NEsbc/dLRfktyVihgrrt5jxlgUBe2BcY=\nURL=encrypted:BCvoebJb3GztyJ17cYlTRvd98tWfeR+Z1QH6YpQ/RL39xzIwmf1G7GqoGdHwQTejEXjMu2zAnaw6nD2J8NqKtJu/1mt6km/9APjuFLxo+pzc63qMOY9yY4hGAml/0MlDSxkzZCH8gz1LjM29gYqIHcq4Il2+FTtwueXD\n",
+    ".env.staging": "S=1\n",
+    ".env.example": "API_KEY=\n",
+    ".env.keys.backup": "X=1\n",
+    "state.fixture": "{\n  \".env\": {\n    \"plain\": \"91d6a3d55e9fea7911c537afae6607c77fa8bc0f3a76c375e104ac5a8cfa84db\",\n    \"enc\": \"2f1fa13813148cf2294a0869cb071e1cf6fef72542a3187e25a27cf947e89560\",\n    \"salt\": \"000102030405060708090a0b0c0d0e0f\",\n    \"keys\": {\n      \"A\": \"926e5d629e8fc6cb173d200a\"\n    },\n    \"notes\": \"798a9665a1349589b86639d5\"\n  },\n  \".env.local\": {\n    \"plain\": \"10e27778cbc5aed08467c70bcd900ddadee6d88614d77982258351637128bfca\",\n    \"enc\": \"2b3543dad1f3b6d170b3defe9f9487dc094362d6df6f0aace6d4901d2c424aee\",\n    \"salt\": \"000102030405060708090a0b0c0d0e0f\",\n    \"keys\": {\n      \"API_KEY\": \"370aad9b2bb3b7f8f851c2ec\",\n      \"NAME\": \"d192fbc5017851fa6ebf1cf4\"\n    },\n    \"notes\": \"3f929c751076e3fd5a17283b\"\n  }\n}\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "mkdir -p .git/dotenvdotenc && mv state.fixture .git/dotenvdotenc/state.json",
+    "{ printf 'DOTENV_PRIVATE_KEY=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; printf 'DOTENV_PRIVATE_KEY_PRODUCTION=%s\\n' \"$(printf %064d 0 | tr 0 2)\"; } > .env.keys"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "colour: FORCE_COLOR=\"true\" makes what goes to stderr red, into a pipe too",
+   "args": [
+    "status"
+   ],
+   "env": {
+    "FORCE_COLOR": "true"
+   },
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env": "A=1\n",
+    ".env.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\nA=encrypted:BGiW41q9kO4op2r9s7cenN9AVpO4IP2gVmDw9uW88yxyDVmY/K3Y3PVVYQPlATGPyCjWjYWAL67/4B3mkkt9ltu4WasaJZZma0qXmeLIdA4kP0dAtcK3PqgLvpxBjfjgReY=\n",
+    ".env.local": "# api\nAPI_KEY=dummy-2\nNAME=\"hello world\"\nNEW=added\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFAmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n",
+    ".env.production.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PRODUCTION=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_KEY=encrypted:BFjb1md8QOpAWzvWe7sB6BKlAeMO/mHMTX2iaFm2TbIfnuFgHUyX9myMXrJaVsfIXhuzDyIT4f31rWw5BX6uHclSamDWJANYwOWPOBQKKrbpJ48NEsbc/dLRfktyVihgrrt5jxlgUBe2BcY=\nURL=encrypted:BCvoebJb3GztyJ17cYlTRvd98tWfeR+Z1QH6YpQ/RL39xzIwmf1G7GqoGdHwQTejEXjMu2zAnaw6nD2J8NqKtJu/1mt6km/9APjuFLxo+pzc63qMOY9yY4hGAml/0MlDSxkzZCH8gz1LjM29gYqIHcq4Il2+FTtwueXD\n",
+    ".env.staging": "S=1\n",
+    ".env.example": "API_KEY=\n",
+    ".env.keys.backup": "X=1\n",
+    "state.fixture": "{\n  \".env\": {\n    \"plain\": \"91d6a3d55e9fea7911c537afae6607c77fa8bc0f3a76c375e104ac5a8cfa84db\",\n    \"enc\": \"2f1fa13813148cf2294a0869cb071e1cf6fef72542a3187e25a27cf947e89560\",\n    \"salt\": \"000102030405060708090a0b0c0d0e0f\",\n    \"keys\": {\n      \"A\": \"926e5d629e8fc6cb173d200a\"\n    },\n    \"notes\": \"798a9665a1349589b86639d5\"\n  },\n  \".env.local\": {\n    \"plain\": \"10e27778cbc5aed08467c70bcd900ddadee6d88614d77982258351637128bfca\",\n    \"enc\": \"2b3543dad1f3b6d170b3defe9f9487dc094362d6df6f0aace6d4901d2c424aee\",\n    \"salt\": \"000102030405060708090a0b0c0d0e0f\",\n    \"keys\": {\n      \"API_KEY\": \"370aad9b2bb3b7f8f851c2ec\",\n      \"NAME\": \"d192fbc5017851fa6ebf1cf4\"\n    },\n    \"notes\": \"3f929c751076e3fd5a17283b\"\n  }\n}\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "mkdir -p .git/dotenvdotenc && mv state.fixture .git/dotenvdotenc/state.json",
+    "{ printf 'DOTENV_PRIVATE_KEY=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; printf 'DOTENV_PRIVATE_KEY_PRODUCTION=%s\\n' \"$(printf %064d 0 | tr 0 2)\"; } > .env.keys"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "colour: FORCE_COLOR=\"2\" makes what goes to stderr red, into a pipe too",
+   "args": [
+    "status"
+   ],
+   "env": {
+    "FORCE_COLOR": "2"
+   },
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env": "A=1\n",
+    ".env.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\nA=encrypted:BGiW41q9kO4op2r9s7cenN9AVpO4IP2gVmDw9uW88yxyDVmY/K3Y3PVVYQPlATGPyCjWjYWAL67/4B3mkkt9ltu4WasaJZZma0qXmeLIdA4kP0dAtcK3PqgLvpxBjfjgReY=\n",
+    ".env.local": "# api\nAPI_KEY=dummy-2\nNAME=\"hello world\"\nNEW=added\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFAmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n",
+    ".env.production.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PRODUCTION=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_KEY=encrypted:BFjb1md8QOpAWzvWe7sB6BKlAeMO/mHMTX2iaFm2TbIfnuFgHUyX9myMXrJaVsfIXhuzDyIT4f31rWw5BX6uHclSamDWJANYwOWPOBQKKrbpJ48NEsbc/dLRfktyVihgrrt5jxlgUBe2BcY=\nURL=encrypted:BCvoebJb3GztyJ17cYlTRvd98tWfeR+Z1QH6YpQ/RL39xzIwmf1G7GqoGdHwQTejEXjMu2zAnaw6nD2J8NqKtJu/1mt6km/9APjuFLxo+pzc63qMOY9yY4hGAml/0MlDSxkzZCH8gz1LjM29gYqIHcq4Il2+FTtwueXD\n",
+    ".env.staging": "S=1\n",
+    ".env.example": "API_KEY=\n",
+    ".env.keys.backup": "X=1\n",
+    "state.fixture": "{\n  \".env\": {\n    \"plain\": \"91d6a3d55e9fea7911c537afae6607c77fa8bc0f3a76c375e104ac5a8cfa84db\",\n    \"enc\": \"2f1fa13813148cf2294a0869cb071e1cf6fef72542a3187e25a27cf947e89560\",\n    \"salt\": \"000102030405060708090a0b0c0d0e0f\",\n    \"keys\": {\n      \"A\": \"926e5d629e8fc6cb173d200a\"\n    },\n    \"notes\": \"798a9665a1349589b86639d5\"\n  },\n  \".env.local\": {\n    \"plain\": \"10e27778cbc5aed08467c70bcd900ddadee6d88614d77982258351637128bfca\",\n    \"enc\": \"2b3543dad1f3b6d170b3defe9f9487dc094362d6df6f0aace6d4901d2c424aee\",\n    \"salt\": \"000102030405060708090a0b0c0d0e0f\",\n    \"keys\": {\n      \"API_KEY\": \"370aad9b2bb3b7f8f851c2ec\",\n      \"NAME\": \"d192fbc5017851fa6ebf1cf4\"\n    },\n    \"notes\": \"3f929c751076e3fd5a17283b\"\n  }\n}\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "mkdir -p .git/dotenvdotenc && mv state.fixture .git/dotenvdotenc/state.json",
+    "{ printf 'DOTENV_PRIVATE_KEY=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; printf 'DOTENV_PRIVATE_KEY_PRODUCTION=%s\\n' \"$(printf %064d 0 | tr 0 2)\"; } > .env.keys"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "colour: FORCE_COLOR=\" \" makes what goes to stderr red, into a pipe too",
+   "args": [
+    "status"
+   ],
+   "env": {
+    "FORCE_COLOR": " "
+   },
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env": "A=1\n",
+    ".env.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\nA=encrypted:BGiW41q9kO4op2r9s7cenN9AVpO4IP2gVmDw9uW88yxyDVmY/K3Y3PVVYQPlATGPyCjWjYWAL67/4B3mkkt9ltu4WasaJZZma0qXmeLIdA4kP0dAtcK3PqgLvpxBjfjgReY=\n",
+    ".env.local": "# api\nAPI_KEY=dummy-2\nNAME=\"hello world\"\nNEW=added\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFAmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n",
+    ".env.production.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PRODUCTION=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_KEY=encrypted:BFjb1md8QOpAWzvWe7sB6BKlAeMO/mHMTX2iaFm2TbIfnuFgHUyX9myMXrJaVsfIXhuzDyIT4f31rWw5BX6uHclSamDWJANYwOWPOBQKKrbpJ48NEsbc/dLRfktyVihgrrt5jxlgUBe2BcY=\nURL=encrypted:BCvoebJb3GztyJ17cYlTRvd98tWfeR+Z1QH6YpQ/RL39xzIwmf1G7GqoGdHwQTejEXjMu2zAnaw6nD2J8NqKtJu/1mt6km/9APjuFLxo+pzc63qMOY9yY4hGAml/0MlDSxkzZCH8gz1LjM29gYqIHcq4Il2+FTtwueXD\n",
+    ".env.staging": "S=1\n",
+    ".env.example": "API_KEY=\n",
+    ".env.keys.backup": "X=1\n",
+    "state.fixture": "{\n  \".env\": {\n    \"plain\": \"91d6a3d55e9fea7911c537afae6607c77fa8bc0f3a76c375e104ac5a8cfa84db\",\n    \"enc\": \"2f1fa13813148cf2294a0869cb071e1cf6fef72542a3187e25a27cf947e89560\",\n    \"salt\": \"000102030405060708090a0b0c0d0e0f\",\n    \"keys\": {\n      \"A\": \"926e5d629e8fc6cb173d200a\"\n    },\n    \"notes\": \"798a9665a1349589b86639d5\"\n  },\n  \".env.local\": {\n    \"plain\": \"10e27778cbc5aed08467c70bcd900ddadee6d88614d77982258351637128bfca\",\n    \"enc\": \"2b3543dad1f3b6d170b3defe9f9487dc094362d6df6f0aace6d4901d2c424aee\",\n    \"salt\": \"000102030405060708090a0b0c0d0e0f\",\n    \"keys\": {\n      \"API_KEY\": \"370aad9b2bb3b7f8f851c2ec\",\n      \"NAME\": \"d192fbc5017851fa6ebf1cf4\"\n    },\n    \"notes\": \"3f929c751076e3fd5a17283b\"\n  }\n}\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "mkdir -p .git/dotenvdotenc && mv state.fixture .git/dotenvdotenc/state.json",
+    "{ printf 'DOTENV_PRIVATE_KEY=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; printf 'DOTENV_PRIVATE_KEY_PRODUCTION=%s\\n' \"$(printf %064d 0 | tr 0 2)\"; } > .env.keys"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "colour: FORCE_COLOR=\"0\" does not",
+   "args": [
+    "status"
+   ],
+   "env": {
+    "FORCE_COLOR": "0"
+   },
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env": "A=1\n",
+    ".env.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\nA=encrypted:BGiW41q9kO4op2r9s7cenN9AVpO4IP2gVmDw9uW88yxyDVmY/K3Y3PVVYQPlATGPyCjWjYWAL67/4B3mkkt9ltu4WasaJZZma0qXmeLIdA4kP0dAtcK3PqgLvpxBjfjgReY=\n",
+    ".env.local": "# api\nAPI_KEY=dummy-2\nNAME=\"hello world\"\nNEW=added\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFAmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n",
+    ".env.production.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PRODUCTION=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_KEY=encrypted:BFjb1md8QOpAWzvWe7sB6BKlAeMO/mHMTX2iaFm2TbIfnuFgHUyX9myMXrJaVsfIXhuzDyIT4f31rWw5BX6uHclSamDWJANYwOWPOBQKKrbpJ48NEsbc/dLRfktyVihgrrt5jxlgUBe2BcY=\nURL=encrypted:BCvoebJb3GztyJ17cYlTRvd98tWfeR+Z1QH6YpQ/RL39xzIwmf1G7GqoGdHwQTejEXjMu2zAnaw6nD2J8NqKtJu/1mt6km/9APjuFLxo+pzc63qMOY9yY4hGAml/0MlDSxkzZCH8gz1LjM29gYqIHcq4Il2+FTtwueXD\n",
+    ".env.staging": "S=1\n",
+    ".env.example": "API_KEY=\n",
+    ".env.keys.backup": "X=1\n",
+    "state.fixture": "{\n  \".env\": {\n    \"plain\": \"91d6a3d55e9fea7911c537afae6607c77fa8bc0f3a76c375e104ac5a8cfa84db\",\n    \"enc\": \"2f1fa13813148cf2294a0869cb071e1cf6fef72542a3187e25a27cf947e89560\",\n    \"salt\": \"000102030405060708090a0b0c0d0e0f\",\n    \"keys\": {\n      \"A\": \"926e5d629e8fc6cb173d200a\"\n    },\n    \"notes\": \"798a9665a1349589b86639d5\"\n  },\n  \".env.local\": {\n    \"plain\": \"10e27778cbc5aed08467c70bcd900ddadee6d88614d77982258351637128bfca\",\n    \"enc\": \"2b3543dad1f3b6d170b3defe9f9487dc094362d6df6f0aace6d4901d2c424aee\",\n    \"salt\": \"000102030405060708090a0b0c0d0e0f\",\n    \"keys\": {\n      \"API_KEY\": \"370aad9b2bb3b7f8f851c2ec\",\n      \"NAME\": \"d192fbc5017851fa6ebf1cf4\"\n    },\n    \"notes\": \"3f929c751076e3fd5a17283b\"\n  }\n}\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "mkdir -p .git/dotenvdotenc && mv state.fixture .git/dotenvdotenc/state.json",
+    "{ printf 'DOTENV_PRIVATE_KEY=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; printf 'DOTENV_PRIVATE_KEY_PRODUCTION=%s\\n' \"$(printf %064d 0 | tr 0 2)\"; } > .env.keys"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "colour: FORCE_COLOR=\"false\" does not",
+   "args": [
+    "status"
+   ],
+   "env": {
+    "FORCE_COLOR": "false"
+   },
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env": "A=1\n",
+    ".env.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\nA=encrypted:BGiW41q9kO4op2r9s7cenN9AVpO4IP2gVmDw9uW88yxyDVmY/K3Y3PVVYQPlATGPyCjWjYWAL67/4B3mkkt9ltu4WasaJZZma0qXmeLIdA4kP0dAtcK3PqgLvpxBjfjgReY=\n",
+    ".env.local": "# api\nAPI_KEY=dummy-2\nNAME=\"hello world\"\nNEW=added\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFAmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n",
+    ".env.production.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PRODUCTION=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_KEY=encrypted:BFjb1md8QOpAWzvWe7sB6BKlAeMO/mHMTX2iaFm2TbIfnuFgHUyX9myMXrJaVsfIXhuzDyIT4f31rWw5BX6uHclSamDWJANYwOWPOBQKKrbpJ48NEsbc/dLRfktyVihgrrt5jxlgUBe2BcY=\nURL=encrypted:BCvoebJb3GztyJ17cYlTRvd98tWfeR+Z1QH6YpQ/RL39xzIwmf1G7GqoGdHwQTejEXjMu2zAnaw6nD2J8NqKtJu/1mt6km/9APjuFLxo+pzc63qMOY9yY4hGAml/0MlDSxkzZCH8gz1LjM29gYqIHcq4Il2+FTtwueXD\n",
+    ".env.staging": "S=1\n",
+    ".env.example": "API_KEY=\n",
+    ".env.keys.backup": "X=1\n",
+    "state.fixture": "{\n  \".env\": {\n    \"plain\": \"91d6a3d55e9fea7911c537afae6607c77fa8bc0f3a76c375e104ac5a8cfa84db\",\n    \"enc\": \"2f1fa13813148cf2294a0869cb071e1cf6fef72542a3187e25a27cf947e89560\",\n    \"salt\": \"000102030405060708090a0b0c0d0e0f\",\n    \"keys\": {\n      \"A\": \"926e5d629e8fc6cb173d200a\"\n    },\n    \"notes\": \"798a9665a1349589b86639d5\"\n  },\n  \".env.local\": {\n    \"plain\": \"10e27778cbc5aed08467c70bcd900ddadee6d88614d77982258351637128bfca\",\n    \"enc\": \"2b3543dad1f3b6d170b3defe9f9487dc094362d6df6f0aace6d4901d2c424aee\",\n    \"salt\": \"000102030405060708090a0b0c0d0e0f\",\n    \"keys\": {\n      \"API_KEY\": \"370aad9b2bb3b7f8f851c2ec\",\n      \"NAME\": \"d192fbc5017851fa6ebf1cf4\"\n    },\n    \"notes\": \"3f929c751076e3fd5a17283b\"\n  }\n}\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "mkdir -p .git/dotenvdotenc && mv state.fixture .git/dotenvdotenc/state.json",
+    "{ printf 'DOTENV_PRIVATE_KEY=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; printf 'DOTENV_PRIVATE_KEY_PRODUCTION=%s\\n' \"$(printf %064d 0 | tr 0 2)\"; } > .env.keys"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "colour: FORCE_COLOR=\"no\" does not",
+   "args": [
+    "status"
+   ],
+   "env": {
+    "FORCE_COLOR": "no"
+   },
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env": "A=1\n",
+    ".env.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\nA=encrypted:BGiW41q9kO4op2r9s7cenN9AVpO4IP2gVmDw9uW88yxyDVmY/K3Y3PVVYQPlATGPyCjWjYWAL67/4B3mkkt9ltu4WasaJZZma0qXmeLIdA4kP0dAtcK3PqgLvpxBjfjgReY=\n",
+    ".env.local": "# api\nAPI_KEY=dummy-2\nNAME=\"hello world\"\nNEW=added\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFAmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n",
+    ".env.production.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PRODUCTION=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_KEY=encrypted:BFjb1md8QOpAWzvWe7sB6BKlAeMO/mHMTX2iaFm2TbIfnuFgHUyX9myMXrJaVsfIXhuzDyIT4f31rWw5BX6uHclSamDWJANYwOWPOBQKKrbpJ48NEsbc/dLRfktyVihgrrt5jxlgUBe2BcY=\nURL=encrypted:BCvoebJb3GztyJ17cYlTRvd98tWfeR+Z1QH6YpQ/RL39xzIwmf1G7GqoGdHwQTejEXjMu2zAnaw6nD2J8NqKtJu/1mt6km/9APjuFLxo+pzc63qMOY9yY4hGAml/0MlDSxkzZCH8gz1LjM29gYqIHcq4Il2+FTtwueXD\n",
+    ".env.staging": "S=1\n",
+    ".env.example": "API_KEY=\n",
+    ".env.keys.backup": "X=1\n",
+    "state.fixture": "{\n  \".env\": {\n    \"plain\": \"91d6a3d55e9fea7911c537afae6607c77fa8bc0f3a76c375e104ac5a8cfa84db\",\n    \"enc\": \"2f1fa13813148cf2294a0869cb071e1cf6fef72542a3187e25a27cf947e89560\",\n    \"salt\": \"000102030405060708090a0b0c0d0e0f\",\n    \"keys\": {\n      \"A\": \"926e5d629e8fc6cb173d200a\"\n    },\n    \"notes\": \"798a9665a1349589b86639d5\"\n  },\n  \".env.local\": {\n    \"plain\": \"10e27778cbc5aed08467c70bcd900ddadee6d88614d77982258351637128bfca\",\n    \"enc\": \"2b3543dad1f3b6d170b3defe9f9487dc094362d6df6f0aace6d4901d2c424aee\",\n    \"salt\": \"000102030405060708090a0b0c0d0e0f\",\n    \"keys\": {\n      \"API_KEY\": \"370aad9b2bb3b7f8f851c2ec\",\n      \"NAME\": \"d192fbc5017851fa6ebf1cf4\"\n    },\n    \"notes\": \"3f929c751076e3fd5a17283b\"\n  }\n}\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "mkdir -p .git/dotenvdotenc && mv state.fixture .git/dotenvdotenc/state.json",
+    "{ printf 'DOTENV_PRIVATE_KEY=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; printf 'DOTENV_PRIVATE_KEY_PRODUCTION=%s\\n' \"$(printf %064d 0 | tr 0 2)\"; } > .env.keys"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "colour: FORCE_COLOR=\"00\" does not",
+   "args": [
+    "status"
+   ],
+   "env": {
+    "FORCE_COLOR": "00"
+   },
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env": "A=1\n",
+    ".env.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\nA=encrypted:BGiW41q9kO4op2r9s7cenN9AVpO4IP2gVmDw9uW88yxyDVmY/K3Y3PVVYQPlATGPyCjWjYWAL67/4B3mkkt9ltu4WasaJZZma0qXmeLIdA4kP0dAtcK3PqgLvpxBjfjgReY=\n",
+    ".env.local": "# api\nAPI_KEY=dummy-2\nNAME=\"hello world\"\nNEW=added\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFAmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n",
+    ".env.production.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PRODUCTION=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_KEY=encrypted:BFjb1md8QOpAWzvWe7sB6BKlAeMO/mHMTX2iaFm2TbIfnuFgHUyX9myMXrJaVsfIXhuzDyIT4f31rWw5BX6uHclSamDWJANYwOWPOBQKKrbpJ48NEsbc/dLRfktyVihgrrt5jxlgUBe2BcY=\nURL=encrypted:BCvoebJb3GztyJ17cYlTRvd98tWfeR+Z1QH6YpQ/RL39xzIwmf1G7GqoGdHwQTejEXjMu2zAnaw6nD2J8NqKtJu/1mt6km/9APjuFLxo+pzc63qMOY9yY4hGAml/0MlDSxkzZCH8gz1LjM29gYqIHcq4Il2+FTtwueXD\n",
+    ".env.staging": "S=1\n",
+    ".env.example": "API_KEY=\n",
+    ".env.keys.backup": "X=1\n",
+    "state.fixture": "{\n  \".env\": {\n    \"plain\": \"91d6a3d55e9fea7911c537afae6607c77fa8bc0f3a76c375e104ac5a8cfa84db\",\n    \"enc\": \"2f1fa13813148cf2294a0869cb071e1cf6fef72542a3187e25a27cf947e89560\",\n    \"salt\": \"000102030405060708090a0b0c0d0e0f\",\n    \"keys\": {\n      \"A\": \"926e5d629e8fc6cb173d200a\"\n    },\n    \"notes\": \"798a9665a1349589b86639d5\"\n  },\n  \".env.local\": {\n    \"plain\": \"10e27778cbc5aed08467c70bcd900ddadee6d88614d77982258351637128bfca\",\n    \"enc\": \"2b3543dad1f3b6d170b3defe9f9487dc094362d6df6f0aace6d4901d2c424aee\",\n    \"salt\": \"000102030405060708090a0b0c0d0e0f\",\n    \"keys\": {\n      \"API_KEY\": \"370aad9b2bb3b7f8f851c2ec\",\n      \"NAME\": \"d192fbc5017851fa6ebf1cf4\"\n    },\n    \"notes\": \"3f929c751076e3fd5a17283b\"\n  }\n}\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "mkdir -p .git/dotenvdotenc && mv state.fixture .git/dotenvdotenc/state.json",
+    "{ printf 'DOTENV_PRIVATE_KEY=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; printf 'DOTENV_PRIVATE_KEY_PRODUCTION=%s\\n' \"$(printf %064d 0 | tr 0 2)\"; } > .env.keys"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "colour: FORCE_COLOR=1, the usage on stderr is red as a whole",
+   "args": [
+    "frobnicate"
+   ],
+   "env": {
+    "FORCE_COLOR": "1"
+   },
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "colour: FORCE_COLOR=1, the usage on stdout is not",
+   "args": [
+    "help"
+   ],
+   "env": {
+    "FORCE_COLOR": "1"
+   },
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "colour: FORCE_COLOR=1, a refusal of several lines",
+   "args": [
+    "guard"
+   ],
+   "env": {
+    "FORCE_COLOR": "1"
+   },
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod": "A=1\n",
+    ".env.stage": "A=1\n"
+   },
+   "setup": [
+    "git init -q -b main"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "colour: FORCE_COLOR=1, get prints the value plain",
+   "args": [
+    "get",
+    "API_KEY"
+   ],
+   "env": {
+    "FORCE_COLOR": "1"
+   },
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "colour: FORCE_COLOR=1, enc -y: dede's lines are red, git's are git's",
+   "args": [
+    "enc",
+    "-y"
+   ],
+   "env": {
+    "FORCE_COLOR": "1"
+   },
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local": "# api\nAPI_KEY=dummy-1\nNAME=\"hello world\"\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.useConfigOnly true",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "colour: FORCE_COLOR=1 wins over NO_COLOR=1",
+   "args": [
+    "get",
+    "MISSING"
+   ],
+   "env": {
+    "FORCE_COLOR": "1",
+    "NO_COLOR": "1"
+   },
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "colour: NO_COLOR=\"1\", nothing is red without a terminal anyway",
+   "args": [
+    "get",
+    "MISSING"
+   ],
+   "env": {
+    "NO_COLOR": "1"
+   },
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "colour: NO_COLOR=\"true\", nothing is red without a terminal anyway",
+   "args": [
+    "get",
+    "MISSING"
+   ],
+   "env": {
+    "NO_COLOR": "true"
+   },
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "colour: NO_COLOR=\"\", nothing is red without a terminal anyway",
+   "args": [
+    "get",
+    "MISSING"
+   ],
+   "env": {
+    "NO_COLOR": ""
+   },
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "colour: NO_COLOR=\"0\", nothing is red without a terminal anyway",
+   "args": [
+    "get",
+    "MISSING"
+   ],
+   "env": {
+    "NO_COLOR": "0"
+   },
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "colour: FORCE_COLOR in a .env file bun loads changes nothing",
+   "args": [
+    "get",
+    "MISSING"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n",
+    ".env": "FORCE_COLOR=1\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "colour: a FORCE_COLOR that was not tried",
+   "args": [
+    "get",
+    "MISSING"
+   ],
+   "env": {
+    "FORCE_COLOR": "3"
+   },
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys"
+   ],
+   "handback": "what bun makes of this value of FORCE_COLOR was not recorded"
+  },
+  {
+   "name": "colour: a NO_COLOR that was not tried",
+   "args": [
+    "get",
+    "MISSING"
+   ],
+   "env": {
+    "NO_COLOR": "yes"
+   },
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys"
+   ],
+   "handback": "what bun makes of this value of NO_COLOR was not recorded"
   }
  ]
 }

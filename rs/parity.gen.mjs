@@ -959,6 +959,87 @@ for (const [what, yaml, why] of [
 health("a glob for the files to check", "rotate: []\n", { back: "Bun.Glob does the matching" }, ["health", ".env.*"]);
 health("DOTENVDOTENC_NO_NATIVE=1", "rotate: []\n", { env: { DOTENVDOTENC_NO_NATIVE: "1" }, back: "DOTENVDOTENC_NO_NATIVE=1 hands everything back" });
 
+// ═══════════════════════════ setup ═══════════════════════════
+
+/** Shell: the hooks in a directory, each with its mode and text. */
+const hooksIn = (dir) => `for h in pre-commit post-merge post-checkout; do if [ -e ${dir}/$h ]; then stat -c '--- %a %n' ${dir}/$h; cat ${dir}/$h; fi; done; ls -A ${dir} 2>&1 | grep -v -e '\\.sample$' -e '^_$'`;
+const HOOKS = hooksIn(".git/hooks");
+const IGNORED = "cat .gitignore 2>&1";
+const setup = (name, o = {}) => add(`setup: ${name}`, ["setup"], { repo: "", ...o, after: [IGNORED, ...(o.after || [HOOKS]), LS] });
+setup("a fresh repository");
+setup("a second time changes nothing", { setup: ["sh <REPO>/rs/parity/run.sh bun <REPO>/dede.ts setup 2>/dev/null"] });
+setup("the rules are there already", { repo: IGNORE });
+setup("a .gitignore with other rules", { repo: "node_modules/\ndist/\n" });
+setup("a .gitignore without a final newline", { repo: "node_modules/" });
+setup("a .gitignore that ignores .env but would ignore the .enc too", { repo: ".env*\n" });
+setup("a .gitignore whose later rule un-ignores .env.local: the block goes after it", { repo: ".env*\n!.env*.enc\n!.env.local\n" });
+setup("the rules come from .git/info/exclude", { setup: ["printf '.env*\\n!.env*.enc\\n' >> .git/info/exclude"] });
+setup(".gitignore is a symlink", { files: { "elsewhere": "x\n" }, setup: ["ln -s elsewhere .gitignore"], after: [HOOKS, "cat elsewhere"] });
+setup("an existing hook: the guard goes right after its first line", { setup: ["printf '#!/bin/sh\\necho before\\nexec other-tool \"$@\"\\n' > .git/hooks/pre-commit && chmod 755 .git/hooks/pre-commit"] });
+setup("an existing hook without a first line for the shell", { setup: ["printf 'echo plain\\n' > .git/hooks/pre-commit"] });
+setup("an existing hook that is only a first line, without a newline", { setup: ["printf '#!/usr/bin/env bash' > .git/hooks/pre-commit && chmod 700 .git/hooks/pre-commit"] });
+setup("an existing hook keeps its mode", { setup: ["printf '#!/bin/sh\\ntrue\\n' > .git/hooks/pre-commit && chmod 644 .git/hooks/pre-commit", "printf '#!/bin/zsh\\ntrue\\n' > .git/hooks/post-merge && chmod 750 .git/hooks/post-merge"] });
+setup("an existing hook that already calls dede guard", { setup: ["printf '#!/bin/sh\\nnpx dede guard\\n' > .git/hooks/pre-commit", "printf '#!/bin/sh\\ndede status --quiet\\n' > .git/hooks/post-checkout"] });
+setup("an existing hook that is not a shell script", { setup: ["printf '#!/usr/bin/env python3\\nprint(1)\\n' > .git/hooks/pre-commit"] });
+setup("a post-merge hook that is not a shell script: pre-commit is installed first", { setup: ["printf '#!/usr/bin/env node\\n' > .git/hooks/post-merge"] });
+setup("an existing hook that is a symlink", { files: { "elsewhere": "#!/bin/sh\n" }, setup: ["ln -s ../../elsewhere .git/hooks/pre-commit"] });
+setup("core.hooksPath names a directory", { setup: ["git config core.hooksPath .githooks"], after: [hooksIn(".githooks")] });
+setup("core.hooksPath is husky's .husky/_", { setup: ["git config core.hooksPath .husky/_", "mkdir -p .husky/_"], after: [hooksIn(".husky")] });
+setup("core.hooksPath is .husky/_/ and there is a package.json", { files: { "package.json": "{}\n" }, setup: ["git config core.hooksPath .husky/_/"], after: [hooksIn(".husky"), "cat package.json"] });
+setup("core.hooksPath starts with ~", { setup: ["git config core.hooksPath '~/my hooks'"], after: [hooksIn("\"$HOME/my hooks\"")] });
+setup("a .husky directory without core.hooksPath", { files: { "package.json": "{}\n", ".husky/pre-push": "true\n" }, after: [hooksIn(".husky"), "cat package.json"] });
+setup("lefthook.yml: a snippet to paste", { files: { "lefthook.yml": "pre-push:\n  commands: {}\n", "package.json": "{}\n" }, after: ["cat lefthook.yml package.json", HOOKS] });
+setup(".lefthook.yaml that already has the guard", { files: { ".lefthook.yaml": "pre-commit:\n  commands:\n    x:\n      run: dede guard\n" } });
+setup("lefthook.yaml before .lefthook.yml", { files: { "lefthook.yaml": "a: 1\n", ".lefthook.yml": "run: dede guard\n" } });
+const HUSKY = [hooksIn(".husky"), "cat package.json", "stat -c '%a %n' package.json", HOOKS];
+setup("a package.json: husky is set up", { files: { "package.json": '{\n  "name": "app",\n  "version": "1.0.0",\n  "private": true\n}\n' }, after: HUSKY });
+setup("a package.json with four spaces, a prepare script and its own mode", { files: { "package.json": '{\n    "name": "app",\n    "scripts": {\n        "prepare": "node build.js",\n        "test": "x"\n    },\n    "devDependencies": {\n        "typescript": "^5"\n    }\n}' }, setup: ["chmod 600 package.json"], after: HUSKY });
+setup("a package.json with tabs, where husky is already a dependency and in prepare", { files: { "package.json": '{\n\t"scripts": {"prepare": "husky"},\n\t"dependencies": {"husky": "^9"},\n\t"files": ["a", "b"],\n\t"count": 3,\n\t"nothing": null\n}\n' }, after: HUSKY });
+setup("a package.json on one line", { files: { "package.json": '{"name":"app","scripts":null,"devDependencies":null}' }, after: HUSKY });
+setup("a package.json with keys that are numbers and text beyond ASCII", { files: { "package.json": '{\n  "name": "café \\u2028 \\"q\\"",\n  "2": "two",\n  "1": "one",\n  "é": {"x": []}\n}\n' }, after: HUSKY });
+setup("husky's own hooks are kept where they exist", { files: { "package.json": "{}\n" }, setup: ["mkdir .husky.tmp && printf 'mine\\n' > .husky.tmp/post-merge && mkdir -p node_modules/.bin && true"], after: HUSKY });
+setup("husky is installed: it is run", { files: { "package.json": "{}\n" }, setup: ["mkdir -p node_modules/.bin && printf '#!/bin/sh\\necho ran in \"$(pwd)\" > husky.ran\\n' > node_modules/.bin/husky && chmod +x node_modules/.bin/husky"], after: [...HUSKY, "cat husky.ran"] });
+setup("husky is installed and fails", { files: { "package.json": "{}\n" }, setup: ["mkdir -p node_modules/.bin && printf '#!/bin/sh\\nexit 3\\n' > node_modules/.bin/husky && chmod +x node_modules/.bin/husky"], after: HUSKY });
+setup("a package.json that is a symlink", { files: { "real.json": "{}\n" }, setup: ["ln -s real.json package.json"], after: ["cat real.json", "ls -A .husky 2>&1"] });
+setup("a package.json that is not JSON", { files: { "package.json": "{ name: app }\n" }, back: "JSON.parse fails and the TypeScript ends in an uncaught SyntaxError", after: [HOOKS] });
+setup("a package.json with a number that is no plain integer", { files: { "package.json": '{"version": 1.50}\n' }, back: "JSON.stringify would write the number back in JavaScript's form", after: ["cat package.json"] });
+setup("a package.json whose scripts are no object", { files: { "package.json": '{"scripts": "none"}\n' }, back: "the TypeScript ends in an uncaught TypeError", after: ["cat package.json"] });
+setup("a package.json that is a list", { files: { "package.json": "[]\n" }, back: "what JavaScript does with a package.json that is no object is not imitated", after: ["cat package.json"] });
+add("setup: outside any repository", ["setup"], { repo: false, after: [LS] });
+add("setup: run in a subdirectory: the repository's .gitignore and hooks", ["setup"], { repo: false, files: { "../.gitignore": "/home/\n/tmp/\n/cache/\n" }, setup: [INIT_ABOVE], after: ["cat ../.gitignore", hooksIn("../.git/hooks"), LS] });
+add("setup: in a linked worktree the hooks are the repository's", ["setup"], {
+  repo: false,
+  files: { "../main/README": "x\n" },
+  setup: [IDENT, "cd ../main && git init -q -b main && git add . && git commit -q -m init && git worktree add -q ../wt -b side", "mv ../wt/.git . && echo \"$PWD/.git\" > ../main/.git/worktrees/wt/gitdir"],
+  after: [IGNORED, hooksIn("../main/.git/hooks"), LS],
+});
+setup("DOTENVDOTENC_NO_NATIVE=1", { env: { DOTENVDOTENC_NO_NATIVE: "1" }, back: "DOTENVDOTENC_NO_NATIVE=1 hands everything back" });
+
+// ═══════════════════════════ colour ═══════════════════════════
+//
+// bun prints console.error in red when it takes the output for a terminal's,
+// or is told to. Without a terminal (as here) that is a matter of FORCE_COLOR
+// and NO_COLOR; with one, rs/tty-compat.py compares the two implementations.
+
+for (const value of ["1", "", "true", "2", " "]) {
+  add(`colour: FORCE_COLOR=${JSON.stringify(value)} makes what goes to stderr red, into a pipe too`, ["status"], { files: { ...SEVERAL, ".env.local.enc": TAMPERED }, setup: [SEVERAL_KEYS], env: { FORCE_COLOR: value } });
+}
+for (const value of ["0", "false", "no", "00"]) {
+  add(`colour: FORCE_COLOR=${JSON.stringify(value)} does not`, ["status"], { files: { ...SEVERAL, ".env.local.enc": TAMPERED }, setup: [SEVERAL_KEYS], env: { FORCE_COLOR: value } });
+}
+add("colour: FORCE_COLOR=1, the usage on stderr is red as a whole", ["frobnicate"], { repo: false, env: { FORCE_COLOR: "1" } });
+add("colour: FORCE_COLOR=1, the usage on stdout is not", ["help"], { repo: false, env: { FORCE_COLOR: "1" } });
+add("colour: FORCE_COLOR=1, a refusal of several lines", ["guard"], { files: { ".env.prod": "A=1\n", ".env.stage": "A=1\n" }, env: { FORCE_COLOR: "1" } });
+add("colour: FORCE_COLOR=1, get prints the value plain", ["get", "API_KEY"], { files: { ".env.local.enc": LOCAL_ENC }, setup: [K1], env: { FORCE_COLOR: "1" } });
+add("colour: FORCE_COLOR=1, enc -y: dede's lines are red, git's are git's", ["enc", "-y"], { files: { ".env.local": LOCAL }, setup: ["git config --global user.useConfigOnly true", K1], env: { FORCE_COLOR: "1" } });
+add("colour: FORCE_COLOR=1 wins over NO_COLOR=1", ["get", "MISSING"], { files: { ".env.local.enc": LOCAL_ENC }, setup: [K1], env: { FORCE_COLOR: "1", NO_COLOR: "1" } });
+for (const value of ["1", "true", "", "0"]) {
+  add(`colour: NO_COLOR=${JSON.stringify(value)}, nothing is red without a terminal anyway`, ["get", "MISSING"], { files: { ".env.local.enc": LOCAL_ENC }, setup: [K1], env: { NO_COLOR: value } });
+}
+add("colour: FORCE_COLOR in a .env file bun loads changes nothing", ["get", "MISSING"], { files: { ".env.local.enc": LOCAL_ENC, ".env": "FORCE_COLOR=1\n" }, setup: [K1] });
+add("colour: a FORCE_COLOR that was not tried", ["get", "MISSING"], { files: { ".env.local.enc": LOCAL_ENC }, setup: [K1], env: { FORCE_COLOR: "3" }, back: "what bun makes of this value of FORCE_COLOR was not recorded" });
+add("colour: a NO_COLOR that was not tried", ["get", "MISSING"], { files: { ".env.local.enc": LOCAL_ENC }, setup: [K1], env: { NO_COLOR: "yes" }, back: "what bun makes of this value of NO_COLOR was not recorded" });
+
 // ═══════════════════════════ write ═══════════════════════════
 
 const out = { env: { TZ: "UTC", GIT_CONFIG_NOSYSTEM: "1", PARITY_GIT_LOG: "<HOME>/git.log" }, cases };
