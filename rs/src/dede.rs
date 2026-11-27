@@ -1073,14 +1073,11 @@ impl Dede {
         // The expression `upsert` builds from each fresh ciphertext, quoted
         // or not (a `+` in it is escaped). Where the ciphertexts stand
         // quoted is looked at below, in the .enc as it will be written.
-        let mut ciphertext_total = 0;
         if encrypting {
             for values in [&plain_values, &enc_values] {
                 for (name, values) in values.entries() {
                     for value in values {
-                        let length = primitives::ciphertext_len(value);
-                        ciphertext_total += length;
-                        if primitives::upsert_pattern_len(name, 2 * length) > primitives::PATTERN_LIMIT {
+                        if primitives::upsert_pattern_len(name, 2 * primitives::ciphertext_len(value)) > primitives::PATTERN_LIMIT {
                             return Err(Stop::HandBack);
                         }
                     }
@@ -1088,11 +1085,12 @@ impl Dede {
             }
         }
         // Both sides changed: the merged text is made of both files, and
-        // then encrypted.
+        // then encrypted. (Whether they did is for the sync record to say,
+        // which git names later; so this is looked at whenever they differ.)
         if let (Some(p), Some(d), false) = (&view.p, &view.d, force) {
             if view.c.as_ref() != Some(d) {
                 let both = primitives::utf16_len(p) + primitives::utf16_len(d);
-                if both > MERGE_TEXT_LIMIT || (encrypting && both + ciphertext_total > primitives::QUOTED_SPAN_LIMIT) {
+                if both > MERGE_TEXT_LIMIT || (encrypting && Self::merged_enc_bound(pair, both, &plain_values, &enc_values, view.old.as_ref()) > primitives::QUOTED_SPAN_LIMIT) {
                     return Err(Stop::HandBack);
                 }
             }
@@ -1132,6 +1130,34 @@ impl Dede {
             }
         }
         Ok(())
+    }
+
+    /// The most UTF-16 code units an .enc written from a three-way merge of
+    /// the two files can hold, so the most any quoted value in it can run
+    /// over. The merged text is the text of one side with values of the
+    /// other put in or appended (`merge3`): less than both files together,
+    /// counted twice here for the quotes and names an appended line adds.
+    /// Each of its values then becomes a ciphertext, the one the .enc has
+    /// for it (kept) or a new one (`ciphertext_len`), in quotes: per name
+    /// and place, the longest of those. And the header.
+    fn merged_enc_bound(pair: &Pair, both: usize, plain: &Values, enc: &Values, old: Option<&(Values, Values)>) -> usize {
+        let mut total = primitives::utf16_len(BANNER) + 128 + primitives::utf16_len(&pair.name) + 2 * both;
+        let mut names = plain.keys();
+        for name in enc.keys() {
+            if !plain.has(&name) {
+                names.push(name);
+            }
+        }
+        let none: Vec<String> = Vec::new();
+        for name in names {
+            let sides = [plain.get(&name).unwrap_or(&none), enc.get(&name).unwrap_or(&none)];
+            let kept = old.and_then(|(_, cipher)| cipher.get(&name)).unwrap_or(&none);
+            for i in 0..sides[0].len().max(sides[1].len()).max(kept.len()) {
+                let fresh = sides.iter().filter_map(|values| values.get(i)).map(|value| primitives::ciphertext_len(value)).max().unwrap_or(0);
+                total += 2 + fresh.max(kept.get(i).map_or(0, |cipher| primitives::utf16_len(cipher)));
+            }
+        }
+        total
     }
 
     fn no_record<T>(&self, pair: &Pair, p: &str, d: &str) -> R<T> {
