@@ -1070,9 +1070,9 @@ impl Dede {
             Some(d) => self.values(d, &pair.enc)?,
             None => Values::new(),
         };
-        let fits = |text_len: usize| text_len <= primitives::QUOTED_SPAN_LIMIT;
-        // What a fresh ciphertext of each value takes, quoted or not, and
-        // the expression `upsert` then builds from it (a `+` is escaped).
+        // The expression `upsert` builds from each fresh ciphertext, quoted
+        // or not (a `+` in it is escaped). Where the ciphertexts stand
+        // quoted is looked at below, in the .enc as it will be written.
         let mut ciphertext_total = 0;
         if encrypting {
             for values in [&plain_values, &enc_values] {
@@ -1080,18 +1080,19 @@ impl Dede {
                     for value in values {
                         let length = primitives::ciphertext_len(value);
                         ciphertext_total += length;
-                        if !fits(length + 2) || primitives::upsert_pattern_len(name, 2 * length) > primitives::PATTERN_LIMIT {
+                        if primitives::upsert_pattern_len(name, 2 * length) > primitives::PATTERN_LIMIT {
                             return Err(Stop::HandBack);
                         }
                     }
                 }
             }
         }
-        // Both sides changed: the merged text is made of both files.
+        // Both sides changed: the merged text is made of both files, and
+        // then encrypted.
         if let (Some(p), Some(d), false) = (&view.p, &view.d, force) {
             if view.c.as_ref() != Some(d) {
                 let both = primitives::utf16_len(p) + primitives::utf16_len(d);
-                if both > MERGE_TEXT_LIMIT || (encrypting && !fits(both + ciphertext_total)) {
+                if both > MERGE_TEXT_LIMIT || (encrypting && both + ciphertext_total > primitives::QUOTED_SPAN_LIMIT) {
                     return Err(Stop::HandBack);
                 }
             }
