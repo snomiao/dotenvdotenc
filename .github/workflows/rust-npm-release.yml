@@ -4,10 +4,10 @@
 # `verify` jobs and the `workflow_call` trigger removed: this workflow cannot
 # publish anything. Releases are still cut by release.yml (semantic-release).
 #
-# A pull request builds the binary for every platform, proves on Linux that
-# it behaves like dede.ts, packs it with the TypeScript the package ships,
-# and checks on Linux, macOS and Windows (x64 and arm64) that `bun i -g` /
-# `npm i -g` gives a working `dede` command.
+# A pull request builds the binary for every platform, proves on Linux,
+# macOS and Windows that it behaves like dede.ts, packs it with the
+# TypeScript the package ships, and checks on Linux, macOS and Windows (x64
+# and arm64) that `bun i -g` / `npm i -g` gives a working `dede` command.
 
 name: rust-npm-release
 
@@ -57,43 +57,35 @@ jobs:
       # to stderr, exit 4), so the install test asks for the usage text.
       smoke: dede --help
       smoke-expect: dede enc [--force] [-y]
-      # Proof that the binary behaves like the TypeScript, on the Linux binary
-      # that was just built:
-      # - the cases file and the recorded vectors are what their generators write;
-      # - the parity cases, TypeScript against the binary (DOTENVDOTENC_PACKAGE_ROOT
-      #   lets it hand back what it does not answer);
-      # - the same cases against a stand-in package: exactly those marked
-      #   `handback` may reach the JavaScript;
-      # - the two taking turns on the same files, and dotenvx reading what the
-      #   binary encrypts;
-      # - both on a pseudo-terminal, under several TERM values;
-      # - `dede get` of both into a pipe or a socket read only after it exits;
-      # - both where the file system refuses something (as the runner's user,
-      #   with sudo making what belongs to root).
-      # The comparison is long (1,176 cases, then the hand-back check over all
-      # of them and four more scripts), longer than the default 30 minutes.
+      # Proof that the binary behaves like the TypeScript, on Linux x64, macOS
+      # arm64 and Windows x64, each with the binary just built for it:
+      # rs/parity/proof.sh checks that the cases file and the recorded vectors
+      # are what their generators write, then runs side by side
+      # - the parity cases (rs/parity.json), TypeScript against the binary
+      #   (DOTENVDOTENC_PACKAGE_ROOT lets it hand back what it does not answer),
+      #   and against a stand-in package: exactly the cases marked `handback`
+      #   for that system may reach the JavaScript (on Windows, all of them);
+      # - on Linux and macOS: the two taking turns on the same files, and
+      #   dotenvx reading what the binary encrypts; both on a pseudo-terminal,
+      #   under several TERM values; `dede get` of both into a pipe or a socket
+      #   read only after it exits; both where the file system refuses
+      #   something (as the runner's user, with sudo making what belongs to
+      #   root);
+      # - on macOS and Windows, cargo test (Linux has the job above).
+      # The comparison is long (1,180 cases, then the hand-back check over all
+      # of them), on Windows longest, where every program starts slowly.
       parity-timeout-minutes: 90
+      parity-platforms: '["linux-x64", "darwin-arm64", "win32-x64"]'
       parity: >-
         bun install --frozen-lockfile
-        && node rs/parity.gen.mjs --check
-        && bun rs/vectors.gen.mjs --check
-        && node "$RUSTIFY_PARITY" --cases rs/parity.json
-        --ts "sh rs/parity/run.sh bun dede.ts"
-        --rs "sh rs/parity/run.sh env DOTENVDOTENC_PACKAGE_ROOT=$GITHUB_WORKSPACE $RUSTIFY_BIN_DIR/dotenvdotenc"
-        && node "$RUSTIFY_PARITY" --cases rs/parity.json
-        --rs "sh rs/parity/run.sh $RUSTIFY_BIN_DIR/dotenvdotenc"
-        --handback DOTENVDOTENC_PACKAGE_ROOT=dede.ts
-        && sh rs/cross-compat.sh "$RUSTIFY_BIN_DIR/dotenvdotenc"
-        && python3 rs/tty-compat.py "$RUSTIFY_BIN_DIR/dotenvdotenc"
-        && python3 rs/pipe-compat.py "$RUSTIFY_BIN_DIR/dotenvdotenc"
-        && sh rs/perm-compat.sh "$RUSTIFY_BIN_DIR/dotenvdotenc"
-      # After installing, on every platform. The parity job runs on Linux
-      # only; these lines are all that macOS and Windows get. An unknown
-      # command prints the usage and exits 4; `get` without a name, and for a
-      # name no file here has, are a ported command's own refusals. On Linux
-      # and macOS the binary answers all three itself; on Windows it hands
-      # every invocation back to dede.ts, which answers the same.
+        && sh rs/parity/proof.sh "$RUSTIFY_PARITY" "$RUSTIFY_BIN_DIR/dotenvdotenc"
+      # After installing, on every platform, each line marked with who has to
+      # answer it there. An unknown command prints the usage and exits 4;
+      # `get` without a name, and for a name no file here has, are a ported
+      # command's own refusals. On Linux and macOS the binary answers all
+      # three itself; on Windows it hands every invocation back to dede.ts,
+      # which answers the same.
       smoke-extra: |
-        [4] dede frobnicate => dede enc [--force] [-y]
-        [4] dede get => usage: dede get NAME
-        [1] dede get RUSTIFY_SMOKE_NO_SUCH_NAME => RUSTIFY_SMOKE_NO_SUCH_NAME not found in
+        [4] [native:linux,darwin] [handback:win32] dede frobnicate => dede enc [--force] [-y]
+        [4] [native:linux,darwin] [handback:win32] dede get => usage: dede get NAME
+        [1] [native:linux,darwin] [handback:win32] dede get RUSTIFY_SMOKE_NO_SUCH_NAME => RUSTIFY_SMOKE_NO_SUCH_NAME not found in
