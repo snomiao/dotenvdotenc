@@ -117,13 +117,25 @@ scene back "setup: .gitignore belongs to root in a sticky directory" "$NO_RULES"
 scene back "setup: package.json belongs to root in a sticky directory" 'echo "{}" > package.json' 'chown root:root . package.json && chmod 1777 .' -- setup
 scene back "setup: the rules are there, the hooks directory belongs to root" 'mkdir -p .git/hooks' 'chown root:root .git/hooks && chmod 755 .git/hooks' -- setup
 scene back "setup: the rules are there, the directory cannot be written (husky)" 'echo "{}" > package.json' 'chown root:root . && chmod 755 .' -- setup
+# git names the hooks directory with its links resolved, and the TypeScript
+# decides by that path whether the hooks go into .husky.
+scene back "setup: .husky a link to real, core.hooksPath .husky/_, real/_ of root" "$NO_RULES && mkdir -p real/_ && ln -s real .husky && git config core.hooksPath .husky/_" 'chown root:root real/_ && chmod 755 real/_' -- setup
+scene back "setup: core.hooksPath hooks, a link to .husky/_, .husky of root" "$NO_RULES && mkdir -p .husky/_ && ln -s .husky/_ hooks && git config core.hooksPath hooks" 'chown root:root .husky && chmod 755 .husky' -- setup
+scene back "setup: core.hooksPath .husky/_, a link to ../hk, hk of root" "$NO_RULES && mkdir -p .husky hk && ln -s ../hk .husky/_ && git config core.hooksPath .husky/_" 'chown root:root hk && chmod 755 hk' -- setup
+scene back "setup: the rules are there; .husky a link to real, core.hooksPath .husky/_, real/_ of root" "mkdir -p real/_ && ln -s real .husky && git config core.hooksPath .husky/_" 'chown root:root real/_ && chmod 755 real/_' -- setup
 # Answered by both: a refusal of dede's own or a file that fails alone.
 scene native "setup: the hooks directory can be written" "$NO_RULES && $HOOK" 'chmod 755 .git/hooks' -- setup
+scene native "setup: core.hooksPath .husky/_, a link to ../hk, .husky of root" "$NO_RULES && mkdir -p .husky hk && ln -s ../hk .husky/_ && git config core.hooksPath .husky/_" 'chown root:root .husky && chmod 755 .husky' -- setup
 scene native "enc: the directory cannot be written, so no key can be saved" 'printf "A=1\n" > .env.prod' 'chown root:root . && chmod 755 .' -- enc
 scene native "enc: the sync record cannot be written" 'printf "A=1\n" > .env.prod && mkdir -p .git/dotenvdotenc' 'chown root:root .git/dotenvdotenc && chmod 755 .git/dotenvdotenc' -- enc
 scene native "dec: the plaintext's directory cannot be written" 'printf "A=1\n" > .env.prod && sh '"$REPO"'/rs/parity/run.sh bun '"$REPO"'/dede.ts enc 2>/dev/null && rm .env.prod' 'chown root:root . && chmod 755 .' -- dec
 scene native "status: a plaintext that cannot be read" 'printf "A=1\n" > .env.prod && sh '"$REPO"'/rs/parity/run.sh bun '"$REPO"'/dede.ts enc 2>/dev/null' 'chmod 000 .env.prod' -- status
 scene back "keys link: the directory cannot be written" 'printf "DOTENV_PRIVATE_KEY_X=1\n" > ../keys && chmod 600 ../keys' 'chown root:root . && chmod 755 .' -- keys link ../keys
+# Files of root's in a sticky directory: nothing cut short, and temp files as
+# the TypeScript leaves them.
+scene native "dec: .env.prod of root in a sticky directory" 'printf "A=1\n" > .env.prod && sh '"$REPO"'/rs/parity/run.sh bun '"$REPO"'/dede.ts enc 2>/dev/null && printf "A=2\n" > .env.prod' 'chown root:root . .env.prod && chmod 1777 .' -- dec --force
+scene native "enc: .env.prod.enc of root in a sticky directory" 'printf "A=1\n" > .env.prod && sh '"$REPO"'/rs/parity/run.sh bun '"$REPO"'/dede.ts enc 2>/dev/null && printf "A=2\n" > .env.prod' 'chown root:root . .env.prod.enc && chmod 1777 .' -- enc
+scene native "enc: .env.keys of root in a sticky directory, a new key for .env.stage" 'printf "A=1\n" > .env.prod && sh '"$REPO"'/rs/parity/run.sh bun '"$REPO"'/dede.ts enc 2>/dev/null && printf "B=1\n" > .env.stage' 'chown root:root . .env.keys && chmod 1777 .' -- enc .env.stage
 
 if [ "$failed" -gt 0 ]; then
   echo "$failed of $count scenes differ"
