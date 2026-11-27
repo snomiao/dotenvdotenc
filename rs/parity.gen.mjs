@@ -1218,6 +1218,12 @@ for (const testCase of recheck.cases) {
 // rs/pipe-compat.py is the proof for pipes and sockets read slowly.
 for (const c of cases) if (c.args[0] === "get" && !c.capture) c.capture = "files";
 
+// On Windows the binary hands every invocation back to dede.ts before it
+// does anything (rs/src/cli.rs platform_is_proven), so there every case is
+// meant to reach the JavaScript.
+const WINDOWS = "every invocation goes back to dede.ts on Windows (rs/src/cli.rs platform_is_proven)";
+for (const c of cases) if (typeof c.handback !== "string") c.handback = { ...c.handback, win32: WINDOWS };
+
 // ═══════════════════════════ write ═══════════════════════════
 
 const out = { env: { TZ: "UTC", GIT_CONFIG_NOSYSTEM: "1", PARITY_GIT_LOG: "<HOME>/git.log" }, cases };
