@@ -1,0 +1,13 @@
+#!/bin/sh
+# Stands in front of git in a parity case (see ../run.sh): notes what was
+# asked, where, and with which of the named variables, then asks git.
+{
+  printf 'git'
+  for arg in "$@"; do printf ' %s' "$arg"; done
+  printf '  [in %s' "$(pwd -P)"
+  for name in ${PARITY_GIT_ENV-}; do
+    eval "printf '; %s=%s' \"\$name\" \"\${$name-<unset>}\""
+  done
+  printf ']\n'
+} >> "$PARITY_GIT_LOG"
+exec "$PARITY_REAL_GIT" "$@"
