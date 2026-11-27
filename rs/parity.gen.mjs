@@ -1146,6 +1146,18 @@ for (const testCase of more.cases) {
   cases.push(testCase);
 }
 
+// ═══════════════════════════ the second check's cases ═══════════════════════════
+//
+// 63 cases a second independent check wrote against the repaired port at
+// 2c2a075 (rs/parity.recheck.mjs): the hooks directory through symbolic
+// links, worktrees and submodules, both sides of the large-value margin.
+
+const recheck = await import("./parity.recheck.mjs");
+for (const testCase of recheck.cases) {
+  if (cases.some((c) => c.name === testCase.name)) throw new Error(`two cases named ${JSON.stringify(testCase.name)}`);
+  cases.push(testCase);
+}
+
 // ═══════════════════════════ write ═══════════════════════════
 
 const out = { env: { TZ: "UTC", GIT_CONFIG_NOSYSTEM: "1", PARITY_GIT_LOG: "<HOME>/git.log" }, cases };
