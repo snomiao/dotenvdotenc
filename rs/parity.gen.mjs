@@ -936,12 +936,16 @@ health("a window that is none", "rotate:\n  - keys: API_TOKEN\n    every: 90d\n 
 health("a date that is none", "rotate:\n  - keys: API_TOKEN\n    expires: 2027-13-01\n");
 health("the first mistake is reported: field, then date, then duration", "rotate:\n  - expires: 2027-00-00\n    every: x\n    warn: y\n  - nope: 1\n");
 health("a number as a name and as a note", "rotate:\n  - keys: 123\n    every: 90d\n  - keys: API_TOKEN\n    every: 90d\n    note: 42\n");
+// The later value is longer, so that git sees the change by the file's size:
+// on Windows git trusts an unchanged size and time, and the runner writes
+// later.enc in the same second as the first .enc.
+const LATER = encFile(".env.prod", 2, HEALTH.replace("p1", "p2-later"));
 health("a value changed later is younger than the rest", "rotate:\n  - every: 90d\n", {
-  files: { "later.enc": encFile(".env.prod", 2, HEALTH.replace("p1", "p2")) },
+  files: { "later.enc": LATER },
   setup: [`git add .env.prod.enc .dede.yaml && ${commitAgo(200)}`, `mv later.enc .env.prod.enc && git add .env.prod.enc && ${commitAgo(10)}`],
 });
 health("an .enc that is not committed", "rotate:\n  - keys: API_TOKEN\n    every: 90d\n    warn: 1d\n", { setup: ["true"] }, ["health", "--all"]);
-health("an edit not committed yet counts as changed now", "rotate:\n  - every: 90d\n    warn: 1d\n", { files: { "later.enc": encFile(".env.prod", 2, HEALTH.replace("p1", "p2")) }, setup: [`git add .env.prod.enc .dede.yaml && ${commitAgo(200)}`, "mv later.enc .env.prod.enc"] });
+health("an edit not committed yet counts as changed now", "rotate:\n  - every: 90d\n    warn: 1d\n", { files: { "later.enc": LATER }, setup: [`git add .env.prod.enc .dede.yaml && ${commitAgo(200)}`, "mv later.enc .env.prod.enc"] });
 health("the last assignment of a name counts; a public key is no value", "rotate:\n  - every: 90d\n", {
   files: { ".env.prod.enc": `${HEALTH_ENC}API_TOKEN=${seal(2, "t1", "again")}\nDOTENV_PUBLIC_KEY_X="${pub(1)}"\n  # c\n\nnot an assignment\n` },
   setup: [`git add .env.prod.enc .dede.yaml && ${commitAgo(200)}`, "sed -i.bak '$d' .env.prod.enc && rm .env.prod.enc.bak && echo 'ZED=encrypted:x' >> .env.prod.enc && git add . && " + commitAgo(10)],
