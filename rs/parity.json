@@ -16208,6 +16208,23 @@
    ]
   },
   {
+   "name": "large: status, 100,000 blank lines before a quoted value",
+   "args": [
+    "status"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_PROD=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "node -e 'require(\"fs\").writeFileSync(\".env.prod\", \"\\n\".repeat(100000) + \"A=\\\"x\\\"\\n\")'"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
    "name": "large: get, a keys file with a quoted value past the margin",
    "args": [
     "get",
