@@ -69,7 +69,14 @@ def on_a_terminal(command, cwd, answer=None, terminals=("in", "out", "err"), env
     stream = lambda name: slave if name in terminals else (subprocess.DEVNULL if name == "in" else subprocess.PIPE)
     env = {name: value for name, value in (env or ENV).items() if value is not None}
     process = subprocess.Popen(command, cwd=cwd, env=env, stdin=stream("in"), stdout=stream("out"), stderr=stream("err"), start_new_session=True)
-    os.close(slave)
+    # This process keeps its own handle on the terminal until the command has
+    # ended and the terminal has been read. The terminal is not the
+    # command's controlling terminal, and on macOS such a terminal that
+    # nothing else holds open drops what is still unread when the command
+    # exits: a command that printed a line and exited, read 0.3 s later, gave
+    # nothing in 20 of 20 tries on macOS 27. With the handle held (or as a
+    # controlling terminal), its exit waits until the line has been read.
+    # Linux keeps the line either way. CI on macOS lost scenes' output so.
     readers = {master: b""}
     for pipe in (process.stdout, process.stderr):
         if pipe is not None:
@@ -94,6 +101,7 @@ def on_a_terminal(command, cwd, answer=None, terminals=("in", "out", "err"), env
                 os.write(master, answer)
                 typed = True
     code = process.wait()
+    os.close(slave)
     os.close(master)
     clean = lambda data: data.replace(cwd.encode(), b"<DIR>")
     return code, tuple(clean(readers[fd]) for fd in sorted(readers, key=lambda fd: fd != master))
