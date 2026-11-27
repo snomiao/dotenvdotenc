@@ -1224,6 +1224,16 @@ for (const testCase of recheck.cases) {
 // compared. The cases that say "capture": "pipes" keep the runner's pipes;
 // rs/pipe-compat.py is the proof for pipes and sockets read slowly.
 for (const c of cases) if (c.args[0] === "get" && !c.capture) c.capture = "files";
+// One of those prints a value larger than a socket takes at once on macOS
+// (8,192 bytes there; on Linux the whole value fits). The binary hands it back
+// everywhere, so both sides are dede.ts, and how much of it bun gets out
+// before the exit depends on how fast the runner reads: in a CI run on macOS
+// the TypeScript lost the end of the value and the handed-back run did not.
+// It proves nothing there but bun's timing; rs/pipe-compat.py hands back the
+// same get on macOS against readers it controls.
+const RACE = cases.filter((c) => c.name === "get: a value larger than a pipe's buffer");
+if (RACE.length !== 1) throw new Error(`expected the one case of a value larger than a pipe's buffer, found ${RACE.length}`);
+RACE[0].skip = { ...RACE[0].skip, darwin: "a value larger than a socket takes at once on macOS (8,192 bytes): both sides are dede.ts, and bun loses a part of it whose size depends on how fast the runner reads (rs/pipe-compat.py covers it)" };
 
 // On Windows the binary hands every invocation back to dede.ts before it
 // does anything (rs/src/cli.rs platform_is_proven), so there every case is

@@ -27,7 +27,10 @@
 set -eu
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 BIN=$(cd "$(dirname "${1:-$REPO/rs/target/release/dotenvdotenc}")" && pwd)/$(basename "${1:-dotenvdotenc}")
-WORK=$(mktemp -d "${TMPDIR:-/tmp}/dede-perm-XXXXXX")
+# Its real path: on macOS TMPDIR is under /var, a link to /private/var, and
+# bun's error reports name the real one, which the scenes' directories are
+# replaced in.
+WORK=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/dede-perm-XXXXXX")" && pwd -P)
 NODE=$(command -v node)
 ALONE=
 if [ "$(id -u)" = 0 ]; then

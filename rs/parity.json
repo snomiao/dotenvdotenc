@@ -21303,7 +21303,10 @@
    ],
    "after": [],
    "handback": "more than the binary is sure a socket takes at once; under bun process.stdout.write may lose the rest",
-   "capture": "pipes"
+   "capture": "pipes",
+   "skip": {
+    "darwin": "a value larger than a socket takes at once on macOS (8,192 bytes): both sides are dede.ts, and bun loses a part of it whose size depends on how fast the runner reads (rs/pipe-compat.py covers it)"
+   }
   },
   {
    "name": "get: git is not installed",
