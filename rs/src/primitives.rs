@@ -64,14 +64,13 @@ pub fn utf16_len(text: &str) -> usize {
 /// The most the scanner's quoted alternatives could repeat over in `text`
 /// (plus `tail` more units appended to it later). They are tried only where
 /// a value begins: at a line start, after white space, `export`, a name and
-/// `=` or `:` and white space, at a quote. From there the repetition runs
-/// to the next same quote that no backslash stands before (it passes a
-/// quote only as half of `\'`, `\"` or `\``), or to the end of the text.
-/// Every line start is looked at, not only those the scanner reaches, so
-/// this is never less than what bun's scanner meets.
+/// `=` or `:` and white space, at a quote (`value_quote`). From there the
+/// repetition runs to the next same quote that no backslash stands before
+/// (it passes a quote only as half of `\'`, `\"` or `\``), or to the end
+/// of the text. Every line start is looked at, not only those the scanner
+/// reaches, so this is never less than what bun's scanner meets. Linear in
+/// the length of the text.
 pub fn longest_quoted_span(text: &str, tail: usize) -> usize {
-    static VALUE_START: OnceLock<Regex> = OnceLock::new();
-    let value_start = VALUE_START.get_or_init(|| regex(r#"(?:^|^)\s*(?:export\s+)?[\w.-]+(?:\s*=\s*|:\s+)(['"`])"#, "m"));
     let bytes = text.as_bytes();
     // Per quote: the start of the longest span that ends at `ends[q]`.
     let mut ends: [Option<(usize, usize)>; 3] = [None; 3];
@@ -80,38 +79,82 @@ pub fn longest_quoted_span(text: &str, tail: usize) -> usize {
         let units = utf16_len(&text[start..end]) + if end == text.len() { tail } else { 0 };
         longest = longest.max(units);
     };
-    let mut from = 0;
-    while let Some(found) = value_start.find_from(text, from).next() {
-        let at = found.group(1).expect("the quote always takes part").start;
-        let q = match bytes[at] {
-            b'\'' => 0,
-            b'"' => 1,
-            _ => 2,
-        };
-        match ends[q] {
-            // The same end as an earlier start: that one spans farther.
-            Some((_, end)) if end > at => {}
-            previous => {
-                if let Some(span) = previous {
-                    finish(span);
+    let mut line_start = 0;
+    loop {
+        // `^\s*` from this line start, and from every line start up to
+        // where it ends, leads to the same place.
+        let at = skip_spaces(text, line_start);
+        if at == text.len() {
+            break;
+        }
+        if let Some(quote_at) = value_quote(text, at) {
+            let q = match bytes[quote_at] {
+                b'\'' => 0,
+                b'"' => 1,
+                _ => 2,
+            };
+            match ends[q] {
+                // The same end as an earlier start: that one spans farther.
+                Some((_, end)) if end > quote_at => {}
+                previous => {
+                    if let Some(span) = previous {
+                        finish(span);
+                    }
+                    let mut end = quote_at + 1;
+                    while end < bytes.len() && !(bytes[end] == bytes[quote_at] && bytes[end - 1] != b'\\') {
+                        end += 1;
+                    }
+                    ends[q] = Some((quote_at, end));
                 }
-                let mut end = at + 1;
-                while end < bytes.len() && !(bytes[end] == bytes[at] && bytes[end - 1] != b'\\') {
-                    end += 1;
-                }
-                ends[q] = Some((at, end));
             }
         }
-        // Every line start after this one: those up to the quote hold only
-        // white space before it, so they lead to the same quote.
         let rest = &text[at..];
-        let Some(newline) = rest.char_indices().find(|(_, c)| matches!(c, '\n' | '\r' | '\u{2028}' | '\u{2029}')) else { break };
-        from = at + newline.0 + newline.1.len_utf8();
+        let Some((offset, newline)) = rest.char_indices().find(|(_, c)| matches!(c, '\n' | '\r' | '\u{2028}' | '\u{2029}')) else { break };
+        line_start = at + offset + newline.len_utf8();
     }
     for span in ends.into_iter().flatten() {
         finish(span);
     }
     longest
+}
+
+/// Where `\s*` from `at` ends.
+fn skip_spaces(text: &str, at: usize) -> usize {
+    text[at..].char_indices().find(|(_, c)| !js::is_space(*c)).map_or(text.len(), |(offset, _)| at + offset)
+}
+
+/// Where the scanner, matching `(?:export\s+)?([\w.-]+)(?:\s*=\s*?|:\s+?)`
+/// from `at` and then a value group of `\s*` and a quote, would meet that
+/// quote; `None` where it meets no quote there.
+fn value_quote(text: &str, at: usize) -> Option<usize> {
+    let is_name = |c: char| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '-');
+    let name_end = |from: usize| text[from..].char_indices().find(|(_, c)| !is_name(*c)).map_or(text.len(), |(offset, _)| from + offset);
+    let after_name = |name_at: usize| -> Option<usize> {
+        let end = name_end(name_at);
+        if end == name_at {
+            return None;
+        }
+        // `\s*=` then `\s*`, or else `:` then at least one `\s`.
+        let equals = skip_spaces(text, end);
+        let value = if text[equals..].starts_with('=') {
+            skip_spaces(text, equals + 1)
+        } else if text[end..].starts_with(':') && skip_spaces(text, end + 1) > end + 1 {
+            skip_spaces(text, end + 1)
+        } else {
+            return None;
+        };
+        matches!(text.as_bytes().get(value), Some(b'\'' | b'"' | b'`')).then_some(value)
+    };
+    // With `export` and white space first, and else without.
+    if text[at..].starts_with("export") {
+        let name_at = skip_spaces(text, at + 6);
+        if name_at > at + 6 {
+            if let Some(found) = after_name(name_at) {
+                return Some(found);
+            }
+        }
+    }
+    after_name(at)
 }
 
 /// Length of what `encrypt` makes of `value`: `encrypted:` and the base64
@@ -717,6 +760,14 @@ mod tests {
         assert_eq!(longest_quoted_span("A=\"😀é\"", 0), 4);
         // The longest of several, unclosed ones included.
         assert_eq!(longest_quoted_span("A='x'\nB='yyyy'\nC=\"z\nD=1\n", 0), 7);
+        // `export` is a name too; a value may stand lines below its name.
+        assert_eq!(longest_quoted_span("exportA='xy'\nexport\n='xy'\nexport =\n\n'xy'\n", 0), 3);
+        assert_eq!(longest_quoted_span("A =: 'x'\nB:'x'\n", 0), 0);
+        // Long runs of blank lines and of names take no longer than the text.
+        let blank = format!("{}A='{}'", "\n".repeat(200_000), "a".repeat(10));
+        assert_eq!(longest_quoted_span(&blank, 0), 11);
+        let names = format!("{}\n", "AB".repeat(200_000)).repeat(4);
+        assert_eq!(longest_quoted_span(&names, 0), 0);
     }
 
     #[test]
