@@ -6,11 +6,12 @@
 //   bun rs/vectors.gen.mjs --check    fails if the files are not what it writes
 //
 // Run it with bun, the runtime the published `dede` runs on. Every key in
-// here was made up for these files and protects nothing. On Windows only
-// primitives.json is written or checked: path.json holds node:path's POSIX
-// rules as a POSIX system runs them (relative paths against /tmp), which the
-// port imitates on Linux and macOS, and the binary hands every invocation
-// back on Windows.
+// here was made up for these files and protects nothing. path.json is
+// written and checked on Linux only: it holds node:path's POSIX rules with
+// /tmp as the current directory, which elsewhere it cannot be (on macOS /tmp
+// is a link, and the directory is /private/tmp; Windows has neither). The
+// rules are the same string functions on every system, and `cargo test`
+// holds rs/src/path.rs against the file everywhere, with /tmp given.
 
 import { createCipheriv, hkdfSync } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -308,7 +309,7 @@ function cryptoVectors() {
 // ───────────────────────── write ─────────────────────────
 
 const files = {
-  ...(process.platform === "win32" ? {} : { "path.json": JSON.stringify(pathVectors()) }),
+  ...(process.platform === "linux" ? { "path.json": JSON.stringify(pathVectors()) } : {}),
   "primitives.json": JSON.stringify({ sources: sources(), ...cryptoVectors() }),
 };
 
