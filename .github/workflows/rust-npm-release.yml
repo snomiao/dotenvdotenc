@@ -70,6 +70,9 @@ jobs:
       # - `dede get` of both into a pipe or a socket read only after it exits;
       # - both where the file system refuses something (as the runner's user,
       #   with sudo making what belongs to root).
+      # The comparison is long (1,176 cases, then the hand-back check over all
+      # of them and four more scripts), longer than the default 30 minutes.
+      parity-timeout-minutes: 90
       parity: >-
         bun install --frozen-lockfile
         && node rs/parity.gen.mjs --check
