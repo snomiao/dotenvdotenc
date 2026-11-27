@@ -98,14 +98,14 @@ fn main(dede: &mut Dede, argv: &[String]) -> Result<i32, HandBack> {
                     return Err(Stop::HandBack);
                 }
                 let pairs = dede.pairs(&args, Mode::Enc)?;
-                precheck(dede, &pairs)?;
+                precheck(dede, &pairs, true, force)?;
                 dede.out.go_live();
                 each(dede, &pairs, &mut code, |dede, pair| dede.enc(pair, force))?;
                 code = code.max(dede.commit_written(yes));
             }
             Some("dec") => {
                 let pairs = dede.pairs(&args, Mode::Dec)?;
-                precheck(dede, &pairs)?;
+                precheck(dede, &pairs, false, force)?;
                 dede.out.go_live();
                 each(dede, &pairs, &mut code, |dede, pair| dede.dec(pair, force))?;
             }
@@ -208,17 +208,19 @@ fn each(dede: &mut Dede, pairs: &[Pair], code: &mut i32, mut step: impl FnMut(&m
 
 /// Reads, without changing or printing anything, what `enc` or `dec` is
 /// about to read for these pairs: both files, the keys, the key tree, and the
-/// sync record. Whatever this port does not imitate (see `Stop::HandBack`)
-/// shows here, while the invocation can still be handed back. Failures the
-/// TypeScript reports are not this function's business; the real run reports
-/// them.
-fn precheck(dede: &mut Dede, pairs: &[Pair]) -> R<()> {
+/// sync record, and foresees the size of what it will write. Whatever this
+/// port does not imitate (see `Stop::HandBack`) shows here, while the
+/// invocation can still be handed back. Failures the TypeScript reports are
+/// not this function's business; the real run reports them.
+fn precheck(dede: &mut Dede, pairs: &[Pair], encrypting: bool, force: bool) -> R<()> {
     let only_hand_back = |result: R<()>| match result {
         Err(Stop::HandBack) => Err(Stop::HandBack),
         _ => Ok(()),
     };
+    // `\n# <name>\nDOTENV_PRIVATE_KEY_<NAME>=<64 digits>\n` for each new key.
+    let appended = pairs.iter().map(|pair| 2 * pair.name.len() + 128).sum();
     for pair in pairs {
-        only_hand_back(dede.view(pair, true).map(|_| ()))?;
+        only_hand_back(dede.foresee(pair, encrypting, force, appended))?;
         only_hand_back(dede.tree_for(crate::path::dirname(&pair.plain)).map(|_| ()))?;
         only_hand_back(dede.check_sync_record(pair))?;
     }

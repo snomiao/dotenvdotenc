@@ -66,6 +66,12 @@ const UNMANAGED_HINT: &str = "unmanaged plaintext env file (not committed, no .e
 /// where exactly depends on how the pipe delivered it). Not imitated.
 const GIT_OUTPUT_LIMIT: usize = 1_000_000;
 
+/// A three-way merge works on both files at once; above this many UTF-16
+/// code units together, what it builds could come near bun's limits (four
+/// times this, the most `upsert` escapes it to, is still below
+/// `primitives::PATTERN_LIMIT`), so such a pair is handed back.
+const MERGE_TEXT_LIMIT: usize = 120_000;
+
 #[derive(Debug)]
 pub enum Stop {
     Die(String, i32),
@@ -79,9 +85,12 @@ impl From<HandBack> for Stop {
     }
 }
 
-impl From<primitives::Thrown> for Stop {
-    fn from(thrown: primitives::Thrown) -> Self {
-        Stop::Thrown(thrown.0)
+impl From<primitives::Fail> for Stop {
+    fn from(fail: primitives::Fail) -> Self {
+        match fail {
+            primitives::Fail::Thrown(name) => Stop::Thrown(name),
+            primitives::Fail::BeyondBun => Stop::HandBack,
+        }
     }
 }
 
@@ -1036,6 +1045,87 @@ impl Dede {
             return die(format!("{}: formatting does not survive encryption; quote the value with \"…\"", self.rel(&pair.plain)), 4);
         }
         Ok(format!("{BANNER}\nDOTENV_PUBLIC_KEY{}=\"{public}\"\n\n{body}", suffix_of(&pair.name)))
+    }
+
+    /// Reads what `enc` (`encrypting`) or `dec` is going to read for this
+    /// pair, and foresees what it will make of it, without writing anything:
+    /// whatever this port does not imitate has to show here, while the
+    /// invocation can still be handed back. That includes text beyond bun's
+    /// regular expressions (`primitives::QUOTED_SPAN_LIMIT`) in what the run
+    /// will write and then read again: the .enc with its new ciphertexts, a
+    /// merged file, the keys file a new key is appended to. `appended`: how
+    /// much this run may append to a keys file, at most.
+    pub fn foresee(&mut self, pair: &Pair, encrypting: bool, force: bool, appended: usize) -> R<()> {
+        let view = self.view(pair, true)?;
+        let plain_values = match &view.p {
+            Some(p) => self.values(p, &pair.plain)?,
+            None => Values::new(),
+        };
+        let enc_values = match &view.d {
+            Some(d) => self.values(d, &pair.enc)?,
+            None => Values::new(),
+        };
+        let fits = |text_len: usize| text_len <= primitives::QUOTED_SPAN_LIMIT;
+        // What a fresh ciphertext of each value takes, quoted or not, and
+        // the expression `upsert` then builds from it (a `+` is escaped).
+        let mut ciphertext_total = 0;
+        if encrypting {
+            for values in [&plain_values, &enc_values] {
+                for (name, values) in values.entries() {
+                    for value in values {
+                        let length = primitives::ciphertext_len(value);
+                        ciphertext_total += length;
+                        if !fits(length + 2) || primitives::upsert_pattern_len(name, 2 * length) > primitives::PATTERN_LIMIT {
+                            return Err(Stop::HandBack);
+                        }
+                    }
+                }
+            }
+        }
+        // Both sides changed: the merged text is made of both files.
+        if let (Some(p), Some(d), false) = (&view.p, &view.d, force) {
+            if view.c.as_ref() != Some(d) {
+                let both = primitives::utf16_len(p) + primitives::utf16_len(d);
+                if both > MERGE_TEXT_LIMIT || (encrypting && !fits(both + ciphertext_total)) {
+                    return Err(Stop::HandBack);
+                }
+            }
+        }
+        if !encrypting {
+            return Ok(());
+        }
+        // The .enc as `build_enc` writes it, with each new ciphertext as long
+        // as the real one will be (base64 holds no quote and no backslash).
+        if let Some(p) = &view.p {
+            let p = js::lf(p);
+            let mut stand_ins = Values::new();
+            for (name, values) in plain_values.entries() {
+                let mut out = Vec::with_capacity(values.len());
+                for (i, value) in values.iter().enumerate() {
+                    let kept = view.old.as_ref().and_then(|(plain, cipher)| {
+                        if plain.get(name).and_then(|values| values.get(i)) != Some(value) {
+                            return None;
+                        }
+                        cipher.get(name).and_then(|values| values.get(i)).filter(|cipher| !cipher.is_empty())
+                    });
+                    out.push(match kept {
+                        Some(cipher) => cipher.clone(),
+                        None => format!("{PREFIX}{}", "A".repeat(primitives::ciphertext_len(value) - PREFIX.len())),
+                    });
+                }
+                stand_ins.set(name, out);
+            }
+            let body = Self::rewrite(&p, &stand_ins)?;
+            self.values(&body, &pair.enc)?;
+        }
+        // A new key is appended to the keys file, which is read again.
+        let keys = self.keys_file_for(dirname(&pair.plain));
+        if let Ok(bytes) = fs::read(&keys) {
+            if primitives::longest_quoted_span(&js::utf8(&bytes), appended) > primitives::QUOTED_SPAN_LIMIT {
+                return Err(Stop::HandBack);
+            }
+        }
+        Ok(())
     }
 
     fn no_record<T>(&self, pair: &Pair, p: &str, d: &str) -> R<T> {

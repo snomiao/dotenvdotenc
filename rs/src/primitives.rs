@@ -24,10 +24,108 @@ use crate::js::{self, Object};
 
 pub const PREFIX: &str = "encrypted:";
 
-/// What went wrong in the library, as far as dede can tell it apart: only the
-/// name of the JavaScript error ever reaches a user (`TypeError`, `Error`).
+/// What went wrong in `scan` or `upsert`.
 #[derive(Debug, PartialEq)]
-pub struct Thrown(pub &'static str);
+pub enum Fail {
+    /// The library throws: only the name of the JavaScript error ever
+    /// reaches a user (`TypeError`, `Error`).
+    Thrown(&'static str),
+    /// The text is of a size where bun's regular expressions give up and
+    /// this engine does not (see `QUOTED_SPAN_LIMIT`); not imitated.
+    BeyondBun,
+}
+
+/// bun's regular expressions (JavaScriptCore) give up where the ones here do
+/// not, so the package behaves differently under bun for very large values.
+/// Measured on bun 1.4.0 with @dotenvx/primitives 3.0.3:
+///
+/// - The scanner's quoted alternatives, `'(?:\\'|[^'])*'` and the like, stop
+///   matching once one repetition runs over more than 540,669 code units in
+///   single quotes, 442,366 in double quotes or 393,214 in backticks (twice
+///   that where every unit is an escaped quote). The `exec` loop then ends:
+///   that value and every assignment after it are not seen. An unclosed
+///   quote runs to the end of the text.
+/// - `upsert` builds a regular expression from the escaped old value, and
+///   bun refuses one longer than 1,048,576 code units ("regular expression
+///   too large", a SyntaxError).
+///
+/// What comes within a third of the first limit or half of the second is
+/// handed back to the JavaScript. Everything the binary writes
+/// stays below them too, so that a JavaScript-side dede (Windows, or
+/// DOTENVDOTENC_NO_NATIVE=1) reads it the same way.
+pub const QUOTED_SPAN_LIMIT: usize = 131_072;
+pub const PATTERN_LIMIT: usize = 524_288;
+
+/// Length in UTF-16 code units, as JavaScript counts it.
+pub fn utf16_len(text: &str) -> usize {
+    text.chars().map(char::len_utf16).sum()
+}
+
+/// The most the scanner's quoted alternatives could repeat over in `text`
+/// (plus `tail` more units appended to it later). They are tried only where
+/// a value begins: at a line start, after white space, `export`, a name and
+/// `=` or `:` and white space, at a quote. From there the repetition runs
+/// to the next same quote that no backslash stands before (it passes a
+/// quote only as half of `\'`, `\"` or `\``), or to the end of the text.
+/// Every line start is looked at, not only those the scanner reaches, so
+/// this is never less than what bun's scanner meets.
+pub fn longest_quoted_span(text: &str, tail: usize) -> usize {
+    static VALUE_START: OnceLock<Regex> = OnceLock::new();
+    let value_start = VALUE_START.get_or_init(|| regex(r#"(?:^|^)\s*(?:export\s+)?[\w.-]+(?:\s*=\s*|:\s+)(['"`])"#, "m"));
+    let bytes = text.as_bytes();
+    // Per quote: the start of the longest span that ends at `ends[q]`.
+    let mut ends: [Option<(usize, usize)>; 3] = [None; 3];
+    let mut longest = 0;
+    let mut finish = |(start, end): (usize, usize)| {
+        let units = utf16_len(&text[start..end]) + if end == text.len() { tail } else { 0 };
+        longest = longest.max(units);
+    };
+    let mut from = 0;
+    while let Some(found) = value_start.find_from(text, from).next() {
+        let at = found.group(1).expect("the quote always takes part").start;
+        let q = match bytes[at] {
+            b'\'' => 0,
+            b'"' => 1,
+            _ => 2,
+        };
+        match ends[q] {
+            // The same end as an earlier start: that one spans farther.
+            Some((_, end)) if end > at => {}
+            previous => {
+                if let Some(span) = previous {
+                    finish(span);
+                }
+                let mut end = at + 1;
+                while end < bytes.len() && !(bytes[end] == bytes[at] && bytes[end - 1] != b'\\') {
+                    end += 1;
+                }
+                ends[q] = Some((at, end));
+            }
+        }
+        // Every line start after this one: those up to the quote hold only
+        // white space before it, so they lead to the same quote.
+        let rest = &text[at..];
+        let Some(newline) = rest.char_indices().find(|(_, c)| matches!(c, '\n' | '\r' | '\u{2028}' | '\u{2029}')) else { break };
+        from = at + newline.0 + newline.1.len_utf8();
+    }
+    for span in ends.into_iter().flatten() {
+        finish(span);
+    }
+    longest
+}
+
+/// Length of what `encrypt` makes of `value`: `encrypted:` and the base64
+/// of 65 + 16 + 16 bytes and the value's UTF-8.
+pub fn ciphertext_len(value: &str) -> usize {
+    PREFIX.len() + 4 * (97 + value.len()).div_ceil(3)
+}
+
+/// Length of the expression `upsert` builds to find `name` with the value
+/// `old`, whose escaped text is `escaped_old` units long.
+pub fn upsert_pattern_len(name: &str, escaped_old: usize) -> usize {
+    // ^(\s*)?(export\s+)? NAME \s*=\s*(["'`]?) OLD \3, and $ for an empty OLD
+    36 + utf16_len(&escape_regex(name)) + escaped_old + usize::from(escaped_old == 0)
+}
 
 /// A JavaScript regular expression. The patterns here are the package's and
 /// the TypeScript's own, so failing to compile one is a bug in this file.
@@ -51,13 +149,16 @@ impl Default for ScanOptions {
 }
 
 /// `scan(source).parsed`
-pub fn scan(source: &str) -> Result<Values, Thrown> {
+pub fn scan(source: &str) -> Result<Values, Fail> {
     scan_with(source, ScanOptions::default())
 }
 
 /// `scan(source, options).parsed`: every assignment, repeated names kept in
 /// order, nothing expanded or decrypted.
-pub fn scan_with(source: &str, options: ScanOptions) -> Result<Values, Thrown> {
+pub fn scan_with(source: &str, options: ScanOptions) -> Result<Values, Fail> {
+    if longest_quoted_span(source, 0) > QUOTED_SPAN_LIMIT {
+        return Err(Fail::BeyondBun);
+    }
     static LINE: OnceLock<Regex> = OnceLock::new();
     static NEWLINES: OnceLock<Regex> = OnceLock::new();
     static QUOTED: OnceLock<Regex> = OnceLock::new();
@@ -84,7 +185,7 @@ pub fn scan_with(source: &str, options: ScanOptions) -> Result<Values, Thrown> {
         // name every object has (`constructor`, `toString`, …) what is found
         // there is no array, and `push` fails.
         if js::is_object_member(name) {
-            return Err(Thrown("TypeError"));
+            return Err(Fail::Thrown("TypeError"));
         }
         let raw = found.group(2).map(|range| &text[range]).unwrap_or("");
         let trimmed = js::trim(raw);
@@ -128,7 +229,7 @@ pub enum Replacement<'a> {
 /// `upsert(source, name, value)`: replaces the value of every assignment of
 /// `name`, keeping quotes, `export` and indentation, or appends
 /// `name="value"`.
-pub fn upsert(source: &str, name: &str, value: Replacement) -> Result<String, Thrown> {
+pub fn upsert(source: &str, name: &str, value: Replacement) -> Result<String, Fail> {
     let parsed = scan_with(source, ScanOptions { expand_double_quoted_newlines: false, convert_windows_newlines: false })?;
     let Some(old) = parsed.get(name) else {
         // `${name}="${value}"`: an array is written as JavaScript joins it.
@@ -142,7 +243,7 @@ pub fn upsert(source: &str, name: &str, value: Replacement) -> Result<String, Th
     let marker = |i: usize| format!("\0DOTENVX_UPSERT_{i}\0");
     let mut text = source.to_string();
     for (i, old_value) in old.iter().enumerate() {
-        text = replace_assignment(&text, name, old_value, &marker(i));
+        text = replace_assignment(&text, name, old_value, &marker(i))?;
     }
     let count = match value {
         Replacement::One(_) => old.len(),
@@ -176,12 +277,15 @@ fn escape_regex(text: &str) -> String {
 
 /// Replaces the first assignment of `name` whose value is `old` by
 /// `name=<quote><marker><quote>`.
-fn replace_assignment(text: &str, name: &str, old: &str, marker: &str) -> String {
+fn replace_assignment(text: &str, name: &str, old: &str, marker: &str) -> Result<String, Fail> {
     let name_pattern = escape_regex(name);
     let old_pattern = escape_regex(old);
+    if upsert_pattern_len(name, utf16_len(&old_pattern)) > PATTERN_LIMIT {
+        return Err(Fail::BeyondBun);
+    }
     let end = if old_pattern.is_empty() { "$" } else { "" };
     let assignment = regex(&format!("^(\\s*)?(export\\s+)?{name_pattern}\\s*=\\s*([\"'`]?){old_pattern}\\3{end}"), "m");
-    let Some(found) = assignment.find(text) else { return text.to_string() };
+    let Some(found) = assignment.find(text) else { return Ok(text.to_string()) };
     let group = |i: usize| found.group(i).map(|range| &text[range]).unwrap_or("");
     let (indent, export, quote) = (group(1), group(2), group(3));
     let mut line = format!("{name}={quote}{marker}{quote}");
@@ -193,7 +297,7 @@ fn replace_assignment(text: &str, name: &str, old: &str, marker: &str) -> String
             line.push_str(&"\n".repeat(newlines));
         }
     }
-    format!("{}{indent}{export}{line}{}", &text[..found.start()], &text[found.end()..])
+    Ok(format!("{}{indent}{export}{line}{}", &text[..found.start()], &text[found.end()..]))
 }
 
 /// `remove(source, name)`: the source without the assignments of `name`,
@@ -415,7 +519,12 @@ pub fn keyring(files: &[&str], variables: &[(String, String)], read: impl Fn(&st
     for file in files {
         // Anything that goes wrong with a keys file means "no keys in it".
         let Some(text) = read(file) else { continue };
-        let Ok(parsed) = scan(&text) else { continue };
+        let parsed = match scan(&text) {
+            Ok(parsed) => parsed,
+            Err(Fail::Thrown(_)) => continue,
+            // bun would read only the keys before a very large quoted value.
+            Err(Fail::BeyondBun) => return Err(CryptoError::NotImitated),
+        };
         for (name, values) in parsed.entries() {
             if name.starts_with("DOTENV_PRIVATE_KEY") {
                 for value in values {
@@ -475,7 +584,7 @@ mod tests {
 
     /// The text of a `scan` result the way rs/vectors.gen.mjs records it:
     /// `JSON.stringify(parsed)`, or the name of the error thrown.
-    fn scanned(result: Result<Values, Thrown>) -> String {
+    fn scanned(result: Result<Values, Fail>) -> String {
         match result {
             Ok(parsed) => {
                 let mut out = Object::new();
@@ -484,7 +593,8 @@ mod tests {
                 }
                 js::stringify(&Json::Object(out), "")
             }
-            Err(Thrown(name)) => format!("throws {name}"),
+            Err(Fail::Thrown(name)) => format!("throws {name}"),
+            Err(Fail::BeyondBun) => "beyond bun".to_string(),
         }
     }
 
@@ -512,7 +622,11 @@ mod tests {
                         upsert(source, name, Replacement::Each(&values))
                     }
                 };
-                let got = got.unwrap_or_else(|Thrown(name)| format!("throws {name}"));
+                let got = match got {
+                    Ok(text) => text,
+                    Err(Fail::Thrown(name)) => format!("throws {name}"),
+                    Err(Fail::BeyondBun) => "beyond bun".to_string(),
+                };
                 assert_eq!(got, expected, "upsert({source:?}, {name:?}, {:?})", step.get("value"));
             }
             for step in list(case.get("remove").unwrap()) {
@@ -552,6 +666,64 @@ mod tests {
                 Err(CryptoError::NotImitated) => "not imitated".to_string(),
             };
             assert_eq!(got, expected, "decrypt({private:?}, {value:?})");
+        }
+    }
+
+    /// The two limits of bun's regular expressions and the margin kept from
+    /// them (`QUOTED_SPAN_LIMIT`, measured on bun 1.4.0).
+    #[test]
+    fn what_bun_gives_up_on_is_kept_well_away() {
+        // The longest quoted repetitions bun's scanner still matched.
+        for measured in [540_669, 442_366, 393_214] {
+            assert!(QUOTED_SPAN_LIMIT * 3 <= measured + 2, "{measured}");
+        }
+        // The longest old values bun's upsert still built an expression for,
+        // with names of 1, 3 and 31 characters: 2^20 units in each case.
+        for (name, old) in [("B", 1_048_539), ("BIG", 1_048_537), ("A_MUCH_LONGER_NAME_OF_THIRTY_XX", 1_048_509)] {
+            assert_eq!(upsert_pattern_len(name, old), 1 << 20, "{name}");
+        }
+        assert_eq!(PATTERN_LIMIT * 2, 1 << 20);
+        let quoted = |n: usize| format!("A=1\nBIG=\"{}\"\nZ=2\n", "a".repeat(n));
+        assert!(scan(&quoted(QUOTED_SPAN_LIMIT - 1)).is_ok());
+        assert_eq!(scan(&quoted(QUOTED_SPAN_LIMIT)), Err(Fail::BeyondBun));
+        assert!(scan(&format!("BIG={}\n", "a".repeat(4 * QUOTED_SPAN_LIMIT))).is_ok(), "bare values have no such limit");
+        let bare = |n: usize| format!("A=1\nBIG={}\nZ=2\n", "-".repeat(n));
+        let fits = (PATTERN_LIMIT - 36 - 3) / 4;
+        assert!(upsert(&bare(fits), "BIG", Replacement::One("x")).is_ok());
+        assert_eq!(upsert(&bare(fits + 1), "BIG", Replacement::One("x")), Err(Fail::BeyondBun));
+    }
+
+    #[test]
+    fn quoted_spans_are_counted_the_way_the_scanner_could_run() {
+        assert_eq!(longest_quoted_span("A=1\nB=2\n", 9), 0);
+        assert_eq!(longest_quoted_span("A=\"x\"\n", 9), 2);
+        // An unclosed quote runs to the end, and on over what is appended.
+        assert_eq!(longest_quoted_span("A=\"xyz\n", 0), 5);
+        assert_eq!(longest_quoted_span("A=\"xyz\n", 10), 15);
+        // A quote with a backslash before it does not end the value.
+        assert_eq!(longest_quoted_span("A=\"a\\\"b\"\n", 0), 5);
+        assert_eq!(longest_quoted_span("A='a\\\\'b'\n", 0), 6);
+        // Other quotes do not end it.
+        assert_eq!(longest_quoted_span("A=`a'b\"c`\nB='d'", 0), 6);
+        // Quotes elsewhere start nothing: in a comment, inside a bare value,
+        // after a value, and the closing one.
+        assert_eq!(longest_quoted_span("# it's\nA=it's\nB=\"x\" # 'q\n", 1000), 2);
+        // Where a value may begin: after export, a colon, spaces, a line end.
+        assert_eq!(longest_quoted_span("  export A = 'xy'\n", 0), 3);
+        assert_eq!(longest_quoted_span("A: 'xy'\n", 0), 3);
+        assert_eq!(longest_quoted_span("A=\n\n'xy'\n", 0), 3);
+        assert_eq!(longest_quoted_span("A=1\rB='xy'", 0), 3);
+        // In UTF-16 code units, as JavaScript counts.
+        assert_eq!(longest_quoted_span("A=\"😀é\"", 0), 4);
+        // The longest of several, unclosed ones included.
+        assert_eq!(longest_quoted_span("A='x'\nB='yyyy'\nC=\"z\nD=1\n", 0), 7);
+    }
+
+    #[test]
+    fn ciphertexts_are_as_long_as_foreseen() {
+        let (public, _) = new_keypair();
+        for value in ["", "x", "xy", "xyz", "é→世界😀", &"long ".repeat(1000)] {
+            assert_eq!(encrypt(&public, value).unwrap().len(), ciphertext_len(value), "{value:?}");
         }
     }
 
