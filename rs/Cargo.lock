@@ -176,6 +176,7 @@ dependencies = [
  "hkdf",
  "hmac",
  "k256",
+ "libc",
  "regress",
  "sha2",
 ]

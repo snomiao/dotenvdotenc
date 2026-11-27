@@ -35,8 +35,11 @@ pub fn run(argv: &[String]) -> Result<i32, HandBack> {
     let code = match main(&mut dede, argv) {
         Ok(code) => code,
         Err(HandBack) if dede.out.is_live() => {
-            // Unreachable by design: see `precheck`. The files this run wrote
-            // are complete; say that it did not finish rather than start over.
+            // Meant not to happen: `precheck` and setup's pre-read look for
+            // everything this port does not imitate before the first write.
+            // What they cannot foresee is a disk that fails between two
+            // writes. The files this run wrote are complete; say that it did
+            // not finish rather than start over.
             dede.log("dede: stopped at something this build does not handle; run it again with DOTENVDOTENC_NO_NATIVE=1");
             1
         }

@@ -1573,36 +1573,25 @@ impl Dede {
     }
 
     /// Looks at the sync record of this pair's repository without asking git
-    /// for its place (`.git/dotenvdotenc/state.json`, or the same below the
-    /// directory a `.git` file names): is it something this port reads and
-    /// writes back the way the TypeScript does? A record it cannot find is
-    /// no concern.
+    /// for its place: is it something this port reads and writes back the
+    /// way the TypeScript does? Every record git could take is looked at
+    /// (`repo::possible_records`), and every entry in it, since which one
+    /// the run will use is git's answer. A record that is not there is no
+    /// concern; one that is not JSON is `{}` to both.
     pub fn check_sync_record(&self, pair: &Pair) -> R<()> {
-        let mut dir = dirname(&pair.plain).to_string();
-        loop {
-            let dot_git = join(&dir, ".git");
-            if let Ok(meta) = fs::metadata(&dot_git) {
-                let git_dir = if meta.is_dir() {
-                    dot_git
-                } else {
-                    match fs::read(&dot_git).ok().map(|bytes| js::utf8(&bytes)).as_deref().and_then(|text| text.strip_prefix("gitdir: ")) {
-                        Some(path) => resolve(&dir, path.trim_end()),
-                        None => return Ok(()),
+        for record in crate::repo::possible_records(dirname(&pair.plain), &self.env)? {
+            let Ok(bytes) = fs::read(&record) else { continue };
+            match js::parse_json(&js::utf8(&bytes)) {
+                Ok(Json::Object(all)) => {
+                    for key in all.keys() {
+                        state_entry(&all, &key)?;
                     }
-                };
-                let Ok(bytes) = fs::read(join(&git_dir, "dotenvdotenc/state.json")) else { return Ok(()) };
-                return match js::parse_json(&js::utf8(&bytes)) {
-                    Ok(Json::Object(all)) => state_entry(&all, &relative(&self.cwd, &dir, &pair.plain)).map(|_| ()),
-                    Ok(_) | Err(JsonError::NotImitated) => Err(Stop::HandBack),
-                    Err(JsonError::Syntax) => Ok(()),
-                };
+                }
+                Ok(_) | Err(JsonError::NotImitated) => return Err(Stop::HandBack),
+                Err(JsonError::Syntax) => {}
             }
-            let parent = dirname(&dir).to_string();
-            if parent == dir {
-                return Ok(());
-            }
-            dir = parent;
         }
+        Ok(())
     }
 
     // ───────────────────────── args ─────────────────────────

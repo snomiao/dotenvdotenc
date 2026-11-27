@@ -26,3 +26,8 @@ getrandom = "0.4.3"
 # The TypeScript and @dotenvx/primitives parse with JavaScript regular
 # expressions; this engine follows ECMAScript's rules for them.
 regress = { version = "0.12.0", default-features = false, features = ["std"] }
+
+[target.'cfg(unix)'.dependencies]
+# access(), geteuid() and umask(), to foresee whether a write will be refused
+# before the first one is made.
+libc = "0.2"

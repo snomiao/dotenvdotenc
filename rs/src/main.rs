@@ -14,6 +14,7 @@ mod js_fallback;
 mod out;
 mod path;
 mod primitives;
+mod repo;
 mod setup;
 
 /// The package's JavaScript entry, relative to the package root.

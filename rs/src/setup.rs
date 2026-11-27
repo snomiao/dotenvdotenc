@@ -5,12 +5,18 @@
 //! It changes several files in turn, so everything this port does not
 //! imitate has to show before the first of them: `precheck` looks at
 //! package.json (which the TypeScript rewrites through `JSON.parse` and
-//! `JSON.stringify`) and at the lefthook file.
+//! `JSON.stringify`) and at the lefthook file, and `foresee_setup` at every file
+//! and directory the run will read, make or replace, in the hooks directory
+//! git will name (`repo::hooks`). Where one of them would make the
+//! TypeScript end in an uncaught error after its first write (core.hooksPath
+//! naming a file, a hook that is a directory or cannot be read, a hooks
+//! directory that cannot be written, .husky a file), the invocation is
+//! handed back before anything is written.
 
 use std::fs;
 use std::process::{Command, Stdio};
 
-use crate::dede::{die, exists, lstat_mode, read_file, Dede, Stop, R};
+use crate::dede::{die, exists, is_symlink, lstat_mode, read_file, Dede, Stop, R};
 use crate::js::{self, Json, Object};
 use crate::path::join;
 use crate::primitives::regex;
@@ -106,6 +112,76 @@ impl Dede {
         Ok(())
     }
 
+    /// Every file and directory the rest of `setup` will read, make or
+    /// replace, looked at without changing anything: `HandBack` where the
+    /// TypeScript would end in an uncaught error after a first write. It
+    /// follows the run step by step and stops where the run stops with a
+    /// refusal of dede's own.
+    #[cfg(unix)]
+    fn foresee_setup(&self, top: &str, writes_gitignore: bool) -> R<()> {
+        use crate::repo::can;
+        let gitignore = join(top, ".gitignore");
+        if writes_gitignore {
+            if is_symlink(&gitignore) {
+                return Ok(()); // refused: "is a symlink"
+            }
+            if !can::replace(top, &gitignore) {
+                return Err(Stop::HandBack);
+            }
+        }
+        if LEFTHOOK_FILES.iter().any(|name| exists(&join(top, name))) {
+            return Ok(()); // only read, and that was looked at already
+        }
+        let hooks = crate::repo::hooks(top, &self.env)?;
+        let package = join(top, "package.json");
+        let husky_dir = join(top, ".husky");
+        if !hooks.path_set && !exists(&husky_dir) && exists(&package) {
+            if is_symlink(&package) {
+                return Ok(()); // refused: "is a symlink"
+            }
+            // package.json replaced; .husky made (a link to nowhere cannot
+            // be) and filled.
+            if !can::replace(top, &package) || is_symlink(&husky_dir) || !can::fill_new_dir() {
+                return Err(Stop::HandBack);
+            }
+            return Ok(());
+        }
+        let dir = if !hooks.path_set && exists(&husky_dir) {
+            husky_dir
+        } else {
+            match hooks.dir.strip_suffix("/.husky/_") {
+                Some(top) => format!("{top}/.husky"),
+                None => hooks.dir,
+            }
+        };
+        let mut made = false;
+        for (name, mark) in [("pre-commit", HOOK_MARK), ("post-merge", NOTICE_MARK), ("post-checkout", NOTICE_MARK)] {
+            let hook = join(&dir, name);
+            let previous = match fs::symlink_metadata(&hook) {
+                Ok(meta) if meta.file_type().is_symlink() => return Ok(()), // refused: "is a symlink"
+                Ok(_) => Some(read_file(&hook).map_err(|_| Stop::HandBack)?),
+                Err(_) => None,
+            };
+            if previous.as_ref().is_some_and(|text| text.contains(mark)) {
+                continue;
+            }
+            if previous.as_ref().is_some_and(|text| text.starts_with("#!") && regex(r"^#!.*\b(sh|bash|zsh|dash)\b", "").find(text).is_none()) {
+                return Ok(()); // refused: "is not a shell script"
+            }
+            made |= can::make_dir(&dir).map_err(|()| Stop::HandBack)?;
+            let writable = if made { can::fill_new_dir() } else { can::create_in(&dir) };
+            if !writable || (previous.is_some() && !can::replace(&dir, &hook)) {
+                return Err(Stop::HandBack);
+            }
+        }
+        Ok(())
+    }
+
+    #[cfg(not(unix))]
+    fn foresee_setup(&self, _top: &str, _writes_gitignore: bool) -> R<()> {
+        Err(Stop::HandBack)
+    }
+
     pub fn setup(&mut self) -> R<()> {
         // It prints to standard error whatever happens.
         if !self.out.colour_is_known() {
@@ -116,7 +192,9 @@ impl Dede {
         let gitignore = join(&top, ".gitignore");
         let probe = |dede: &Dede, name: &str| dede.git(&["check-ignore", "-q", "--no-index", "--", name], &top).map(|(ok, _)| ok);
         let ok = |dede: &Dede| -> R<bool> { Ok(probe(dede, ".env.local")? && probe(dede, ".env.keys")? && probe(dede, ".env")? && !probe(dede, ".env.local.enc")? && !probe(dede, ".env.enc")?) };
-        if !ok(self)? {
+        let ignored = ok(self)?;
+        self.foresee_setup(&top, !ignored)?;
+        if !ignored {
             let previous = self.read(&gitignore)?.unwrap_or_default();
             let text = format!(
                 "{previous}{}{}{IGNORE_BLOCK}",
