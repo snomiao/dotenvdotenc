@@ -965,9 +965,14 @@ impl Dede {
         let mut file = thrown(options.open(&tmp))?;
         let written = file.write_all(text.as_bytes()).and_then(|_| file.sync_all());
         drop(file);
-        thrown(written)?;
-        thrown(chmod(&tmp, mode))?;
-        thrown(fs::rename(&tmp, path))
+        let result = written.and_then(|_| chmod(&tmp, mode)).and_then(|_| fs::rename(&tmp, path));
+        if result.is_err() && !self.out.is_live() {
+            // A first write that fails is handed back (the TypeScript ends in
+            // an uncaught error there): the JavaScript then leaves its own
+            // temp file, so this one goes.
+            let _ = fs::remove_file(&tmp);
+        }
+        thrown(result)
     }
 
     /// Plaintext secrets are owner-only; fix a group/world-readable file
