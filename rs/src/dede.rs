@@ -1369,7 +1369,13 @@ impl Dede {
             let files: Vec<&str> = found.iter().map(|(file, _)| file.as_str()).collect();
             return die(format!("{name} has different values in {}; name the file: dede get {name} <file>", files.join(", ")), 2);
         }
-        self.out.write(&format!("{}{}", found[0].1, if stdout_is_terminal { "\n" } else { "" }));
+        let text = format!("{}{}", found[0].1, if stdout_is_terminal { "\n" } else { "" });
+        // `process.stdout.write` and then `process.exit()`: into a pipe the
+        // TypeScript prints only what there is room for (out.rs stdout_takes).
+        if !self.out.stdout_takes(text.len()) {
+            return Err(Stop::HandBack);
+        }
+        self.out.write(&text);
         Ok(())
     }
 

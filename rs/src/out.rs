@@ -153,8 +153,31 @@ impl Out {
         Ok(())
     }
 
+    /// Would `process.stdout.write(text)` of `len` bytes, with `process.exit()`
+    /// right after it, get all of it out under bun? Into a pipe or a socket
+    /// bun writes without waiting, and what the pipe has no room for is lost
+    /// at the exit (`dede get BIG | slow-reader` printed 65,536 bytes of
+    /// 70,000 under bun 1.4.0); into a file or a terminal it writes it all.
+    /// So this says yes only where the room is certain: a file, a terminal,
+    /// /dev/null, and on Linux a pipe or a Unix socket with room for it now,
+    /// after what this process prints there first (the room only grows
+    /// while the JavaScript would start). `console.log` and `console.error`
+    /// are not like this: under bun they wait for the reader, as every write
+    /// here does (and where another program has left the pipe without
+    /// waiting, bun and this lose the same messages).
+    pub fn stdout_takes(&self, len: usize) -> bool {
+        if len == 0 {
+            return true;
+        }
+        let shared = room::stderr_is_stdout();
+        let before: Vec<usize> = self.pending.iter().filter(|(stream, _)| *stream == Stream::Out || shared).map(|(_, text)| text.len()).collect();
+        room::for_stdout(before.iter().sum(), before.len()).is_some_and(|room| len <= room)
+    }
+
     /// Writes what was collected, one write per message, in order. A closed
-    /// pipe is not this program's problem.
+    /// pipe is not this program's problem. Into a pipe that another program
+    /// left without waiting (bun does that), a message there is no room for
+    /// is lost, as it is under bun.
     pub fn flush(&mut self) {
         for (stream, text) in self.pending.drain(..) {
             let _ = match stream {
@@ -168,6 +191,121 @@ impl Out {
                 }
             };
         }
+    }
+}
+
+/// How much standard output takes in one write without waiting, where that
+/// is certain.
+#[cfg(unix)]
+mod room {
+    use std::fs::{File, Metadata};
+    use std::mem::ManuallyDrop;
+    use std::os::fd::FromRawFd;
+    use std::os::unix::fs::{FileTypeExt, MetadataExt};
+
+    fn stat(fd: i32) -> Option<Metadata> {
+        // SAFETY: the descriptor is only looked at, and never closed here.
+        let file = ManuallyDrop::new(unsafe { File::from_raw_fd(fd) });
+        file.metadata().ok()
+    }
+
+    /// Are standard error and standard output the same pipe or file (`2>&1`)?
+    pub fn stderr_is_stdout() -> bool {
+        match (stat(1), stat(2)) {
+            (Some(out), Some(err)) => out.dev() == err.dev() && out.ino() == err.ino(),
+            _ => true,
+        }
+    }
+
+    /// The room for one more write on standard output, after `before` bytes
+    /// in `writes` writes of this process: `None` for no room that is
+    /// certain, `Some(usize::MAX)` where a write is never cut short.
+    pub fn for_stdout(before: usize, writes: usize) -> Option<usize> {
+        let meta = stat(1)?;
+        let kind = meta.file_type();
+        if kind.is_file() {
+            return Some(usize::MAX);
+        }
+        if kind.is_char_device() {
+            // SAFETY: isatty only looks at the descriptor.
+            let terminal = unsafe { libc::isatty(1) } == 1;
+            let dev_null = std::fs::metadata("/dev/null").is_ok_and(|null| null.file_type().is_char_device() && null.rdev() == meta.rdev());
+            return (terminal || dev_null).then_some(usize::MAX);
+        }
+        if kind.is_fifo() {
+            return pipe(before, writes);
+        }
+        if kind.is_socket() {
+            return socket(before);
+        }
+        None
+    }
+
+    /// A pipe holds a number of pages; a write that does not fill a page
+    /// may be added to the last one, and the first may be partly read. So
+    /// what is certainly free: every page but those the bytes waiting in it
+    /// can take up, one more for a part read and one for each write of this
+    /// process that may have left a page partly filled.
+    #[cfg(target_os = "linux")]
+    fn pipe(before: usize, writes: usize) -> Option<usize> {
+        // SAFETY: plain queries of the descriptor, into a local.
+        let capacity = unsafe { libc::fcntl(1, libc::F_GETPIPE_SZ) };
+        let mut waiting: libc::c_int = 0;
+        let asked = unsafe { libc::ioctl(1, libc::FIONREAD, &mut waiting) };
+        let page = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
+        if capacity <= 0 || asked != 0 || waiting < 0 || page <= 0 {
+            return None;
+        }
+        let (capacity, page) = (capacity as usize, page as usize);
+        let queued = waiting as usize + before;
+        let used = if queued == 0 { 0 } else { queued.div_ceil(page) + 1 + writes };
+        Some((capacity / page).saturating_sub(used) * page)
+    }
+
+    /// A Unix stream socket with nothing waiting in it takes one write of up
+    /// to 32 KiB in one buffer, as long as that is well below its send
+    /// buffer. Anything else is not certain.
+    #[cfg(target_os = "linux")]
+    fn socket(before: usize) -> Option<usize> {
+        let option = |name: libc::c_int| -> Option<libc::c_int> {
+            let mut value: libc::c_int = 0;
+            let mut size = std::mem::size_of::<libc::c_int>() as libc::socklen_t;
+            // SAFETY: getsockopt writes at most `size` bytes into `value`.
+            let done = unsafe { libc::getsockopt(1, libc::SOL_SOCKET, name, (&mut value as *mut libc::c_int).cast(), &mut size) };
+            (done == 0).then_some(value)
+        };
+        if before > 0 || option(libc::SO_DOMAIN)? != libc::AF_UNIX || option(libc::SO_TYPE)? != libc::SOCK_STREAM {
+            return None;
+        }
+        let mut unsent: libc::c_int = 0;
+        // SAFETY: SIOCOUTQ writes one int.
+        if unsafe { libc::ioctl(1, libc::TIOCOUTQ, &mut unsent) } != 0 || unsent != 0 {
+            return None;
+        }
+        let half = usize::try_from(option(libc::SO_SNDBUF)?).ok()? / 2;
+        Some(half.saturating_sub(4096).min(32768))
+    }
+
+    /// Elsewhere (macOS) a pipe's or a socket's room is not known.
+    #[cfg(not(target_os = "linux"))]
+    fn pipe(_before: usize, _writes: usize) -> Option<usize> {
+        None
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    fn socket(_before: usize) -> Option<usize> {
+        None
+    }
+}
+
+#[cfg(not(unix))]
+mod room {
+    pub fn stderr_is_stdout() -> bool {
+        true
+    }
+
+    pub fn for_stdout(_before: usize, _writes: usize) -> Option<usize> {
+        None
     }
 }
 
