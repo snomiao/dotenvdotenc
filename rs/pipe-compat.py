@@ -81,7 +81,7 @@ def into(kind, command, cwd, prefill=0, nonblocking=False, both=False, capacity=
     if kind == "pipe":
         read_end, write_end = os.pipe()
         if capacity:
-            fcntl.fcntl(write_end, F_SETPIPE_SZ, capacity)
+            fcntl.fcntl(write_end, F_SETPIPE_SZ, capacity)  # at most /proc/sys/fs/pipe-max-size, 1 MiB by default
     else:
         a, b = socket.socketpair()
         write_end, read_end = a.detach(), b.detach()
@@ -107,6 +107,7 @@ def into(kind, command, cwd, prefill=0, nonblocking=False, both=False, capacity=
 
 
 NATIVE, BACK = False, True
+SEND_BUFFER = socket.socketpair()[0].getsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF)
 SCENES = [
     # (what, the name it gets, pipe or socket, keyword arguments of `into`, handed back?)
     ("a value of 1,000 bytes into a pipe", 1000, "pipe", {}, NATIVE),
@@ -122,7 +123,9 @@ SCENES = [
     ("1,000 bytes into a pipe that standard error shares, after the warnings", 1000, "pipe", {"both": True}, NATIVE),
     ("65,536 bytes into a pipe that standard error shares, after the warnings", 65536, "pipe", {"both": True}, BACK),
     ("1,000 bytes into a socket", 1000, "socket", {}, NATIVE),
-    ("32,768 bytes into a socket", 32768, "socket", {}, NATIVE),
+    # (32 KiB is certain where the send buffer is at least 72 KiB, as Linux's
+    # default of 208 KiB is.)
+    ("32,768 bytes into a socket", 32768, "socket", {}, NATIVE if SEND_BUFFER // 2 - 4096 >= 32768 else BACK),
     ("32,769 bytes into a socket: more than is certain", 32769, "socket", {}, BACK),
     ("200,000 bytes into a socket", 200000, "socket", {}, BACK),
     ("1,000 bytes into a socket already holding some", 1000, "socket", {"prefill": 100}, BACK),
