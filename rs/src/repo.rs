@@ -84,10 +84,104 @@ pub fn possible_records(start: &str, env: &Env) -> Result<Vec<String>, HandBack>
 /// Where git keeps the hooks of the work tree `top` (as `git rev-parse
 /// --show-toplevel` gave it), and whether `core.hooksPath` is set.
 pub struct Hooks {
-    /// What `git rev-parse --path-format=absolute --git-path hooks` prints.
+    /// What `git rev-parse --path-format=absolute --git-path hooks` prints:
+    /// a real path, with every symbolic link in it resolved.
     pub dir: String,
     /// Is `git config core.hooksPath` anything but empty?
     pub path_set: bool,
+}
+
+/// The real path of something that is there, as git's `real_path` gives it
+/// (abspath.c, dying where it is not): `None` then, or where it is not text.
+fn real_path(path: &str) -> Option<String> {
+    fs::canonicalize(path).ok()?.into_os_string().into_string().ok()
+}
+
+/// abspath.c `strip_last_component`.
+fn strip_last_component(path: &mut String) {
+    let bytes = path.as_bytes();
+    let offset = usize::from(bytes.first() == Some(&b'/'));
+    let mut len = bytes.len();
+    while offset < len && bytes[len - 1] != b'/' {
+        len -= 1;
+    }
+    while offset < len && bytes[len - 1] == b'/' {
+        len -= 1;
+    }
+    path.truncate(len);
+}
+
+/// What git prints for a path under `--path-format=absolute`: abspath.c
+/// `strbuf_realpath_forgiving(…, die_on_error)`, step by step. Each part of
+/// the absolute `path` is looked at in turn; a symbolic link is replaced by
+/// what it points to, which is then walked in its place; `..` takes off the
+/// last part of what has been resolved so far; parts that do not exist are
+/// kept as they are written. `None` where git dies instead (a part that is a
+/// file with more after it, a link that cannot be read, more links than git
+/// follows), or where a link does not point to text.
+pub fn real_path_forgiving(path: &str) -> Option<String> {
+    let mut remaining = path.strip_prefix('/')?.to_string();
+    let mut resolved = String::from("/");
+    let mut links = 0;
+    while !remaining.is_empty() {
+        let rest = remaining.trim_start_matches('/');
+        let end = rest.find('/').unwrap_or(rest.len());
+        let next = rest[..end].to_string();
+        remaining = rest[end..].to_string();
+        if next.is_empty() || next == "." {
+            continue;
+        }
+        if next == ".." {
+            strip_last_component(&mut resolved);
+            continue;
+        }
+        if !resolved.ends_with('/') {
+            resolved.push('/');
+        }
+        resolved.push_str(&next);
+        match fs::symlink_metadata(&resolved) {
+            // Git goes on with the rest as written (REALPATH_MANY_MISSING).
+            Err(err) if err.kind() == ErrorKind::NotFound => {}
+            Err(_) => return None,
+            Ok(meta) if meta.file_type().is_symlink() => {
+                // Git gives up after 32; this gives up first.
+                links += 1;
+                if links > 32 {
+                    return None;
+                }
+                let target = fs::read_link(&resolved).ok()?.into_os_string().into_string().ok()?;
+                let mut walk = match target.strip_prefix('/') {
+                    Some(below_root) => {
+                        resolved = String::from("/");
+                        below_root.to_string()
+                    }
+                    None if target.is_empty() => return None,
+                    None => {
+                        strip_last_component(&mut resolved);
+                        target
+                    }
+                };
+                if !remaining.is_empty() {
+                    walk.push('/');
+                    walk.push_str(&remaining);
+                }
+                remaining = walk;
+            }
+            Ok(_) => {}
+        }
+    }
+    Some(resolved)
+}
+
+/// The directory husky's hooks are installed in when git names `hooks`:
+/// `hooks.replace(/\/\.husky\/_\/?$/, "/.husky")` of dede.ts, on what git
+/// printed, trimmed.
+pub fn husky_dir_of(hooks: &str) -> String {
+    let hooks = js::trim(hooks);
+    match regex(r"\/\.husky\/_\/?$", "").find(hooks) {
+        Some(found) => format!("{}/.husky", &hooks[..found.start()]),
+        None => hooks.to_string(),
+    }
 }
 
 /// `git config core.hooksPath` and `git rev-parse --path-format=absolute
@@ -96,19 +190,41 @@ pub struct Hooks {
 /// `include`, no continued lines, `hooksPath = <value>` without quotes,
 /// escapes or comments, a value that is not `~user/…` or `%(prefix)/…` and
 /// has no `..`, set in the user's or the repository's configuration.
-/// Anything else is handed back, a system-wide setting included.
+/// Anything else is handed back, a system-wide setting included. The path is
+/// worked out the way git builds it, from the git directory a `.git` file
+/// names and the common directory of a linked worktree, both real paths, and
+/// resolved as git resolves it (`real_path_forgiving`): through a symbolic
+/// link it can end in `/.husky/_`, or no longer end so, and that decides
+/// where the TypeScript puts the hooks.
 pub fn hooks(top: &str, env: &Env) -> Result<Hooks, HandBack> {
     if moved(env) {
         return Err(HandBack);
     }
-    let dot_git = join(top, ".git");
+    let dot_git = format!("{top}/.git");
+    // setup.c: `.git` as it is, or the real path of the directory a `.git`
+    // file names (read_gitfile_gently), relative to the directory it is in.
     let git_dir = match fs::metadata(&dot_git) {
         Ok(meta) if meta.is_dir() => dot_git,
-        Ok(_) => gitfile_target(&dot_git, top).ok_or(HandBack)?,
+        Ok(_) => {
+            let text = js::utf8(&fs::read(&dot_git).map_err(|_| HandBack)?);
+            let named = text.strip_prefix("gitdir: ").ok_or(HandBack)?.trim_end_matches(['\n', '\r']);
+            if named.is_empty() {
+                return Err(HandBack);
+            }
+            let named = if named.starts_with('/') { named.to_string() } else { format!("{top}/{named}") };
+            real_path(&named).ok_or(HandBack)?
+        }
         Err(_) => return Err(HandBack),
     };
-    let common_dir = match fs::read(join(&git_dir, "commondir")) {
-        Ok(bytes) => resolve(&git_dir, js::utf8(&bytes).trim_end_matches(['\n', '\r'])),
+    // path.c get_common_dir_noenv: the real path of what `commondir` names,
+    // relative to the git directory.
+    let common_dir = match fs::read(format!("{git_dir}/commondir")) {
+        Ok(bytes) => {
+            let text = js::utf8(&bytes);
+            let named = text.trim_end_matches(['\n', '\r']);
+            let named = if named.starts_with('/') { named.to_string() } else { format!("{git_dir}/{named}") };
+            real_path(&named).ok_or(HandBack)?
+        }
         Err(err) if err.kind() == ErrorKind::NotFound => git_dir.clone(),
         Err(_) => return Err(HandBack),
     };
@@ -147,7 +263,8 @@ pub fn hooks(top: &str, env: &Env) -> Result<Hooks, HandBack> {
         }
     }
     let Some(value) = value else {
-        return Ok(Hooks { dir: join(&common_dir, "hooks"), path_set: false });
+        let dir = real_path_forgiving(&format!("{common_dir}/hooks")).ok_or(HandBack)?;
+        return Ok(Hooks { dir, path_set: false });
     };
     let expanded = if value == "~" || value.starts_with("~/") {
         format!("{home}{}", &value[1..])
@@ -156,8 +273,10 @@ pub fn hooks(top: &str, env: &Env) -> Result<Hooks, HandBack> {
     } else {
         value
     };
-    // Relative to the work tree, `.` and repeated or trailing slashes gone.
-    Ok(Hooks { dir: resolve(top, &expanded), path_set: true })
+    // Relative to the work tree, which is where git runs.
+    let named = if expanded.starts_with('/') { expanded } else { format!("{top}/{expanded}") };
+    let dir = real_path_forgiving(&named).ok_or(HandBack)?;
+    Ok(Hooks { dir, path_set: true })
 }
 
 /// GIT_CONFIG_NOSYSTEM as git reads a boolean.
@@ -344,6 +463,79 @@ pub mod can {
 #[cfg(test)]
 mod tests {
     use super::hooks_path_in;
+
+    /// `hooks(top).dir` is what `git rev-parse --path-format=absolute
+    /// --git-path hooks` prints, with symbolic links on the way, in linked
+    /// worktrees and through `.git` files; where git fails, it hands back.
+    #[cfg(unix)]
+    #[test]
+    fn hooks_dir_is_what_git_prints() {
+        use super::hooks;
+        use crate::env::Env;
+        use std::process::Command;
+        let base = std::env::temp_dir().join(format!("dede-hooks-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(&base).unwrap();
+        let base = std::fs::canonicalize(&base).unwrap().into_os_string().into_string().unwrap();
+        let scenes: [(&str, &str); 25] = [
+            ("plain", "git init -q w"),
+            (".git/hooks a link", "git init -q w && mkdir elsewhere && rm -rf w/.git/hooks && ln -s ../../elsewhere w/.git/hooks"),
+            (".git/hooks a link to nowhere", "git init -q w && rm -rf w/.git/hooks && ln -s ../nowhere w/.git/hooks"),
+            (".husky a link, .husky/_", "git init -q w && mkdir -p w/real/_ && ln -s real w/.husky && git -C w config core.hooksPath .husky/_"),
+            (".husky/_ a link to ../hk", "git init -q w && mkdir -p w/.husky w/hk && ln -s ../hk w/.husky/_ && git -C w config core.hooksPath .husky/_"),
+            ("hooks a link to .husky/_", "git init -q w && mkdir -p w/.husky/_ && ln -s .husky/_ w/hooks && git -C w config core.hooksPath hooks"),
+            (".husky/_ a link to a file", "git init -q w && mkdir -p w/.husky && echo x > w/hfile && ln -s ../hfile w/.husky/_ && git -C w config core.hooksPath .husky/_"),
+            ("absolute through a link", "git init -q w && mkdir -p w/.husky/_ && ln -s .husky w/alias && git -C w config core.hooksPath \"$PWD/w/alias/_\""),
+            ("~/hk a link", "git init -q w && mkdir -p w/.husky/_ && ln -s \"$PWD/w/.husky/_\" \"$HOME/hk\" && git config --global core.hooksPath '~/hk'"),
+            ("set twice", "git init -q w && mkdir -p w/.husky/_ && ln -s .husky/_ w/second && git -C w config core.hooksPath first && git -C w config --add core.hooksPath second"),
+            ("./ and a trailing slash", "git init -q w && git -C w config core.hooksPath ./githooks/"),
+            ("a doubled slash", "git init -q w && mkdir -p w/.husky/_ && git -C w config core.hooksPath .husky//_"),
+            ("a link to a link", "git init -q w && mkdir -p w/d/_ && ln -s d w/l1 && ln -s l1 w/l2 && git -C w config core.hooksPath l2/_"),
+            ("an absolute link", "git init -q w && mkdir -p w/x/.husky/_ && ln -s \"$PWD/w/x/.husky\" w/.husky && git -C w config core.hooksPath .husky/_"),
+            ("a link to nowhere with more after it", "git init -q w && ln -s nothere w/gone && git -C w config core.hooksPath gone/_"),
+            ("a link going up", "git init -q w && mkdir -p w/a/b && ln -s ../.. w/a/b/up && git -C w config core.hooksPath a/b/up/hk"),
+            ("a path through a file", "git init -q w && echo x > w/hfile && git -C w config core.hooksPath hfile/x"),
+            ("a link that loops", "git init -q w && ln -s loop w/loop && git -C w config core.hooksPath loop/x"),
+            (".git a link", "git init -q w && mv w/.git realgit && ln -s ../realgit w/.git"),
+            ("a .git file, relative, CRLF", "git init -q --separate-git-dir=gd w && printf 'gitdir: ../gd\\r\\n' > w/.git"),
+            ("a .git file through a link", "mkdir -p x/y && git init -q --separate-git-dir=x/gd w && ln -s \"$PWD/x/y\" w/lnk && printf 'gitdir: lnk/../gd\\n' > w/.git"),
+            ("a linked worktree", "git init -q main && git -C main commit -q --allow-empty -m i && git -C main worktree add -q ../w"),
+            ("a linked worktree, .husky a link", "git init -q main && git -C main commit -q --allow-empty -m i && git -C main worktree add -q ../w && git -C main config core.hooksPath .husky/_ && mkdir -p w/real/_ && ln -s real w/.husky"),
+            ("a linked worktree of a main reached through a link", "mkdir real && git init -q real/main && ln -s real alias && git -C alias/main commit -q --allow-empty -m i && git -C alias/main worktree add -q ../../w"),
+            ("the hooks of a main through a link", "git init -q main && git -C main commit -q --allow-empty -m i && git -C main worktree add -q ../w && mkdir outside && rm -rf main/.git/hooks && ln -s ../../outside main/.git/hooks"),
+        ];
+        for (number, (what, setup)) in scenes.iter().enumerate() {
+            let dir = format!("{base}/{number}");
+            let home = format!("{dir}/home");
+            std::fs::create_dir_all(&home).unwrap();
+            let git = |args: &[&str], cwd: &str| {
+                Command::new("sh")
+                    .args(["-c", &format!("git {}", args.join(" ")), "sh"])
+                    .current_dir(cwd)
+                    .env("HOME", &home)
+                    .env("XDG_CONFIG_HOME", format!("{home}/.config"))
+                    .env("GIT_CONFIG_NOSYSTEM", "1")
+                    .env_remove("GIT_DIR")
+                    .env_remove("GIT_WORK_TREE")
+                    .env_remove("GIT_COMMON_DIR")
+                    .output()
+                    .unwrap()
+            };
+            let made = Command::new("sh").args(["-c", setup]).current_dir(&dir).env("HOME", &home).env("GIT_CONFIG_NOSYSTEM", "1").env("GIT_AUTHOR_NAME", "t").env("GIT_AUTHOR_EMAIL", "t@example.com").env("GIT_COMMITTER_NAME", "t").env("GIT_COMMITTER_EMAIL", "t@example.com").output().unwrap();
+            assert!(made.status.success(), "{what}: {}", String::from_utf8_lossy(&made.stderr));
+            let work = format!("{dir}/w");
+            let top = String::from_utf8(git(&["rev-parse", "--show-toplevel"], &work).stdout).unwrap().trim().to_string();
+            let named = git(&["rev-parse", "--path-format=absolute", "--git-path", "hooks"], &top);
+            let env = Env::with(&[("HOME", &home), ("XDG_CONFIG_HOME", &format!("{home}/.config")), ("GIT_CONFIG_NOSYSTEM", "1")]);
+            let foreseen = hooks(&top, &env).map(|hooks| hooks.dir);
+            if named.status.success() {
+                assert_eq!(foreseen.as_deref().ok(), Some(String::from_utf8(named.stdout).unwrap().trim_end_matches('\n')), "{what}");
+            } else {
+                assert!(foreseen.is_err(), "{what}: git failed, and the binary did not hand back");
+            }
+        }
+        std::fs::remove_dir_all(&base).unwrap();
+    }
 
     #[test]
     fn hooks_path_is_read_only_from_plain_files() {

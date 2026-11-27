@@ -92,6 +92,12 @@ impl Env {
         Ok(env)
     }
 
+    /// The real environment with `added` on top, for tests.
+    #[cfg(all(test, unix))]
+    pub fn with(added: &[(&str, &str)]) -> Env {
+        Env { added: added.iter().map(|(key, value)| (key.to_string(), value.to_string())).collect() }
+    }
+
     /// `process.env[key]`
     pub fn get(&self, key: &str) -> Option<String> {
         if let Some((_, value)) = self.added.iter().find(|(k, _)| same_name(k, key)) {

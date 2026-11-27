@@ -7,7 +7,9 @@
 //! package.json (which the TypeScript rewrites through `JSON.parse` and
 //! `JSON.stringify`) and at the lefthook file, and `foresee_setup` at every file
 //! and directory the run will read, make or replace, in the hooks directory
-//! git will name (`repo::hooks`). Where one of them would make the
+//! git will name (`repo::hooks`: a real path, links resolved the way git
+//! resolves them, so that `/.husky/_` is stripped from it where the
+//! TypeScript strips it from git's answer). Where one of them would make the
 //! TypeScript end in an uncaught error after its first write (core.hooksPath
 //! naming a file, a hook that is a directory or cannot be read, a hooks
 //! directory that cannot be written, .husky a file), the invocation is
@@ -145,14 +147,7 @@ impl Dede {
             }
             return Ok(());
         }
-        let dir = if !hooks.path_set && exists(&husky_dir) {
-            husky_dir
-        } else {
-            match hooks.dir.strip_suffix("/.husky/_") {
-                Some(top) => format!("{top}/.husky"),
-                None => hooks.dir,
-            }
-        };
+        let dir = if !hooks.path_set && exists(&husky_dir) { husky_dir } else { crate::repo::husky_dir_of(&hooks.dir) };
         let mut made = false;
         for (name, mark) in [("pre-commit", HOOK_MARK), ("post-merge", NOTICE_MARK), ("post-checkout", NOTICE_MARK)] {
             let hook = join(&dir, name);
@@ -231,12 +226,7 @@ impl Dede {
         let dir = if !hooks_path_set && exists(&husky_dir) {
             husky_dir
         } else {
-            let hooks = self.git(&["rev-parse", "--path-format=absolute", "--git-path", "hooks"], &top)?.1;
-            let hooks = js::trim(&hooks);
-            match regex(r"\/\.husky\/_\/?$", "").find(hooks) {
-                Some(found) => format!("{}/.husky", &hooks[..found.start()]),
-                None => hooks.to_string(),
-            }
+            crate::repo::husky_dir_of(&self.git(&["rev-parse", "--path-format=absolute", "--git-path", "hooks"], &top)?.1)
         };
         if dir.is_empty() {
             return die("cannot locate the git hooks directory".into(), 1);
