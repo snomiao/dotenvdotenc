@@ -1040,6 +1040,17 @@ add("colour: FORCE_COLOR in a .env file bun loads changes nothing", ["get", "MIS
 add("colour: a FORCE_COLOR that was not tried", ["get", "MISSING"], { files: { ".env.local.enc": LOCAL_ENC }, setup: [K1], env: { FORCE_COLOR: "3" }, back: "what bun makes of this value of FORCE_COLOR was not recorded" });
 add("colour: a NO_COLOR that was not tried", ["get", "MISSING"], { files: { ".env.local.enc": LOCAL_ENC }, setup: [K1], env: { NO_COLOR: "yes" }, back: "what bun makes of this value of NO_COLOR was not recorded" });
 
+// ═══════════════════════════ the verifier's cases ═══════════════════════════
+//
+// 285 cases an independent verifier wrote against the port at 24d24a9
+// (rs/parity.more.mjs), in the order it wrote them.
+
+const more = await import("./parity.more.mjs");
+for (const testCase of more.cases) {
+  if (cases.some((c) => c.name === testCase.name)) throw new Error(`two cases named ${JSON.stringify(testCase.name)}`);
+  cases.push(testCase);
+}
+
 // ═══════════════════════════ write ═══════════════════════════
 
 const out = { env: { TZ: "UTC", GIT_CONFIG_NOSYSTEM: "1", PARITY_GIT_LOG: "<HOME>/git.log" }, cases };
