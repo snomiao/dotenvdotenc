@@ -193,10 +193,17 @@ SCENES += [
 ]
 
 
+# On macOS the binary hands back a get that prints into a pipe: it asks
+# Linux alone how much room a pipe has (rs/src/out.rs stdout_takes).
+BACK_ON_MACOS = {"get into a pipe, errors to the terminal"}
+
+
 def main():
     base = template()
     failed = 0
     for number, (what, arguments, answer, terminals, variables, handed_back) in enumerate(SCENES, 1):
+        if sys.platform == "darwin" and what in BACK_ON_MACOS:
+            handed_back = BACK
         seen = {}
         env = {**ENV, **variables}
         for name, command in IMPLEMENTATIONS.items():

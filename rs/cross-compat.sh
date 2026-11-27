@@ -36,6 +36,10 @@ same() { [ "$1" = "$2" ] || fail "$3: got '$1', expected '$2'"; }
 # edit <sed script> <file>: in place, keeping the file and its mode (GNU and
 # BSD sed spell -i differently).
 edit() { sed "$1" "$2" > "$WORK/edited" && cat "$WORK/edited" > "$2" && rm "$WORK/edited"; }
+# got <ts|rs> get NAME: what get printed, by way of a file. On macOS the binary
+# hands back a get that prints into a pipe (rs/src/out.rs stdout_takes), and
+# here it has no package to hand back to.
+got() { "$@" > "$WORK/got" && cat "$WORK/got"; }
 # A repository with dede's ignore rules; the name is the directory under $WORK.
 repo() {
   mkdir -p "$WORK/$1" && cd "$WORK/$1"
@@ -66,10 +70,10 @@ for pair in "ts rs" "rs ts"; do
   $writer enc 2> /dev/null
   [ -s .env.prod.enc ] && [ -s .env.keys ] || fail "$writer enc wrote no .enc or no key"
   same "$($reader status 2>&1)" "✓ .env.prod: in sync" "$reader status of what $writer encrypted"
-  same "$($reader get API_KEY)" "dummy-1" "$reader get API_KEY from $writer's .enc"
-  same "$($reader get MULTI)" "line one
+  same "$(got $reader get API_KEY)" "dummy-1" "$reader get API_KEY from $writer's .enc"
+  same "$(got $reader get MULTI)" "line one
 line two" "$reader get of a value over two lines"
-  same "$($reader get RAW)" '$HOME and $(id)' "$reader get of a raw value"
+  same "$(got $reader get RAW)" '$HOME and $(id)' "$reader get of a raw value"
   same "$($reader diff 2>&1)" "✓ .env.prod: no differences" "$reader diff"
   ok "$reader reads what $writer encrypted: status, get, diff"
 
@@ -87,7 +91,7 @@ line two" "$reader get of a value over two lines"
   cp .env.prod.enc before.enc
   $reader enc 2> /dev/null
   same "$(diff before.enc .env.prod.enc | grep -c '^[<>]')" "2" "lines of the .enc that $reader changed for one edited value"
-  same "$($writer get API_KEY)" "dummy-2" "$writer get after $reader re-encrypted"
+  same "$(got $writer get API_KEY)" "dummy-2" "$writer get after $reader re-encrypted"
   same "$($writer status 2>&1)" "✓ .env.prod: in sync" "$writer status after $reader re-encrypted"
   rm before.enc
   ok "after an edit $reader re-encrypts that one line of $writer's .enc, and $writer reads it"
@@ -107,8 +111,8 @@ if [ -x "$DOTENVX" ]; then
   printf 'HELLO="dummy world"\nOTHER=x\n' > .env.staging
   "$DOTENVX" encrypt -q -f .env.staging > /dev/null 2>&1 || "$DOTENVX" encrypt -f .env.staging > /dev/null
   mv .env.staging .env.staging.enc
-  same "$(rs get HELLO)" "$(ts get HELLO)" "get from a file dotenvx encrypted, Rust against TypeScript"
-  same "$(rs get HELLO)" "dummy world" "get from a file dotenvx encrypted"
+  same "$(got rs get HELLO)" "$(got ts get HELLO)" "get from a file dotenvx encrypted, Rust against TypeScript"
+  same "$(got rs get HELLO)" "dummy world" "get from a file dotenvx encrypted"
   ok "the Rust binary reads a file dotenvx encrypted, with the key dotenvx made"
 else
   echo "skipped: no dotenvx in node_modules (run bun install)"
@@ -165,7 +169,7 @@ for pair in "ts rs" "rs ts"; do
   grep '^DOTENV_PRIVATE_KEY_ROOT=' .env.keys > root.only && mv root.only .env.keys
   $maker enc .env.keys.team --key ROOT 2> /dev/null
   rm .env.keys.team .env.production
-  same "$($user get SECRET)" "in-production" "$user get through the key tree $maker made"
+  same "$(got $user get SECRET)" "in-production" "$user get through the key tree $maker made"
   $user keys | grep -q '\.env\.keys\.team\.enc ← \.env\.keys$' || fail "$user keys does not show the path through $maker's tree: $($user keys)"
   $user dec .env.production 2> /dev/null
   same "$(cat .env.production)" "SECRET=in-production" "$user dec through the key tree"

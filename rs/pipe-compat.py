@@ -17,7 +17,13 @@ same way. A third run of the binary, with a stand-in package whose
 JavaScript only says it was reached, shows whether the binary answered the
 scene itself or handed it back, and that has to be what the scene says.
 
-    python3 rs/pipe-compat.py [path/to/the/binary]     (after `bun install`; Linux)
+    python3 rs/pipe-compat.py [path/to/the/binary]     (after `bun install`; Linux or macOS)
+
+On macOS bun loses the same way (65,536 bytes of a larger value reach a
+pipe, 8,192 a socket, on macOS 27 with bun 1.4.4), and the binary does not
+ask macOS how much room a pipe or a socket has: there it hands back every
+scene, which the stand-in run checks, and both must still print the same.
+The scene of a pipe made larger with F_SETPIPE_SZ is Linux's alone.
 
 Everything happens in a temp directory with its own HOME; the key is a
 throwaway (the digit 1 sixty-four times, made here).
@@ -133,12 +139,22 @@ SCENES = [
 ]
 
 
+LINUX = sys.platform.startswith("linux")
+
+
 def main():
-    if not sys.platform.startswith("linux"):
-        sys.exit("pipe-compat.py: Linux only (pipes and sockets elsewhere are handed back without a look)")
+    if not LINUX and sys.platform != "darwin":
+        sys.exit("pipe-compat.py: Linux and macOS only")
     base = template()
     failed = 0
+    skipped = 0
     for number, (what, size, kind, options, handed_back) in enumerate(SCENES, 1):
+        if not LINUX:
+            if "capacity" in options:
+                skipped += 1
+                print(f"skip {number} - {what}: F_SETPIPE_SZ is Linux's")
+                continue
+            handed_back = BACK
         seen = {}
         for name, command in IMPLEMENTATIONS.items():
             cwd = os.path.join(WORK, f"{number}-{name}")
@@ -158,9 +174,10 @@ def main():
             for name, (code, data, err) in seen.items():
                 print(f"    {name}: exit {code}, {len(data)} bytes ({hashlib.sha256(data).hexdigest()[:16]}), stderr {err[:300]!r}")
     shutil.rmtree(WORK, ignore_errors=True)
+    ran = len(SCENES) - skipped
     if failed:
-        sys.exit(f"{failed} of {len(SCENES)} scenes differ")
-    print(f"all {len(SCENES)} scenes print the same into a pipe or a socket, and are handed back where they say so")
+        sys.exit(f"{failed} of {ran} scenes differ")
+    print(f"all {ran} scenes print the same into a pipe or a socket, and are handed back where they say so{'' if LINUX else ' (every one on macOS)'}")
 
 
 main()
