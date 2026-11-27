@@ -1,0 +1,6 @@
+{
+ "1|API_KEY#0|dummy-1": "encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=",
+ "1|NAME#0|hello world": "encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7",
+ "2|API_KEY#0|dummy-prod": "encrypted:BFjb1md8QOpAWzvWe7sB6BKlAeMO/mHMTX2iaFm2TbIfnuFgHUyX9myMXrJaVsfIXhuzDyIT4f31rWw5BX6uHclSamDWJANYwOWPOBQKKrbpJ48NEsbc/dLRfktyVihgrrt5jxlgUBe2BcY=",
+ "2|URL#0|https://example.test/x?y=1": "encrypted:BCvoebJb3GztyJ17cYlTRvd98tWfeR+Z1QH6YpQ/RL39xzIwmf1G7GqoGdHwQTejEXjMu2zAnaw6nD2J8NqKtJu/1mt6km/9APjuFLxo+pzc63qMOY9yY4hGAml/0MlDSxkzZCH8gz1LjM29gYqIHcq4Il2+FTtwueXD"
+}

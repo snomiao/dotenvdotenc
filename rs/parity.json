@@ -1,0 +1,187 @@
+{
+ "env": {
+  "TZ": "UTC",
+  "GIT_CONFIG_NOSYSTEM": "1",
+  "PARITY_GIT_LOG": "<HOME>/git.log"
+ },
+ "cases": [
+  {
+   "name": "usage: no arguments prints the usage",
+   "args": [],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "usage: help",
+   "args": [
+    "help"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "usage: --help",
+   "args": [
+    "--help"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "usage: -h",
+   "args": [
+    "-h"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "usage: help ignores what follows",
+   "args": [
+    "help",
+    "enc",
+    "--force"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "usage: an unknown command prints the usage to stderr and exits 4",
+   "args": [
+    "frobnicate"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "usage: --version is an unknown command",
+   "args": [
+    "--version"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "usage: an empty first argument is an unknown command",
+   "args": [
+    ""
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "usage: a flag in the command's place is an unknown command",
+   "args": [
+    "-fk",
+    "x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "usage: -fk without a path, even after help",
+   "args": [
+    "help",
+    "-fk"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "usage: --env-keys-file without a path, after an unknown command",
+   "args": [
+    "frobnicate",
+    "--env-keys-file"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "usage: --key without a name, after help",
+   "args": [
+    "help",
+    "--key"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "usage: --key with a lower-case name",
+   "args": [
+    "--help",
+    "--key",
+    "taku"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "usage: --key with a good name changes nothing for help",
+   "args": [
+    "help",
+    "--key",
+    "TAKU_2"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "usage: help in a directory with env files",
+   "args": [
+    "help"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env": "A=1\n",
+    ".env.local": "# api\nAPI_KEY=dummy-1\nNAME=\"hello world\"\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n"
+   },
+   "setup": [
+    "git init -q -b main"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "usage: DOTENVDOTENC_NO_NATIVE=1 hands help back",
+   "args": [
+    "help"
+   ],
+   "env": {
+    "DOTENVDOTENC_NO_NATIVE": "1"
+   },
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ],
+   "handback": "DOTENVDOTENC_NO_NATIVE=1 hands everything back"
+  },
+  {
+   "name": "usage: DOTENVDOTENC_NO_NATIVE=1 hands an unknown command back",
+   "args": [
+    "frobnicate"
+   ],
+   "env": {
+    "DOTENVDOTENC_NO_NATIVE": "1"
+   },
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ],
+   "handback": "DOTENVDOTENC_NO_NATIVE=1 hands everything back"
+  }
+ ]
+}
