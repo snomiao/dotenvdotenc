@@ -320,6 +320,27 @@ pub mod can {
     }
 }
 
+/// Off Unix nothing is looked at: every invocation is handed back there
+/// before it gets this far (cli.rs platform_is_proven).
+#[cfg(not(unix))]
+pub mod can {
+    pub fn create_in(_dir: &str) -> bool {
+        false
+    }
+
+    pub fn replace(_dir: &str, _target: &str) -> bool {
+        false
+    }
+
+    pub fn fill_new_dir() -> bool {
+        false
+    }
+
+    pub fn make_dir(_dir: &str) -> Result<bool, ()> {
+        Err(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::hooks_path_in;

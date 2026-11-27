@@ -117,7 +117,6 @@ impl Dede {
     /// TypeScript would end in an uncaught error after a first write. It
     /// follows the run step by step and stops where the run stops with a
     /// refusal of dede's own.
-    #[cfg(unix)]
     fn foresee_setup(&self, top: &str, writes_gitignore: bool) -> R<()> {
         use crate::repo::can;
         let gitignore = join(top, ".gitignore");
@@ -175,11 +174,6 @@ impl Dede {
             }
         }
         Ok(())
-    }
-
-    #[cfg(not(unix))]
-    fn foresee_setup(&self, _top: &str, _writes_gitignore: bool) -> R<()> {
-        Err(Stop::HandBack)
     }
 
     pub fn setup(&mut self) -> R<()> {
