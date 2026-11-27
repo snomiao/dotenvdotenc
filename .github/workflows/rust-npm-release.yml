@@ -1,0 +1,91 @@
+# Build and install test of the Rust port of dede, on the rustify pipeline
+# (https://github.com/snomiao/rustify).
+# From rustify's templates/github/rust-npm-release.yml, with the `publish` and
+# `verify` jobs and the `workflow_call` trigger removed: this workflow cannot
+# publish anything. Releases are still cut by release.yml (semantic-release).
+#
+# A pull request builds the binary for every platform, proves on Linux that
+# it behaves like dede.ts, packs it with the TypeScript the package ships,
+# and checks on Linux, macOS and Windows (x64 and arm64) that `bun i -g` /
+# `npm i -g` gives a working `dede` command.
+
+name: rust-npm-release
+
+on:
+  pull_request:
+    paths:
+      - "rs/**"
+      # The proof compares the binary with the TypeScript and with
+      # @dotenvx/primitives, so a change to either has to run it too.
+      - "dede.ts"
+      - "package.json"
+      - "bun.lock"
+      - ".bun-version"
+      - ".github/workflows/rust-npm-release.yml"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build, without a leading v (default: the version in rs/Cargo.toml)"
+        required: false
+        type: string
+      npm_tag:
+        description: "npm dist-tag the packages are packed for (nothing is published)"
+        required: false
+        default: latest
+        type: string
+
+jobs:
+  # What `cargo test` holds: scan, upsert, remove, keys and ciphertexts
+  # against values recorded from @dotenvx/primitives under bun
+  # (rs/vectors.gen.mjs), and the JavaScript rules the port spells out.
+  unit:
+    name: cargo test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo test --release --manifest-path rs/Cargo.toml
+
+  build:
+    uses: snomiao/rustify/.github/workflows/rust-npm-build.yml@releases/v1
+    with:
+      manifest: rs/Cargo.toml
+      bins: dotenvdotenc
+      version: ${{ inputs.version }}
+      npm-tag: ${{ inputs.npm_tag || 'latest' }}
+      # dede has no --version (it is an unknown command and prints the usage
+      # to stderr, exit 4), so the install test asks for the usage text.
+      smoke: dede --help
+      smoke-expect: dede enc [--force] [-y]
+      # Proof that the binary behaves like the TypeScript, on the Linux binary
+      # that was just built:
+      # - the cases file and the recorded vectors are what their generators write;
+      # - the parity cases, TypeScript against the binary (DOTENVDOTENC_PACKAGE_ROOT
+      #   lets it hand back what it does not answer);
+      # - the same cases against a stand-in package: exactly those marked
+      #   `handback` may reach the JavaScript;
+      # - the two taking turns on the same files, and dotenvx reading what the
+      #   binary encrypts;
+      # - both on a pseudo-terminal.
+      parity: >-
+        bun install --frozen-lockfile
+        && node rs/parity.gen.mjs --check
+        && bun rs/vectors.gen.mjs --check
+        && node "$RUSTIFY_PARITY" --cases rs/parity.json
+        --ts "sh rs/parity/run.sh bun dede.ts"
+        --rs "sh rs/parity/run.sh env DOTENVDOTENC_PACKAGE_ROOT=$GITHUB_WORKSPACE $RUSTIFY_BIN_DIR/dotenvdotenc"
+        && node "$RUSTIFY_PARITY" --cases rs/parity.json
+        --rs "sh rs/parity/run.sh $RUSTIFY_BIN_DIR/dotenvdotenc"
+        --handback DOTENVDOTENC_PACKAGE_ROOT=dede.ts
+        && sh rs/cross-compat.sh "$RUSTIFY_BIN_DIR/dotenvdotenc"
+        && python3 rs/tty-compat.py "$RUSTIFY_BIN_DIR/dotenvdotenc"
+      # After installing, on every platform. The parity job runs on Linux
+      # only; these lines are all that macOS and Windows get. An unknown
+      # command prints the usage and exits 4; `get` without a name, and for a
+      # name no file here has, are a ported command's own refusals. On Linux
+      # and macOS the binary answers all three itself; on Windows it hands
+      # every invocation back to dede.ts, which answers the same.
+      smoke-extra: |
+        [4] dede frobnicate => dede enc [--force] [-y]
+        [4] dede get => usage: dede get NAME
+        [1] dede get RUSTIFY_SMOKE_NO_SUCH_NAME => RUSTIFY_SMOKE_NO_SUCH_NAME not found in
