@@ -28,7 +28,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BIN = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else os.path.join(REPO, "rs/target/release/dotenvdotenc")
 WORK = tempfile.mkdtemp(prefix="dede-tty-")
 
-ENV = {k: v for k, v in os.environ.items() if not k.startswith("DOTENV_") and k not in ("NODE_ENV", "BUN_ENV", "BUN_OPTIONS", "NODE_OPTIONS", "DOTENVDOTENC_NO_NATIVE")}
+ENV = {k: v for k, v in os.environ.items() if not k.startswith("DOTENV_") and k not in ("NODE_ENV", "BUN_ENV", "BUN_OPTIONS", "NODE_OPTIONS", "NO_COLOR", "FORCE_COLOR", "DOTENVDOTENC_NO_NATIVE")}
 ENV.update(HOME=os.path.join(WORK, "home"), XDG_CONFIG_HOME=os.path.join(WORK, "home/.config"), XDG_CACHE_HOME=os.path.join(WORK, "cache"), GIT_CONFIG_NOSYSTEM="1", TZ="UTC", TERM="xterm-256color")
 os.makedirs(ENV["HOME"])
 

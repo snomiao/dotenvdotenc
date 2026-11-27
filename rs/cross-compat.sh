@@ -21,7 +21,7 @@ DOTENVX=$REPO/node_modules/.bin/dotenvx
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 for name in $(env | sed -n 's/^\(DOTENV_[A-Za-z0-9_]*\)=.*/\1/p'); do unset "$name"; done
-unset NODE_ENV BUN_ENV BUN_OPTIONS NODE_OPTIONS DOTENVDOTENC_NO_NATIVE
+unset NODE_ENV BUN_ENV BUN_OPTIONS NODE_OPTIONS NO_COLOR FORCE_COLOR DOTENVDOTENC_NO_NATIVE
 export HOME="$WORK/home" XDG_CONFIG_HOME="$WORK/home/.config" XDG_CACHE_HOME="$WORK/cache" GIT_CONFIG_NOSYSTEM=1 TZ=UTC
 mkdir -p "$HOME"
 git config --global user.name Cross && git config --global user.email cross@example.com
