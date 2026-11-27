@@ -129,7 +129,7 @@ const cases = [];
  */
 function add(name, args, o = {}) {
   const repo = o.repo === undefined ? IGNORE : o.repo;
-  const files = { ...(repo === false || repo === "" ? {} : { ".gitignore": repo }), ...(o.files || {}) };
+  const files = Object.fromEntries(Object.entries({ ...(repo === false || repo === "" ? {} : { ".gitignore": repo }), ...(o.files || {}) }).filter(([, text]) => text !== undefined));
   const setup = [...(repo === false ? [] : [INIT]), ...("state.fixture" in files ? [STATE] : []), ...(o.setup || [])];
   const env = { ...(o.keys ? { PARITY_KEYS: o.keys } : {}), ...(o.env || {}) };
   const testCase = { name, args };
@@ -855,6 +855,109 @@ guard("--all: a tracked keys file, a tracked key, a tracked bad .enc", { repo: "
 guard("--all does not look at what is staged as new", { files: { ".env.prod": "A=1\n" }, setup: ["git add -f .env.prod"] }, ["guard", "--all"]);
 guard("a staged file larger than bun's buffer", { setup: ["head -c 1500000 /dev/zero | tr '\\0' a > big.txt && git add big.txt"], back: "bun cuts the output of git off at about 1 MiB" });
 guard("DOTENVDOTENC_NO_NATIVE=1", { files: { ".env.prod": "A=1\n" }, env: { DOTENVDOTENC_NO_NATIVE: "1" }, back: "DOTENVDOTENC_NO_NATIVE=1 hands everything back" });
+
+// ═══════════════════════════ health ═══════════════════════════
+//
+// Ages are counted from now, so a commit is dated a number of days and twelve
+// hours back from the moment the case is set up: the day counts printed are
+// then the same whenever the case runs. (The one thing that can still differ
+// between the two runs of a case is a date, in the instant the clock passes
+// noon or midnight UTC between them.)
+
+const HEALTH = "API_TOKEN=t1\nexport DB_PASS=p1\nTOTP_SECRET=s1\nPLAIN_NAME=n1\n";
+const HEALTH_ENC = encFile(".env.prod", 2, HEALTH);
+/** Shell: commit what is staged, dated `days` and a half back. */
+const commitAgo = (days, message = "x") => `d="$(( $(date +%s) - ${days} * 86400 - 43200 )) +0000" && GIT_AUTHOR_DATE="$d" GIT_COMMITTER_DATE="$d" git commit -q -m ${message}`;
+const health = (name, yaml, o = {}, args = ["health"]) =>
+  add(`health: ${name}`, args, {
+    ...o,
+    files: { ".env.prod.enc": HEALTH_ENC, ...(yaml === null ? {} : { ".dede.yaml": yaml }), ...(o.files || {}) },
+    setup: [IDENT, ...(o.setup || [`git add . && ${commitAgo(100)}`])],
+  });
+const README_RULES = `# .dede.yaml — first matching rule wins; values no rule matches are counted, not checked
+rotate:
+  - keys: API_TOKEN                # glob(s) over value names (default: all)
+    expires: 2099-01-26            # the credential's own expiry date
+    note: "admin console → Keys"   # where to rotate it; printed in the report
+  - keys: ["*_TOTP_SECRET", "TOTP_*"]
+    every: never                   # exempt
+  - keys: ["*_TOKEN*", "*_API_KEY", "*_PASS*"]
+    every: 90d                     # Nd, Nw, Nm (months), Ny
+    warn: 14d                      # "due soon" window (default 30d)
+  - files: ".env.production"       # glob(s) over plaintext file names (default: all)
+    every: 1y
+`;
+health("the rules of the README", README_RULES);
+health("the rules of the README, --all", README_RULES, {}, ["health", "--all"]);
+health("overdue, with the rule's note", 'rotate:\n  - keys: "*_TOKEN*"\n    every: 90d\n    note: Settings → Tokens\n');
+health("due soon, inside the default window of 30 days", "rotate:\n  - keys: API_TOKEN\n    every: 120d\n");
+health("due soon, exactly at the edge of the window", "rotate:\n  - keys: API_TOKEN\n    every: 120d\n    warn: 19d\n");
+health("in date, just outside the window: counted, not printed", "rotate:\n  - keys: API_TOKEN\n    every: 120d\n    warn: 18d\n");
+health("in date, printed with --all", "rotate:\n  - keys: API_TOKEN\n    every: 1y\n", {}, ["health", "--all"]);
+health("weeks, months and years", "rotate:\n  - keys: API_TOKEN\n    every: 12w\n  - keys: DB_PASS\n    every: 6m\n  - keys: TOTP_SECRET\n    every: 1y\n  - every: 2 y\n", {}, ["health", "--all"]);
+health("an expiry long past", "rotate:\n  - keys: API_TOKEN\n    expires: 2020-02-29\n    note: 'expired'\n");
+health("an expiry far ahead, --all", "rotate:\n  - keys: API_TOKEN\n    expires: 2199-12-31\n", {}, ["health", "--all"]);
+health("an expiry on a day the month does not have", "rotate:\n  - keys: API_TOKEN\n    expires: 2020-02-30\n");
+health("an expiry and an age: whichever comes first", "rotate:\n  - keys: API_TOKEN\n    expires: 2199-12-31\n    every: 90d\n  - keys: DB_PASS\n    expires: 2020-01-01\n    every: 10y\n", {}, ["health", "--all"]);
+health("every: never exempts; values without a rule are counted", "rotate:\n  - keys: [API_TOKEN, DB_PASS]\n    every: never\n");
+health("never, and an expiry all the same", "rotate:\n  - every: never\n    expires: 2020-01-01\n");
+health("the first matching rule wins", "rotate:\n  - keys: \"*\"\n    every: 1y\n  - keys: API_TOKEN\n    every: 1d\n", {}, ["health", "--all"]);
+health("a rule for all values of all files", "rotate:\n  - every: 90d\n");
+health("a rule for one file by name, another by glob", "rotate:\n  - files: .env.other\n    every: 1d\n  - files: \".env.p*\"\n    keys: \"?B_PASS\"\n    every: 90d\n");
+health("an empty list of keys matches nothing", "rotate:\n  - keys: []\n    every: 1d\n");
+health("a wait of zero days", "rotate:\n  - keys: API_TOKEN\n    every: 0d\n");
+health("no rules: rotate is an empty list", "rotate: []\n");
+health("an empty file has no rules", "");
+health("comments only", "# nothing yet\n\n  # later\n");
+health("CRLF line endings", "rotate:\r\n  - keys: API_TOKEN\r\n    every: 90d\r\n");
+health("rules at the left margin, a byte order mark", "﻿rotate:\n- keys: API_TOKEN\n  every: 90d\n- keys: DB_PASS\n  every: 90d\n");
+health("no .dede.yaml", null);
+health("rotate without a list", "rotate:\n");
+health("an unknown field", "rotate:\n  - keys: API_TOKEN\n    every: 90d\n  - key: X\n    every: 1d\n");
+health("a duration that is none", "rotate:\n  - keys: API_TOKEN\n    every: ninety days\n");
+health("a number for a duration", "rotate:\n  - keys: API_TOKEN\n    every: 90\n");
+health("a window that is none", "rotate:\n  - keys: API_TOKEN\n    every: 90d\n    warn: soon\n");
+health("a date that is none", "rotate:\n  - keys: API_TOKEN\n    expires: 2027-13-01\n");
+health("the first mistake is reported: field, then date, then duration", "rotate:\n  - expires: 2027-00-00\n    every: x\n    warn: y\n  - nope: 1\n");
+health("a number as a name and as a note", "rotate:\n  - keys: 123\n    every: 90d\n  - keys: API_TOKEN\n    every: 90d\n    note: 42\n");
+health("a value changed later is younger than the rest", "rotate:\n  - every: 90d\n", {
+  files: { "later.enc": encFile(".env.prod", 2, HEALTH.replace("p1", "p2")) },
+  setup: [`git add .env.prod.enc .dede.yaml && ${commitAgo(200)}`, `mv later.enc .env.prod.enc && git add .env.prod.enc && ${commitAgo(10)}`],
+});
+health("an .enc that is not committed", "rotate:\n  - keys: API_TOKEN\n    every: 90d\n    warn: 1d\n", { setup: ["true"] }, ["health", "--all"]);
+health("an edit not committed yet counts as changed now", "rotate:\n  - every: 90d\n    warn: 1d\n", { files: { "later.enc": encFile(".env.prod", 2, HEALTH.replace("p1", "p2")) }, setup: [`git add .env.prod.enc .dede.yaml && ${commitAgo(200)}`, "mv later.enc .env.prod.enc"] });
+health("the last assignment of a name counts; a public key is no value", "rotate:\n  - every: 90d\n", {
+  files: { ".env.prod.enc": `${HEALTH_ENC}API_TOKEN=${seal(2, "t1", "again")}\nDOTENV_PUBLIC_KEY_X="${pub(1)}"\n  # c\n\nnot an assignment\n` },
+  setup: [`git add .env.prod.enc .dede.yaml && ${commitAgo(200)}`, "sed -i '$d' .env.prod.enc && echo 'ZED=encrypted:x' >> .env.prod.enc && git add . && " + commitAgo(10)],
+});
+health("several files", "rotate:\n  - keys: \"*\"\n    files: [.env.prod, \".env.local\"]\n    every: 90d\n", { files: { ".env.local.enc": LOCAL_ENC, ".env.other.enc": PROD_ENC } });
+health("one named file", "rotate:\n  - every: 90d\n", { files: { ".env.local.enc": LOCAL_ENC } }, ["health", ".env.local"]);
+health("a named file that is not there", "rotate:\n  - every: 90d\n", {}, ["health", ".env.nope"]);
+health("no .enc here", "rotate:\n  - every: 90d\n", { files: { ".env.prod.enc": undefined }, setup: ["true"] });
+health("the .enc is a symlink", "rotate:\n  - every: 90d\n", { files: { "elsewhere": LOCAL_ENC }, setup: ["ln -s elsewhere .env.local.enc"] });
+add("health: outside any repository", ["health"], { repo: false, files: { ".env.prod.enc": HEALTH_ENC, ".dede.yaml": "rotate: []\n" } });
+add("health: run in a subdirectory, the rules at the root", ["health"], { repo: false, files: { ...ABOVE, "../.dede.yaml": "rotate:\n  - every: 90d\n", ".env.prod.enc": HEALTH_ENC, ".dede.yaml": "rotate: []\n" }, setup: [INIT_ABOVE, IDENT, `git add .env.prod.enc && ${commitAgo(100)}`] });
+// What bun's YAML reader or its globs make of these is not imitated.
+for (const [what, yaml, why] of [
+  ["a number that is no plain integer", "rotate:\n  - keys: API_TOKEN\n    every: 1.5\n", "YAML numbers other than plain integers are not imitated"],
+  ["true for a name", "rotate:\n  - keys: true\n    every: 90d\n", "YAML booleans are not imitated"],
+  ["a field without a value", "rotate:\n  - keys:\n    every: 90d\n", "YAML null is not imitated"],
+  ["a rule in braces", "rotate:\n  - {keys: API_TOKEN, every: 90d}\n", "YAML flow mappings are not imitated"],
+  ["rotate that is a number", "rotate: 5\n", "only a block list under rotate is imitated"],
+  ["another top-level key", "version: 1\nrotate: []\n", "only rotate at the top level is imitated"],
+  ["an escape in quotes", "rotate:\n  - keys: API_TOKEN\n    every: 90d\n    note: \"a\\tb\"\n", "YAML escapes are not imitated"],
+  ["a note with a colon", "rotate:\n  - keys: API_TOKEN\n    every: 90d\n    note: see: the wiki\n", "bun's YAML reader rejects it, in its own words"],
+  ["a tab for indentation", "rotate:\n\t- keys: API_TOKEN\n", "bun's YAML reader rejects it, in its own words"],
+  ["an expiry with a time", "rotate:\n  - keys: API_TOKEN\n    expires: 2099-01-26T10:00\n", "Date.parse of anything but YYYY-MM-DD is not imitated"],
+  ["a glob with braces", "rotate:\n  - keys: \"{API,DB}_*\"\n    every: 90d\n", "Bun.Glob beyond * and ? is not imitated"],
+  ["a glob with a character class", "rotate:\n  - keys: \"[A-D]*\"\n    every: 90d\n", "Bun.Glob beyond * and ? is not imitated"],
+  ["a glob with two stars", "rotate:\n  - keys: \"**\"\n    every: 90d\n", "Bun.Glob beyond * and ? is not imitated"],
+  ["a duration of seven digits", "rotate:\n  - keys: API_TOKEN\n    every: 1000000d\n", "JavaScript's arithmetic on very large numbers is not imitated"],
+]) {
+  health(what, yaml, { back: why });
+}
+health("a glob for the files to check", "rotate: []\n", { back: "Bun.Glob does the matching" }, ["health", ".env.*"]);
+health("DOTENVDOTENC_NO_NATIVE=1", "rotate: []\n", { env: { DOTENVDOTENC_NO_NATIVE: "1" }, back: "DOTENVDOTENC_NO_NATIVE=1 hands everything back" });
 
 // ═══════════════════════════ write ═══════════════════════════
 

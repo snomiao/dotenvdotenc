@@ -13564,6 +13564,1129 @@
     "git add .gitignore && git commit -q -m init"
    ],
    "handback": "DOTENVDOTENC_NO_NATIVE=1 hands everything back"
+  },
+  {
+   "name": "health: the rules of the README",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "# .dede.yaml — first matching rule wins; values no rule matches are counted, not checked\nrotate:\n  - keys: API_TOKEN                # glob(s) over value names (default: all)\n    expires: 2099-01-26            # the credential's own expiry date\n    note: \"admin console → Keys\"   # where to rotate it; printed in the report\n  - keys: [\"*_TOTP_SECRET\", \"TOTP_*\"]\n    every: never                   # exempt\n  - keys: [\"*_TOKEN*\", \"*_API_KEY\", \"*_PASS*\"]\n    every: 90d                     # Nd, Nw, Nm (months), Ny\n    warn: 14d                      # \"due soon\" window (default 30d)\n  - files: \".env.production\"       # glob(s) over plaintext file names (default: all)\n    every: 1y\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: the rules of the README, --all",
+   "args": [
+    "health",
+    "--all"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "# .dede.yaml — first matching rule wins; values no rule matches are counted, not checked\nrotate:\n  - keys: API_TOKEN                # glob(s) over value names (default: all)\n    expires: 2099-01-26            # the credential's own expiry date\n    note: \"admin console → Keys\"   # where to rotate it; printed in the report\n  - keys: [\"*_TOTP_SECRET\", \"TOTP_*\"]\n    every: never                   # exempt\n  - keys: [\"*_TOKEN*\", \"*_API_KEY\", \"*_PASS*\"]\n    every: 90d                     # Nd, Nw, Nm (months), Ny\n    warn: 14d                      # \"due soon\" window (default 30d)\n  - files: \".env.production\"       # glob(s) over plaintext file names (default: all)\n    every: 1y\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: overdue, with the rule's note",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: \"*_TOKEN*\"\n    every: 90d\n    note: Settings → Tokens\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: due soon, inside the default window of 30 days",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: API_TOKEN\n    every: 120d\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: due soon, exactly at the edge of the window",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: API_TOKEN\n    every: 120d\n    warn: 19d\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: in date, just outside the window: counted, not printed",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: API_TOKEN\n    every: 120d\n    warn: 18d\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: in date, printed with --all",
+   "args": [
+    "health",
+    "--all"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: API_TOKEN\n    every: 1y\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: weeks, months and years",
+   "args": [
+    "health",
+    "--all"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: API_TOKEN\n    every: 12w\n  - keys: DB_PASS\n    every: 6m\n  - keys: TOTP_SECRET\n    every: 1y\n  - every: 2 y\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: an expiry long past",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: API_TOKEN\n    expires: 2020-02-29\n    note: 'expired'\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: an expiry far ahead, --all",
+   "args": [
+    "health",
+    "--all"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: API_TOKEN\n    expires: 2199-12-31\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: an expiry on a day the month does not have",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: API_TOKEN\n    expires: 2020-02-30\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: an expiry and an age: whichever comes first",
+   "args": [
+    "health",
+    "--all"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: API_TOKEN\n    expires: 2199-12-31\n    every: 90d\n  - keys: DB_PASS\n    expires: 2020-01-01\n    every: 10y\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: every: never exempts; values without a rule are counted",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: [API_TOKEN, DB_PASS]\n    every: never\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: never, and an expiry all the same",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - every: never\n    expires: 2020-01-01\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: the first matching rule wins",
+   "args": [
+    "health",
+    "--all"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: \"*\"\n    every: 1y\n  - keys: API_TOKEN\n    every: 1d\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: a rule for all values of all files",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - every: 90d\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: a rule for one file by name, another by glob",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - files: .env.other\n    every: 1d\n  - files: \".env.p*\"\n    keys: \"?B_PASS\"\n    every: 90d\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: an empty list of keys matches nothing",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: []\n    every: 1d\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: a wait of zero days",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: API_TOKEN\n    every: 0d\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: no rules: rotate is an empty list",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate: []\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: an empty file has no rules",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": ""
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: comments only",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "# nothing yet\n\n  # later\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: CRLF line endings",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\r\n  - keys: API_TOKEN\r\n    every: 90d\r\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: rules at the left margin, a byte order mark",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "﻿rotate:\n- keys: API_TOKEN\n  every: 90d\n- keys: DB_PASS\n  every: 90d\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: no .dede.yaml",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: rotate without a list",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: an unknown field",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: API_TOKEN\n    every: 90d\n  - key: X\n    every: 1d\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: a duration that is none",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: API_TOKEN\n    every: ninety days\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: a number for a duration",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: API_TOKEN\n    every: 90\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: a window that is none",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: API_TOKEN\n    every: 90d\n    warn: soon\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: a date that is none",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: API_TOKEN\n    expires: 2027-13-01\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: the first mistake is reported: field, then date, then duration",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - expires: 2027-00-00\n    every: x\n    warn: y\n  - nope: 1\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: a number as a name and as a note",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: 123\n    every: 90d\n  - keys: API_TOKEN\n    every: 90d\n    note: 42\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: a value changed later is younger than the rest",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - every: 90d\n",
+    "later.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BCiM0BfF5UKqW9rtJfGwC1p9MQ0VaE6UhT7ncfGdjpLTj83nI3nlPlFHbzlMLmXf601gGzkkEz6eHJ1DevSN2GVockVmLjfbOeUibUJ54EQxRT/nLTAqVTAXx2qd5vYRaLTw\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .env.prod.enc .dede.yaml && d=\"$(( $(date +%s) - 200 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x",
+    "mv later.enc .env.prod.enc && git add .env.prod.enc && d=\"$(( $(date +%s) - 10 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: an .enc that is not committed",
+   "args": [
+    "health",
+    "--all"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: API_TOKEN\n    every: 90d\n    warn: 1d\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "true"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: an edit not committed yet counts as changed now",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - every: 90d\n    warn: 1d\n",
+    "later.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BCiM0BfF5UKqW9rtJfGwC1p9MQ0VaE6UhT7ncfGdjpLTj83nI3nlPlFHbzlMLmXf601gGzkkEz6eHJ1DevSN2GVockVmLjfbOeUibUJ54EQxRT/nLTAqVTAXx2qd5vYRaLTw\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .env.prod.enc .dede.yaml && d=\"$(( $(date +%s) - 200 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x",
+    "mv later.enc .env.prod.enc"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: the last assignment of a name counts; a public key is no value",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\nAPI_TOKEN=encrypted:BMFBe+WWpjF06iaUfGmhaTKuuP4pV5voubBa7i1HYGDh7pnq2FE9AW1h9tWehEc+pGGwbcR57BCU0LINQtIVgo5ew5huChDxl4F8ouCWh95a2YBizJGbzXiwHgRJX55BoEbI\nDOTENV_PUBLIC_KEY_X=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n  # c\n\nnot an assignment\n",
+    ".dede.yaml": "rotate:\n  - every: 90d\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .env.prod.enc .dede.yaml && d=\"$(( $(date +%s) - 200 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x",
+    "sed -i '$d' .env.prod.enc && echo 'ZED=encrypted:x' >> .env.prod.enc && git add . && d=\"$(( $(date +%s) - 10 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: several files",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: \"*\"\n    files: [.env.prod, \".env.local\"]\n    every: 90d\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n",
+    ".env.other.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PRODUCTION=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_KEY=encrypted:BFjb1md8QOpAWzvWe7sB6BKlAeMO/mHMTX2iaFm2TbIfnuFgHUyX9myMXrJaVsfIXhuzDyIT4f31rWw5BX6uHclSamDWJANYwOWPOBQKKrbpJ48NEsbc/dLRfktyVihgrrt5jxlgUBe2BcY=\nURL=encrypted:BCvoebJb3GztyJ17cYlTRvd98tWfeR+Z1QH6YpQ/RL39xzIwmf1G7GqoGdHwQTejEXjMu2zAnaw6nD2J8NqKtJu/1mt6km/9APjuFLxo+pzc63qMOY9yY4hGAml/0MlDSxkzZCH8gz1LjM29gYqIHcq4Il2+FTtwueXD\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: one named file",
+   "args": [
+    "health",
+    ".env.local"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - every: 90d\n",
+    ".env.local.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: a named file that is not there",
+   "args": [
+    "health",
+    ".env.nope"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - every: 90d\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: no .enc here",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".dede.yaml": "rotate:\n  - every: 90d\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "true"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: the .enc is a symlink",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - every: 90d\n",
+    "elsewhere": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_LOCAL=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\n# api\nAPI_KEY=encrypted:BDehdf/TJl7XKLOpS2zOzQELmJtqvUSBqhGw0Cg7pnru7Afwuu/rYB3YvswFnmV+P7dT+ZYsOT7N15r3pWXCamatVWYTgb2tw44wRGDWx5yHIlPjuUq8GSwGSOsyC658/T1+WqwRrBU=\nNAME=\"encrypted:BDhDmH+qECjl88JBM2O9gyNQa68IQ2V70PuB6Z843MN0bfovCACWgnCPkWeSD2qMrzn1W1bnQZAz0xSbJ1fkNF0soWtgBi5pkQirgWJOIWAdNMcm34RLE0HB+Xgg/euATWij3ht2rGkTcD+7\"\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "ln -s elsewhere .env.local.enc"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: outside any repository",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate: []\n"
+   },
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: run in a subdirectory, the rules at the root",
+   "args": [
+    "health"
+   ],
+   "files": {
+    "../.gitignore": ".env*\n!.env*.enc\n/home/\n/tmp/\n/cache/\n",
+    "../.dede.yaml": "rotate:\n  - every: 90d\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate: []\n"
+   },
+   "setup": [
+    "git -C .. init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add .env.prod.enc && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "health: a number that is no plain integer",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: API_TOKEN\n    every: 1.5\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "handback": "YAML numbers other than plain integers are not imitated"
+  },
+  {
+   "name": "health: true for a name",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: true\n    every: 90d\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "handback": "YAML booleans are not imitated"
+  },
+  {
+   "name": "health: a field without a value",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys:\n    every: 90d\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "handback": "YAML null is not imitated"
+  },
+  {
+   "name": "health: a rule in braces",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - {keys: API_TOKEN, every: 90d}\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "handback": "YAML flow mappings are not imitated"
+  },
+  {
+   "name": "health: rotate that is a number",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate: 5\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "handback": "only a block list under rotate is imitated"
+  },
+  {
+   "name": "health: another top-level key",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "version: 1\nrotate: []\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "handback": "only rotate at the top level is imitated"
+  },
+  {
+   "name": "health: an escape in quotes",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: API_TOKEN\n    every: 90d\n    note: \"a\\tb\"\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "handback": "YAML escapes are not imitated"
+  },
+  {
+   "name": "health: a note with a colon",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: API_TOKEN\n    every: 90d\n    note: see: the wiki\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "handback": "bun's YAML reader rejects it, in its own words"
+  },
+  {
+   "name": "health: a tab for indentation",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n\t- keys: API_TOKEN\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "handback": "bun's YAML reader rejects it, in its own words"
+  },
+  {
+   "name": "health: an expiry with a time",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: API_TOKEN\n    expires: 2099-01-26T10:00\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "handback": "Date.parse of anything but YYYY-MM-DD is not imitated"
+  },
+  {
+   "name": "health: a glob with braces",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: \"{API,DB}_*\"\n    every: 90d\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "handback": "Bun.Glob beyond * and ? is not imitated"
+  },
+  {
+   "name": "health: a glob with a character class",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: \"[A-D]*\"\n    every: 90d\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "handback": "Bun.Glob beyond * and ? is not imitated"
+  },
+  {
+   "name": "health: a glob with two stars",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: \"**\"\n    every: 90d\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "handback": "Bun.Glob beyond * and ? is not imitated"
+  },
+  {
+   "name": "health: a duration of seven digits",
+   "args": [
+    "health"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate:\n  - keys: API_TOKEN\n    every: 1000000d\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "handback": "JavaScript's arithmetic on very large numbers is not imitated"
+  },
+  {
+   "name": "health: a glob for the files to check",
+   "args": [
+    "health",
+    ".env.*"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate: []\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "handback": "Bun.Glob does the matching"
+  },
+  {
+   "name": "health: DOTENVDOTENC_NO_NATIVE=1",
+   "args": [
+    "health"
+   ],
+   "env": {
+    "DOTENVDOTENC_NO_NATIVE": "1"
+   },
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27\"\n\nAPI_TOKEN=encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R\nexport DB_PASS=encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+\nTOTP_SECRET=encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD\nPLAIN_NAME=encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k\n",
+    ".dede.yaml": "rotate: []\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "git config --global user.name Parity && git config --global user.email parity@example.com",
+    "git add . && d=\"$(( $(date +%s) - 100 * 86400 - 43200 )) +0000\" && GIT_AUTHOR_DATE=\"$d\" GIT_COMMITTER_DATE=\"$d\" git commit -q -m x"
+   ],
+   "handback": "DOTENVDOTENC_NO_NATIVE=1 hands everything back"
   }
  ]
 }

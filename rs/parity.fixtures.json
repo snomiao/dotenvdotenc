@@ -58,5 +58,11 @@
  "2|EQUALS#0|a=b=c": "encrypted:BJ9Qdq1FwVFbLX8zce+d3lUOW42tVO0xptf2LRakyh0jXo6pgUTvVBMvB2jCZpMabC7NBQz6CA1CmmK57bK3mxr1jmC9fjB8Af2Rf4j78T46oK9a2A7bQlgLxEfHncvnL1NUK8U/",
  "2|LAST#0|": "encrypted:BIrNfbnueRTk8nkn27/haqfItT2+jq06mXHt65EzKTJ0ooROKPcjHgg48iqBaU/xEGsI0MrxEgiAxJaFLRpuqRCm/oVmM5rCwD4CjZf4cPtjvBExswE4SCoMcK0I8c2xgA==",
  "2|A#0|1": "encrypted:BJcgbFrbGGqUP/+H1a9/z298avrW505KLHsJt++Lpks81iXy0R8NDYPyoDKUpBcfCarLjTwSsLiDLwSKUyMDLf5kbVTXWDQIwMN9qUe+VKDqEsd8aAkUJrXLEX8s3H7DSUQ=",
- "2|B#0|": "encrypted:BC9A9HbsqaKMWGr4ZOfxzcSSK5bevsDAQ+OD2yxYYFDE35H5Fjty7oljpDAEmCv8pu6eB57ytBPZjHskCfyP6wojqCZsAE4/ZKAeQXd5seOjtC3ePufcu+AJiTikTMqaRw=="
+ "2|B#0|": "encrypted:BC9A9HbsqaKMWGr4ZOfxzcSSK5bevsDAQ+OD2yxYYFDE35H5Fjty7oljpDAEmCv8pu6eB57ytBPZjHskCfyP6wojqCZsAE4/ZKAeQXd5seOjtC3ePufcu+AJiTikTMqaRw==",
+ "2|API_TOKEN#0|t1": "encrypted:BIjnrN2RfdeOf7igbWbIVmPkQawrZNQ20opaEj+7w/rkR/MuQoHEgQjVBdH7VD3af+PA07SvwRwNX2lI4NqwEJ4ydktJVSUy2Cu9lCdu56klTNjq1CHOhMtAaAP5HwNqW3/R",
+ "2|DB_PASS#0|p1": "encrypted:BInXReJlyJIcjZurdh8vBsoPbHDucx3xYsVVRPVddchJmeEsfaM6jhIuSTx6paaf0c4O2T6Iq5WjceHBkS/H2vl9lHbUuVe5HmLB36sFtOyg0m3M3wnYnB6HodkvMlGe5lM+",
+ "2|TOTP_SECRET#0|s1": "encrypted:BFUE136IU59O9Pf1gjHia8uVNeYN932PQBILMuUSVtNa0Rjgu2FN2/ZaytKSPR8szRsPHFg6PntObGOCW0v783e16a9Bz/r++S5G35E1OmIkIBPt1TDuzDDz7II3SvotawAD",
+ "2|PLAIN_NAME#0|n1": "encrypted:BJfysEdAWlVy27k5XGO9pfxbY+Jq5KeqNDbsLd5EFD42NUbfnZ2lzi0lEfKSMpbGQQkn0AOeSXV4MpaxT7r4+cUKOUj5Hz90NRBzapl4nReGxIEojf2nEf9nvQJvK+YsaI3k",
+ "2|DB_PASS#0|p2": "encrypted:BCiM0BfF5UKqW9rtJfGwC1p9MQ0VaE6UhT7ncfGdjpLTj83nI3nlPlFHbzlMLmXf601gGzkkEz6eHJ1DevSN2GVockVmLjfbOeUibUJ54EQxRT/nLTAqVTAXx2qd5vYRaLTw",
+ "2|again|t1": "encrypted:BMFBe+WWpjF06iaUfGmhaTKuuP4pV5voubBa7i1HYGDh7pnq2FE9AW1h9tWehEc+pGGwbcR57BCU0LINQtIVgo5ew5huChDxl4F8ouCWh95a2YBizJGbzXiwHgRJX55BoEbI"
 }
