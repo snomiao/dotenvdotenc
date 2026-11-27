@@ -16524,10 +16524,11 @@
    ],
    "after": [
     "cat .gitignore 2>&1",
-    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
-    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done"
-   ],
-   "handback": "the TypeScript writes and then ends in an uncaught error; seen before the first write"
+    "for h in pre-commit post-merge post-checkout; do if [ -e nowhere/$h ]; then stat -c '--- %a %n' nowhere/$h; cat nowhere/$h; fi; done; ls -A nowhere 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -l hooks-link | sed 's/.* -> //'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
   },
   {
    "name": "setup: core.hooksPath with .. in it",
@@ -18426,9 +18427,8 @@
     "git init -q -b main",
     "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys"
    ],
-   "after": [
-    "cat <HOME>/git.log 2>&1"
-   ]
+   "after": [],
+   "handback": "more than the binary is sure a socket takes at once; under bun process.stdout.write may lose the rest"
   },
   {
    "name": "get: git is not installed",

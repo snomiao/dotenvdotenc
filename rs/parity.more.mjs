@@ -237,7 +237,12 @@ add("get: file names in upper case, with dashes and digits", ["get", "V"], {
 add("get: a directory with an env name beside the .enc files", ["get", "API_KEY"], { files: { ".env.local.enc": LOCAL_ENC, ".env.d/keep": "", ".env.conf.enc/keep": "" }, setup: [K1], back: "an .enc that is a directory ends the TypeScript in an uncaught EISDIR" });
 add("get: a directory with an env name and no .enc of it", ["get", "API_KEY"], { files: { ".env.local.enc": LOCAL_ENC, ".env.d/keep": "" }, setup: [K1] });
 const BIG = "v".repeat(70000) + "é😀\n".repeat(10) + "end";
-add("get: a value larger than a pipe's buffer", ["get", "BIG"], { files: { ".env.local.enc": `${HEAD1}BIG="${seal(1, BIG, "big")}"\n` }, setup: [K1], after: [] });
+// (Answered by the binary at 2c2a075. The runner reads its pipes as they
+// fill, but under bun process.stdout.write keeps only what the pipe or
+// socket has room for at that moment; the binary now prints natively only
+// where the room is certain, and 70,000 bytes into the runner's socket go
+// back: rs/pipe-compat.py.)
+add("get: a value larger than a pipe's buffer", ["get", "BIG"], { files: { ".env.local.enc": `${HEAD1}BIG="${seal(1, BIG, "big")}"\n` }, setup: [K1], after: [], back: "more than the binary is sure a socket takes at once; under bun process.stdout.write may lose the rest" });
 add("get: git is not installed", ["get", "API_KEY"], { files: { ".env.local": LOCAL, ".env.local.enc": LOCAL_ENC }, setup: [K1], env: { X_NOGIT: "1" }, nolog: true });
 add("get: run from a directory reached through a symlink", ["get", "API_KEY", "../.env.local"], { files: { ".env.local.enc": LOCAL_ENC }, setup: [K1, "mkdir -p real/sub && ln -s real/sub link"], env: { X_CD: "link" } });
 

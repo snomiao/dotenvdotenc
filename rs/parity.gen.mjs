@@ -1120,7 +1120,9 @@ setup("core.hooksPath in the XDG configuration names a file", { setup: ["echo x 
 setup("core.hooksPath in the XDG configuration, the repository's own wins", { setup: ["mkdir -p \"$XDG_CONFIG_HOME/git\" mine", "printf '[core]\\n\\thooksPath = nowhere/x\\n' > \"$XDG_CONFIG_HOME/git/config\"", "git config core.hooksPath mine"], after: [hooksIn("mine")] });
 setup("core.hooksPath names a path through a file", { setup: ["echo x > hooks-file", "git config core.hooksPath hooks-file/sub"], back: UNCAUGHT });
 setup("core.hooksPath names a directory to be made", { setup: ["git config core.hooksPath made/by/setup"], after: [hooksIn("made/by/setup")] });
-setup("core.hooksPath names a link to nowhere", { setup: ["ln -s nowhere hooks-link", "git config core.hooksPath hooks-link"], back: UNCAUGHT });
+// git names the link's target, which the TypeScript then makes (marked as
+// handed back at 2c2a075, whose pre-read looked at the link itself).
+setup("core.hooksPath names a link to nowhere", { setup: ["ln -s nowhere hooks-link", "git config core.hooksPath hooks-link"], after: [hooksIn("nowhere"), "ls -l hooks-link | sed 's/.* -> //'"] });
 setup("core.hooksPath with .. in it", { setup: ["mkdir -p a hooks", "git config core.hooksPath a/../hooks"], after: [hooksIn("hooks")], back: UNSURE });
 setup("core.hooksPath in quotes", { setup: ["mkdir ' lead'", "git config core.hooksPath ' lead'"], after: [hooksIn("' lead'")], back: UNSURE });
 setup("an include in the repository's configuration", { setup: ["printf '[core]\\n\\thooksPath = h\\n' > ../extra.config", "git config include.path ../../extra.config"], after: [HOOKS], back: UNSURE });
