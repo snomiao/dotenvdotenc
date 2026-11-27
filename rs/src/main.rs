@@ -14,6 +14,7 @@ mod js_fallback;
 mod out;
 mod path;
 mod primitives;
+mod setup;
 
 /// The package's JavaScript entry, relative to the package root.
 const JS_ENTRY: &str = "dede.ts";

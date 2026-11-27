@@ -13,38 +13,25 @@ use crate::dede::{self, die, Dede, Mode, Pair, Stop, R};
 use crate::env::{Env, HandBack};
 use crate::path::join;
 
-/// The commands the binary answers itself. Each was switched on when its
-/// parity cases (rs/parity.json) passed; see parity/dotenvdotenc.toml in
-/// rustify for what that covers.
-fn is_ported(command: Option<&str>) -> bool {
-    match command {
-        // Usage: `dede`, `dede help`, and what is no command at all.
-        None => true,
-        Some("get" | "status" | "diff" | "keys" | "dec" | "enc" | "guard" | "health") => true,
-        Some("setup") => false,
-        Some(_) => true,
-    }
-}
-
-/// What stays with the JavaScript on every platform but the ones the parity
-/// cases run on: Windows has its own path rules, mode bits and symlinks, and
-/// no case has ever run there.
+/// Everywhere but on the platforms the parity cases run on, every invocation
+/// stays with the JavaScript: Windows has its own path rules, mode bits and
+/// symlinks, and no case has ever run there.
 fn platform_is_proven() -> bool {
     cfg!(unix)
 }
 
+/// Answers one invocation: every command of dede.ts, switched on one by one
+/// as its parity cases (rs/parity.json) passed, and the usage text for what
+/// is no command. `Err(HandBack)` for what is not imitated; see
+/// parity/dotenvdotenc.toml in rustify for the list.
 pub fn run(argv: &[String]) -> Result<i32, HandBack> {
-    let command = argv.first().map(String::as_str);
-    if !is_ported(command) {
-        return Err(HandBack);
-    }
-    let is_usage = !matches!(command, Some("enc" | "dec" | "status" | "diff" | "get" | "guard" | "keys" | "health" | "setup"));
-    if !is_usage && !platform_is_proven() {
+    if !platform_is_proven() {
         return Err(HandBack);
     }
     let env = Env::startup()?;
     let cwd = std::env::current_dir().map_err(|_| HandBack)?.into_os_string().into_string().map_err(|_| HandBack)?;
-    let mut dede = Dede::new(env, cwd);
+    let out = crate::out::Out::for_this_process().ok_or(HandBack)?;
+    let mut dede = Dede::new(env, cwd, out);
     let code = match main(&mut dede, argv) {
         Ok(code) => code,
         Err(HandBack) if dede.out.is_live() => {
@@ -165,6 +152,7 @@ fn main(dede: &mut Dede, argv: &[String]) -> Result<i32, HandBack> {
                 }
             }
             Some("guard") => dede.guard(all)?,
+            Some("setup") => dede.setup()?,
             Some("health") => {
                 let pairs = dede.pairs(&args, Mode::Dec)?;
                 if !dede.health(&pairs, all)? {

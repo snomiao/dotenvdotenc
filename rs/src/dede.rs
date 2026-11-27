@@ -121,7 +121,6 @@ pub struct Pair {
     pub plain: String, // absolute
     pub enc: String,   // absolute
     pub name: String,  // plaintext basename, e.g. .env.local
-    pub explicit: bool,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -397,8 +396,8 @@ fn state_entry(all: &Object<Json>, key: &str) -> R<Option<SyncState>> {
 }
 
 impl Dede {
-    pub fn new(env: Env, cwd: String) -> Dede {
-        Dede { env, cwd, out: Out::default(), keys_override: None, key_choice: None, written: Vec::new(), quiet: false, trees: HashMap::new() }
+    pub fn new(env: Env, cwd: String, out: Out) -> Dede {
+        Dede { env, cwd, out, keys_override: None, key_choice: None, written: Vec::new(), quiet: false, trees: HashMap::new() }
     }
 
     /// `console.error(message)`
@@ -1203,7 +1202,7 @@ impl Dede {
         let view = self.view(pair, false)?;
         let quiet = self.quiet;
         let plain = self.rel(&pair.plain);
-        let mut say = |dede: &mut Dede, text: &str, ok: bool| {
+        let say = |dede: &mut Dede, text: &str, ok: bool| {
             if !ok || !quiet {
                 dede.out.log(&format!("{} {plain}: {text}", if ok { "✓" } else { "✗" }));
             }
@@ -1281,7 +1280,7 @@ impl Dede {
     pub fn diff(&mut self, pair: &Pair) -> R<bool> {
         let view = self.view(pair, false)?;
         let plain = self.rel(&pair.plain);
-        let mut say = |dede: &mut Dede, text: &str, ok: bool| {
+        let say = |dede: &mut Dede, text: &str, ok: bool| {
             dede.out.log(&format!("{} {plain}: {text}", if ok { "✓" } else { "✗" }));
             ok
         };
@@ -1361,7 +1360,7 @@ impl Dede {
             if !is_env_name(&name) || !exists(&format!("{plain}.enc")) || is_symlink(&plain) {
                 continue;
             }
-            let pair = Pair { plain: plain.clone(), enc: format!("{plain}.enc"), name: name.clone(), explicit: false };
+            let pair = Pair { plain: plain.clone(), enc: format!("{plain}.enc"), name: name.clone() };
             // Both were just seen; a file that is gone again is not imitated.
             let p = self.read(&plain)?.ok_or(Stop::HandBack)?;
             self.read(&pair.enc)?.ok_or(Stop::HandBack)?;
@@ -1552,7 +1551,7 @@ impl Dede {
                 self.log(&message);
                 continue;
             }
-            let pair = Pair { enc: format!("{plain}.enc"), plain, name, explicit };
+            let pair = Pair { enc: format!("{plain}.enc"), plain, name };
             let wanted = match mode {
                 Mode::Enc => exists(&pair.plain),
                 Mode::Dec => exists(&pair.enc),
