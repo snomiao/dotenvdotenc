@@ -23,6 +23,11 @@ trap 'rm -rf "$WORK"' EXIT
 for name in $(env | sed -n 's/^\(DOTENV_[A-Za-z0-9_]*\)=.*/\1/p'); do unset "$name"; done
 unset NODE_ENV BUN_ENV BUN_OPTIONS NODE_OPTIONS NO_COLOR FORCE_COLOR DOTENVDOTENC_NO_NATIVE
 export HOME="$WORK/home" XDG_CONFIG_HOME="$WORK/home/.config" XDG_CACHE_HOME="$WORK/cache" GIT_CONFIG_NOSYSTEM=1 TZ=UTC
+# dotenvx (2.x) keeps a private key it makes in the system's key store, and
+# looks there for one it needs (macOS Keychain, Windows Credential Manager,
+# Linux Secret Service), unless CI is set. This is a machine's own store, not
+# the throwaway HOME: keep the keys in .env.keys.
+export DOTENVX_NO_NATIVE=true
 mkdir -p "$HOME"
 git config --global user.name Cross && git config --global user.email cross@example.com
 
