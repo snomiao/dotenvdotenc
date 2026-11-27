@@ -15967,6 +15967,677 @@
    "handback": "what bun makes of this value of NO_COLOR was not recorded"
   },
   {
+   "name": "large: enc, a quoted value whose ciphertext stays within the margin",
+   "args": [
+    "enc"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_PROD=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "node -e 'require(\"fs\").writeFileSync(\".env.prod\", \"A=1\\nBIG=\\\"\" + \"a\".repeat(90000) + \"\\\"\\nZ=2\\n\")'"
+   ],
+   "after": [
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "node <REPO>/rs/parity/probe.mjs enc .env.prod.enc .env.keys | cut -c1-70",
+    "node <REPO>/rs/parity/probe.mjs state",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "large: enc, a quoted value whose ciphertext would not",
+   "args": [
+    "enc"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_PROD=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "node -e 'require(\"fs\").writeFileSync(\".env.prod\", \"A=1\\nBIG=\\\"\" + \"a\".repeat(100000) + \"\\\"\\nZ=2\\n\")'"
+   ],
+   "after": [
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "node <REPO>/rs/parity/probe.mjs enc .env.prod.enc .env.keys | cut -c1-70",
+    "node <REPO>/rs/parity/probe.mjs state"
+   ],
+   "handback": "within the margin kept from what bun's regular expressions give up on"
+  },
+  {
+   "name": "large: enc, a quoted value of three-byte letters whose ciphertext would not",
+   "args": [
+    "enc"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_PROD=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "node -e 'require(\"fs\").writeFileSync(\".env.prod\", \"A=1\\nBIG=`\" + \"€\".repeat(33000) + \"`\\nZ=2\\n\")'"
+   ],
+   "after": [
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "node <REPO>/rs/parity/probe.mjs enc .env.prod.enc .env.keys | cut -c1-70",
+    "node <REPO>/rs/parity/probe.mjs state"
+   ],
+   "handback": "within the margin kept from what bun's regular expressions give up on"
+  },
+  {
+   "name": "large: enc, a bare value whose ciphertext stays within the margin",
+   "args": [
+    "enc"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_PROD=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "node -e 'require(\"fs\").writeFileSync(\".env.prod\", \"A=1\\nBIG=\" + \"a\".repeat(180000) + \"\\nZ=2\\n\")'"
+   ],
+   "after": [
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "node <REPO>/rs/parity/probe.mjs enc .env.prod.enc .env.keys | cut -c1-70",
+    "node <REPO>/rs/parity/probe.mjs state",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "large: enc, a bare value of minus signs, escaped four times over, within the margin",
+   "args": [
+    "enc"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_PROD=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "node -e 'require(\"fs\").writeFileSync(\".env.prod\", \"A=1\\nBIG=\" + \"-\".repeat(120000) + \"\\nZ=2\\n\")'"
+   ],
+   "after": [
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "node <REPO>/rs/parity/probe.mjs enc .env.prod.enc .env.keys | cut -c1-70",
+    "node <REPO>/rs/parity/probe.mjs state",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "large: enc, a bare value of minus signs past the margin",
+   "args": [
+    "enc"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_PROD=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "node -e 'require(\"fs\").writeFileSync(\".env.prod\", \"A=1\\nBIG=\" + \"-\".repeat(140000) + \"\\nZ=2\\n\")'"
+   ],
+   "after": [
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "node <REPO>/rs/parity/probe.mjs enc .env.prod.enc .env.keys | cut -c1-70",
+    "node <REPO>/rs/parity/probe.mjs state"
+   ],
+   "handback": "within the margin kept from what bun's regular expressions give up on"
+  },
+  {
+   "name": "large: enc, three hundred values whose .enc is larger than the margin, each one well within it",
+   "args": [
+    "enc"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_PROD=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "node -e 'require(\"fs\").writeFileSync(\".env.prod\", Array.from({ length: 300 }, (_, i) => `V_${i}=\"${\"x\".repeat(400)}\"\\n`).join(\"\"))'"
+   ],
+   "after": [
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "node <REPO>/rs/parity/probe.mjs enc .env.prod.enc .env.keys | wc -c",
+    "node <REPO>/rs/parity/probe.mjs state",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "large: get, a quoted ciphertext within the margin",
+   "args": [
+    "get",
+    "Z"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_PROD=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "node -e 'const { encrypt, derive } = require(\"<REPO>/node_modules/@dotenvx/primitives\"); const pub = derive(\"1\".repeat(64)); const e = (v) => encrypt(pub, v); require(\"fs\").writeFileSync(\".env.prod.enc\", \"#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\\n#/            public-key encryption for .env files          /\\n#/       [how it works](https://dotenvx.com/encryption)     /\\n#/----------------------------------------------------------/\\nDOTENV_PUBLIC_KEY_PROD=\\\"\" + pub + \"\\\"\\n\\n\" + \"A=\" + e(\"1\") + \"\\nBIG=\\\"\" + e(\"a\".repeat(97000)) + \"\\\"\\nZ=\" + e(\"2\") + \"\\n\")'"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "large: get, a quoted ciphertext past the margin",
+   "args": [
+    "get",
+    "Z"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_PROD=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "node -e 'const { encrypt, derive } = require(\"<REPO>/node_modules/@dotenvx/primitives\"); const pub = derive(\"1\".repeat(64)); const e = (v) => encrypt(pub, v); require(\"fs\").writeFileSync(\".env.prod.enc\", \"#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\\n#/            public-key encryption for .env files          /\\n#/       [how it works](https://dotenvx.com/encryption)     /\\n#/----------------------------------------------------------/\\nDOTENV_PUBLIC_KEY_PROD=\\\"\" + pub + \"\\\"\\n\\n\" + \"A=\" + e(\"1\") + \"\\nBIG=\\\"\" + e(\"a\".repeat(99000)) + \"\\\"\\nZ=\" + e(\"2\") + \"\\n\")'"
+   ],
+   "handback": "within the margin kept from what bun's regular expressions give up on"
+  },
+  {
+   "name": "large: dec, a quoted ciphertext past the margin",
+   "args": [
+    "dec"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_PROD=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "node -e 'const { encrypt, derive } = require(\"<REPO>/node_modules/@dotenvx/primitives\"); const pub = derive(\"1\".repeat(64)); const e = (v) => encrypt(pub, v); require(\"fs\").writeFileSync(\".env.prod.enc\", \"#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\\n#/            public-key encryption for .env files          /\\n#/       [how it works](https://dotenvx.com/encryption)     /\\n#/----------------------------------------------------------/\\nDOTENV_PUBLIC_KEY_PROD=\\\"\" + pub + \"\\\"\\n\\n\" + \"A=\" + e(\"1\") + \"\\nBIG=\\\"\" + e(\"a\".repeat(99000)) + \"\\\"\\nZ=\" + e(\"2\") + \"\\n\")'"
+   ],
+   "after": [
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done"
+   ],
+   "handback": "within the margin kept from what bun's regular expressions give up on"
+  },
+  {
+   "name": "large: status, an unclosed quote with less than the margin after it",
+   "args": [
+    "status"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_PROD=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "node -e 'require(\"fs\").writeFileSync(\".env.prod\", \"A=1\\nB=\\\"\" + \"x\\n\".repeat(60000) + \"Z=2\\n\")'"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "large: status, an unclosed quote with more than the margin after it",
+   "args": [
+    "status"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_PROD=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "node -e 'require(\"fs\").writeFileSync(\".env.prod\", \"A=1\\nB=\\\"\" + \"x\\n\".repeat(70000) + \"Z=2\\n\")'"
+   ],
+   "handback": "within the margin kept from what bun's regular expressions give up on"
+  },
+  {
+   "name": "large: status, quotes in comments and inside values start nothing",
+   "args": [
+    "status"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_PROD=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "node -e 'require(\"fs\").writeFileSync(\".env.prod\", \"# it's\\nA=it's\\nB=\\\"x\\\" # 'q\\n\" + \"C=1\\n\".repeat(50000))'"
+   ],
+   "after": [
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "large: get, a keys file with a quoted value past the margin",
+   "args": [
+    "get",
+    "A"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.prod.enc": "#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\n#/            public-key encryption for .env files          /\n#/       [how it works](https://dotenvx.com/encryption)     /\n#/----------------------------------------------------------/\nDOTENV_PUBLIC_KEY_PROD=\"034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa\"\n\nA=encrypted:BOcRQOxujKtP21/1O+WAO9K9/fWpzSnqhc9GEj2eJlLKMiAQOPfnEyqvVSE+yBCMR4Qri9YG78QzLomKkE6q11ls1WxvzMKRuD0V8zELb1cGzBdfUo4HDfY7MfMgtQhfAG0=\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_PROD=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "node -e 'require(\"fs\").writeFileSync(\".env.keys.note\", \"NOTE=\\\"\" + \"n\".repeat(140000) + \"\\\"\\n\")'",
+    "cat .env.keys.note >> .env.keys && rm .env.keys.note"
+   ],
+   "handback": "within the margin kept from what bun's regular expressions give up on"
+  },
+  {
+   "name": "large: enc, a keys file a new key would push past the margin",
+   "args": [
+    "enc",
+    ".env.stage"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.stage": "A=1\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "{ printf 'DOTENV_PRIVATE_KEY_PROD=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "node -e 'require(\"fs\").writeFileSync(\".env.keys.note\", \"NOTE=\\\"\" + \"n\".repeat(131000))'",
+    "cat .env.keys.note >> .env.keys && rm .env.keys.note"
+   ],
+   "after": [
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done"
+   ],
+   "handback": "within the margin kept from what bun's regular expressions give up on"
+  },
+  {
+   "name": "large: enc, both sides changed in files too large to merge here",
+   "args": [
+    "enc"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    "state.fixture": "{\n  \".env.prod\": {\n    \"plain\": \"f124570c450ddae309d47cc256fd81ad59f23f5d85f2213131607f290c8fd206\",\n    \"enc\": \"2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881\",\n    \"salt\": \"000102030405060708090a0b0c0d0e0f\",\n    \"keys\": {\n      \"A\": \"926e5d629e8fc6cb173d200a\",\n      \"B\": \"926e5d629e8fc6cb173d200a\"\n    },\n    \"notes\": \"798a9665a1349589b86639d5\"\n  }\n}\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "mkdir -p .git/dotenvdotenc && mv state.fixture .git/dotenvdotenc/state.json",
+    "{ printf 'DOTENV_PRIVATE_KEY_PROD=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
+    "node -e 'require(\"fs\").writeFileSync(\".env.prod\", \"A=2\\nB=1\\nPAD=\\\"\" + \"p\".repeat(70000) + \"\\\"\\n\")'",
+    "node -e 'const { encrypt, derive } = require(\"<REPO>/node_modules/@dotenvx/primitives\"); const pub = derive(\"1\".repeat(64)); const e = (v) => encrypt(pub, v); require(\"fs\").writeFileSync(\".env.prod.enc\", \"#/-------------------[DOTENV_PUBLIC_KEY]--------------------/\\n#/            public-key encryption for .env files          /\\n#/       [how it works](https://dotenvx.com/encryption)     /\\n#/----------------------------------------------------------/\\nDOTENV_PUBLIC_KEY_PROD=\\\"\" + pub + \"\\\"\\n\\n\" + \"A=\" + e(\"1\") + \"\\nB=\" + e(\"2\") + \"\\nPAD=\\\"\" + e(\"p\".repeat(70000)) + \"\\\"\\n\")'"
+   ],
+   "after": [
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done"
+   ],
+   "handback": "within the margin kept from what bun's regular expressions give up on"
+  },
+  {
+   "name": "setup: core.hooksPath in the user's .gitconfig names a directory",
+   "args": [
+    "setup"
+   ],
+   "setup": [
+    "git init -q -b main",
+    "mkdir ../hooks-dir",
+    "git config --global core.hooksPath \"$(cd .. && pwd)/hooks-dir\""
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e ../hooks-dir/$h ]; then stat -c '--- %a %n' ../hooks-dir/$h; cat ../hooks-dir/$h; fi; done; ls -A ../hooks-dir 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: core.hooksPath in the user's .gitconfig starts with ~",
+   "args": [
+    "setup"
+   ],
+   "setup": [
+    "git init -q -b main",
+    "mkdir \"$HOME/my hooks\"",
+    "git config --global core.hooksPath '~/my hooks'"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e \"$HOME/my hooks\"/$h ]; then stat -c '--- %a %n' \"$HOME/my hooks\"/$h; cat \"$HOME/my hooks\"/$h; fi; done; ls -A \"$HOME/my hooks\" 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: core.hooksPath in the user's .gitconfig names a file",
+   "args": [
+    "setup"
+   ],
+   "setup": [
+    "git init -q -b main",
+    "echo x > ../hooks-file",
+    "git config --global core.hooksPath \"$(cd .. && pwd)/hooks-file\""
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "cat ../hooks-file",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done"
+   ],
+   "handback": "the TypeScript writes and then ends in an uncaught error; seen before the first write"
+  },
+  {
+   "name": "setup: core.hooksPath in the XDG configuration names a file",
+   "args": [
+    "setup"
+   ],
+   "setup": [
+    "git init -q -b main",
+    "echo x > hooks-file",
+    "mkdir -p \"$XDG_CONFIG_HOME/git\"",
+    "printf '[core]\\n\\thooksPath = hooks-file\\n' > \"$XDG_CONFIG_HOME/git/config\""
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done"
+   ],
+   "handback": "the TypeScript writes and then ends in an uncaught error; seen before the first write"
+  },
+  {
+   "name": "setup: core.hooksPath in the XDG configuration, the repository's own wins",
+   "args": [
+    "setup"
+   ],
+   "setup": [
+    "git init -q -b main",
+    "mkdir -p \"$XDG_CONFIG_HOME/git\" mine",
+    "printf '[core]\\n\\thooksPath = nowhere/x\\n' > \"$XDG_CONFIG_HOME/git/config\"",
+    "git config core.hooksPath mine"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e mine/$h ]; then stat -c '--- %a %n' mine/$h; cat mine/$h; fi; done; ls -A mine 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: core.hooksPath names a path through a file",
+   "args": [
+    "setup"
+   ],
+   "setup": [
+    "git init -q -b main",
+    "echo x > hooks-file",
+    "git config core.hooksPath hooks-file/sub"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done"
+   ],
+   "handback": "the TypeScript writes and then ends in an uncaught error; seen before the first write"
+  },
+  {
+   "name": "setup: core.hooksPath names a directory to be made",
+   "args": [
+    "setup"
+   ],
+   "setup": [
+    "git init -q -b main",
+    "git config core.hooksPath made/by/setup"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e made/by/setup/$h ]; then stat -c '--- %a %n' made/by/setup/$h; cat made/by/setup/$h; fi; done; ls -A made/by/setup 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: core.hooksPath names a link to nowhere",
+   "args": [
+    "setup"
+   ],
+   "setup": [
+    "git init -q -b main",
+    "ln -s nowhere hooks-link",
+    "git config core.hooksPath hooks-link"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done"
+   ],
+   "handback": "the TypeScript writes and then ends in an uncaught error; seen before the first write"
+  },
+  {
+   "name": "setup: core.hooksPath with .. in it",
+   "args": [
+    "setup"
+   ],
+   "setup": [
+    "git init -q -b main",
+    "mkdir -p a hooks",
+    "git config core.hooksPath a/../hooks"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e hooks/$h ]; then stat -c '--- %a %n' hooks/$h; cat hooks/$h; fi; done; ls -A hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done"
+   ],
+   "handback": "git's configuration in a form the pre-read does not read"
+  },
+  {
+   "name": "setup: core.hooksPath in quotes",
+   "args": [
+    "setup"
+   ],
+   "setup": [
+    "git init -q -b main",
+    "mkdir ' lead'",
+    "git config core.hooksPath ' lead'"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e ' lead'/$h ]; then stat -c '--- %a %n' ' lead'/$h; cat ' lead'/$h; fi; done; ls -A ' lead' 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done"
+   ],
+   "handback": "git's configuration in a form the pre-read does not read"
+  },
+  {
+   "name": "setup: an include in the repository's configuration",
+   "args": [
+    "setup"
+   ],
+   "setup": [
+    "git init -q -b main",
+    "printf '[core]\\n\\thooksPath = h\\n' > ../extra.config",
+    "git config include.path ../../extra.config"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done"
+   ],
+   "handback": "git's configuration in a form the pre-read does not read"
+  },
+  {
+   "name": "setup: GIT_DIR in the environment",
+   "args": [
+    "setup"
+   ],
+   "env": {
+    "GIT_DIR": ".git"
+   },
+   "setup": [
+    "git init -q -b main"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done"
+   ],
+   "handback": "GIT_DIR moves what git finds"
+  },
+  {
+   "name": "setup: the pre-commit hook is a directory",
+   "args": [
+    "setup"
+   ],
+   "setup": [
+    "git init -q -b main",
+    "mkdir -p .git/hooks/pre-commit"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done"
+   ],
+   "handback": "the TypeScript writes and then ends in an uncaught error; seen before the first write"
+  },
+  {
+   "name": "setup: the post-checkout hook is a directory, not reached after a refusal of dede's own at post-merge",
+   "args": [
+    "setup"
+   ],
+   "setup": [
+    "git init -q -b main",
+    "printf '#!/usr/bin/env python3\\n' > .git/hooks/post-merge",
+    "printf '#!/bin/sh\\ndede guard\\n' > .git/hooks/pre-commit",
+    "mkdir -p .git/hooks/post-checkout"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "for h in pre-commit post-merge post-checkout; do if [ -e .git/hooks/$h ]; then stat -c '--- %a %n' .git/hooks/$h; cat .git/hooks/$h; fi; done; ls -A .git/hooks 2>&1 | grep -v -e '\\.sample$' -e '^_$'",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "setup: .husky is a link to nowhere, and there is a package.json",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    "package.json": "{}\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "ln -s nowhere .husky"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "cat package.json",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done"
+   ],
+   "handback": "the TypeScript writes and then ends in an uncaught error; seen before the first write"
+  },
+  {
+   "name": "setup: .husky is a directory and its pre-commit a directory",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    "package.json": "{}\n",
+    ".husky/pre-commit/keep": ""
+   },
+   "setup": [
+    "git init -q -b main"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "cat package.json",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done"
+   ],
+   "handback": "the TypeScript writes and then ends in an uncaught error; seen before the first write"
+  },
+  {
+   "name": "setup: .husky's pre-commit is a link to nowhere: a refusal of dede's own",
+   "args": [
+    "setup"
+   ],
+   "files": {
+    "package.json": "{}\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "mkdir .husky",
+    "ln -s nowhere .husky/pre-commit"
+   ],
+   "after": [
+    "cat .gitignore 2>&1",
+    "cat package.json",
+    "ls -A .husky",
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "enc: a file reached through a link into a repository whose record is a list",
+   "args": [
+    "enc",
+    "link/.env.prod"
+   ],
+   "setup": [
+    "git init -q -b main real && printf '.env*\\n!.env*.enc\\n' > real/.gitignore && mkdir -p real/sub real/.git/dotenvdotenc && echo '[]' > real/.git/dotenvdotenc/state.json && printf 'A=1\\n' > real/sub/.env.prod && ln -s real/sub link"
+   ],
+   "after": [
+    "ls -A real/sub",
+    "cat real/.git/dotenvdotenc/state.json"
+   ],
+   "handback": "a sync record that is not of the shape dede writes is not imitated"
+  },
+  {
+   "name": "enc: a file reached through a link into a repository",
+   "args": [
+    "enc",
+    "link/.env.prod"
+   ],
+   "setup": [
+    "git init -q -b main real && printf '.env*\\n!.env*.enc\\n' > real/.gitignore && mkdir -p real/sub && printf 'A=1\\n' > real/sub/.env.prod && ln -s real/sub link"
+   ],
+   "after": [
+    "ls -A real/sub",
+    "cd real/sub && node <REPO>/rs/parity/probe.mjs enc .env.prod.enc .env.keys",
+    "cat <HOME>/git.log 2>&1"
+   ]
+  },
+  {
+   "name": "enc: a record that is a list in a parent repository, the file in a nested one",
+   "args": [
+    "enc",
+    "nested/.env.prod"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    "nested/.env.prod": "A=1\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "mkdir -p .git/dotenvdotenc && echo '[]' > .git/dotenvdotenc/state.json",
+    "git init -q -b main nested && printf '.env*\\n!.env*.enc\\n' > nested/.gitignore"
+   ],
+   "after": [
+    "ls -A nested",
+    "cat .git/dotenvdotenc/state.json"
+   ],
+   "handback": "a sync record that is not an object, in a repository around the one git finds: the pre-read does not judge which one git takes"
+  },
+  {
+   "name": "enc: another file's entry in the record is not of dede's shape",
+   "args": [
+    "enc"
+   ],
+   "files": {
+    ".gitignore": ".env*\n!.env*.enc\n",
+    ".env.local": "# api\nAPI_KEY=dummy-1\nNAME=\"hello world\"\n",
+    "state.fixture": "{\"sub/.env.other\": {\"plain\": 1}}\n"
+   },
+   "setup": [
+    "git init -q -b main",
+    "mkdir -p .git/dotenvdotenc && mv state.fixture .git/dotenvdotenc/state.json",
+    "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys"
+   ],
+   "after": [
+    "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done"
+   ],
+   "handback": "a sync record that is not of the shape dede writes is not imitated"
+  },
+  {
    "name": "get: base64 in the URL alphabet",
    "args": [
     "get",

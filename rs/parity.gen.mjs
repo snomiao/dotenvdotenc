@@ -1040,6 +1040,100 @@ add("colour: FORCE_COLOR in a .env file bun loads changes nothing", ["get", "MIS
 add("colour: a FORCE_COLOR that was not tried", ["get", "MISSING"], { files: { ".env.local.enc": LOCAL_ENC }, setup: [K1], env: { FORCE_COLOR: "3" }, back: "what bun makes of this value of FORCE_COLOR was not recorded" });
 add("colour: a NO_COLOR that was not tried", ["get", "MISSING"], { files: { ".env.local.enc": LOCAL_ENC }, setup: [K1], env: { NO_COLOR: "yes" }, back: "what bun makes of this value of NO_COLOR was not recorded" });
 
+// ═══════════════════════════ what bun's regular expressions give up on ═══════════════════════════
+//
+// Under bun the scanner of @dotenvx/primitives stops at a quoted value of
+// more than 393,214 to 540,669 code units, and upsert cannot build an
+// expression of more than 1,048,576 (primitives::QUOTED_SPAN_LIMIT in
+// rs/src). The binary hands back what comes within a third of the first or
+// half of the second, foreseeing the ciphertexts enc will write; these cases
+// sit on both sides of that margin. Large files are written by node when a
+// case runs; .enc files of them are made with @dotenvx/primitives there too.
+
+const WRITE = (file, expr) => `node -e 'require("fs").writeFileSync(${JSON.stringify(file)}, ${expr})'`;
+const ENC_OF = (file, expr) =>
+  `node -e 'const { encrypt, derive } = require("<REPO>/node_modules/@dotenvx/primitives"); const pub = derive("1".repeat(64)); const e = (v) => encrypt(pub, v); require("fs").writeFileSync(${JSON.stringify(file)}, ${JSON.stringify(BANNER + "\nDOTENV_PUBLIC_KEY_PROD=\"")} + pub + "\\"\\n\\n" + ${expr})'`;
+const KPROD = keysFile({ _PROD: 1 });
+const MARGIN = "within the margin kept from what bun's regular expressions give up on";
+const BIG_AFTER = [LS, `${PROBE} enc .env.prod.enc .env.keys | cut -c1-70`, `${PROBE} state`];
+add("large: enc, a quoted value whose ciphertext stays within the margin", ["enc"], { setup: [KPROD, WRITE(".env.prod", '"A=1\\nBIG=\\"" + "a".repeat(90000) + "\\"\\nZ=2\\n"')], after: BIG_AFTER });
+add("large: enc, a quoted value whose ciphertext would not", ["enc"], { setup: [KPROD, WRITE(".env.prod", '"A=1\\nBIG=\\"" + "a".repeat(100000) + "\\"\\nZ=2\\n"')], after: BIG_AFTER, back: MARGIN });
+add("large: enc, a quoted value of three-byte letters whose ciphertext would not", ["enc"], { setup: [KPROD, WRITE(".env.prod", '"A=1\\nBIG=`" + "€".repeat(33000) + "`\\nZ=2\\n"')], after: BIG_AFTER, back: MARGIN });
+add("large: enc, a bare value whose ciphertext stays within the margin", ["enc"], { setup: [KPROD, WRITE(".env.prod", '"A=1\\nBIG=" + "a".repeat(180000) + "\\nZ=2\\n"')], after: BIG_AFTER });
+add("large: enc, a bare value of minus signs, escaped four times over, within the margin", ["enc"], { setup: [KPROD, WRITE(".env.prod", '"A=1\\nBIG=" + "-".repeat(120000) + "\\nZ=2\\n"')], after: BIG_AFTER });
+add("large: enc, a bare value of minus signs past the margin", ["enc"], { setup: [KPROD, WRITE(".env.prod", '"A=1\\nBIG=" + "-".repeat(140000) + "\\nZ=2\\n"')], after: BIG_AFTER, back: MARGIN });
+add("large: enc, three hundred values whose .enc is larger than the margin, each one well within it", ["enc"], { setup: [KPROD, WRITE(".env.prod", 'Array.from({ length: 300 }, (_, i) => `V_${i}="${"x".repeat(400)}"\\n`).join("")')], after: [LS, `${PROBE} enc .env.prod.enc .env.keys | wc -c`, `${PROBE} state`] });
+add("large: get, a quoted ciphertext within the margin", ["get", "Z"], { setup: [KPROD, ENC_OF(".env.prod.enc", '"A=" + e("1") + "\\nBIG=\\"" + e("a".repeat(97000)) + "\\"\\nZ=" + e("2") + "\\n"')] });
+add("large: get, a quoted ciphertext past the margin", ["get", "Z"], { setup: [KPROD, ENC_OF(".env.prod.enc", '"A=" + e("1") + "\\nBIG=\\"" + e("a".repeat(99000)) + "\\"\\nZ=" + e("2") + "\\n"')], back: MARGIN });
+add("large: dec, a quoted ciphertext past the margin", ["dec"], { setup: [KPROD, ENC_OF(".env.prod.enc", '"A=" + e("1") + "\\nBIG=\\"" + e("a".repeat(99000)) + "\\"\\nZ=" + e("2") + "\\n"')], back: MARGIN, after: [LS] });
+add("large: status, an unclosed quote with less than the margin after it", ["status"], { setup: [KPROD, WRITE(".env.prod", '"A=1\\nB=\\"" + "x\\n".repeat(60000) + "Z=2\\n"')] });
+add("large: status, an unclosed quote with more than the margin after it", ["status"], { setup: [KPROD, WRITE(".env.prod", '"A=1\\nB=\\"" + "x\\n".repeat(70000) + "Z=2\\n"')], back: MARGIN });
+add("large: status, quotes in comments and inside values start nothing", ["status"], { setup: [KPROD, WRITE(".env.prod", '"# it\'s\\nA=it\'s\\nB=\\"x\\" # \'q\\n" + "C=1\\n".repeat(50000)')] });
+add("large: get, a keys file with a quoted value past the margin", ["get", "A"], { files: { ".env.prod.enc": encFile(".env.prod", 1, "A=1\n", "big-keys") }, setup: [KPROD, WRITE(".env.keys.note", '"NOTE=\\"" + "n".repeat(140000) + "\\"\\n"'), "cat .env.keys.note >> .env.keys && rm .env.keys.note"], back: MARGIN });
+add("large: enc, a keys file a new key would push past the margin", ["enc", ".env.stage"], { files: { ".env.stage": "A=1\n" }, setup: [KPROD, WRITE(".env.keys.note", '"NOTE=\\"" + "n".repeat(131000)'), "cat .env.keys.note >> .env.keys && rm .env.keys.note"], after: [LS], back: MARGIN });
+add("large: enc, both sides changed in files too large to merge here", ["enc"], {
+  files: { "state.fixture": stateText({ ".env.prod": ["A=1\nB=1\n", "x"] }) },
+  setup: [KPROD, WRITE(".env.prod", '"A=2\\nB=1\\nPAD=\\"" + "p".repeat(70000) + "\\"\\n"'), ENC_OF(".env.prod.enc", '"A=" + e("1") + "\\nB=" + e("2") + "\\nPAD=\\"" + e("p".repeat(70000)) + "\\"\\n"')],
+  after: [LS],
+  back: MARGIN,
+});
+
+// ═══════════════════════════ setup: what the pre-read sees ═══════════════════════════
+//
+// Before its first write setup looks at everything it will read, make or
+// replace, in the hooks directory git will name (rs/src/repo.rs), and hands
+// back where the TypeScript would end in an uncaught error after writing.
+// Which directory that is it reads from git's configuration files itself;
+// what it cannot be sure of goes back. (Directories that cannot be written,
+// files that cannot be read and sticky directories need another user:
+// rs/perm-compat.sh.)
+
+const UNCAUGHT = "the TypeScript writes and then ends in an uncaught error; seen before the first write";
+const UNSURE = "git's configuration in a form the pre-read does not read";
+setup("core.hooksPath in the user's .gitconfig names a directory", { setup: ["mkdir ../hooks-dir", "git config --global core.hooksPath \"$(cd .. && pwd)/hooks-dir\""], after: [hooksIn("../hooks-dir")] });
+setup("core.hooksPath in the user's .gitconfig starts with ~", { setup: ["mkdir \"$HOME/my hooks\"", "git config --global core.hooksPath '~/my hooks'"], after: [hooksIn("\"$HOME/my hooks\"")] });
+setup("core.hooksPath in the user's .gitconfig names a file", { setup: ["echo x > ../hooks-file", "git config --global core.hooksPath \"$(cd .. && pwd)/hooks-file\""], after: ["cat ../hooks-file"], back: UNCAUGHT });
+setup("core.hooksPath in the XDG configuration names a file", { setup: ["echo x > hooks-file", "mkdir -p \"$XDG_CONFIG_HOME/git\"", "printf '[core]\\n\\thooksPath = hooks-file\\n' > \"$XDG_CONFIG_HOME/git/config\""], back: UNCAUGHT });
+setup("core.hooksPath in the XDG configuration, the repository's own wins", { setup: ["mkdir -p \"$XDG_CONFIG_HOME/git\" mine", "printf '[core]\\n\\thooksPath = nowhere/x\\n' > \"$XDG_CONFIG_HOME/git/config\"", "git config core.hooksPath mine"], after: [hooksIn("mine")] });
+setup("core.hooksPath names a path through a file", { setup: ["echo x > hooks-file", "git config core.hooksPath hooks-file/sub"], back: UNCAUGHT });
+setup("core.hooksPath names a directory to be made", { setup: ["git config core.hooksPath made/by/setup"], after: [hooksIn("made/by/setup")] });
+setup("core.hooksPath names a link to nowhere", { setup: ["ln -s nowhere hooks-link", "git config core.hooksPath hooks-link"], back: UNCAUGHT });
+setup("core.hooksPath with .. in it", { setup: ["mkdir -p a hooks", "git config core.hooksPath a/../hooks"], after: [hooksIn("hooks")], back: UNSURE });
+setup("core.hooksPath in quotes", { setup: ["mkdir ' lead'", "git config core.hooksPath ' lead'"], after: [hooksIn("' lead'")], back: UNSURE });
+setup("an include in the repository's configuration", { setup: ["printf '[core]\\n\\thooksPath = h\\n' > ../extra.config", "git config include.path ../../extra.config"], after: [HOOKS], back: UNSURE });
+setup("GIT_DIR in the environment", { env: { GIT_DIR: ".git" }, back: "GIT_DIR moves what git finds" });
+setup("the pre-commit hook is a directory", { setup: ["mkdir -p .git/hooks/pre-commit"], back: UNCAUGHT });
+setup("the post-checkout hook is a directory, not reached after a refusal of dede's own at post-merge", { setup: ["printf '#!/usr/bin/env python3\\n' > .git/hooks/post-merge", "printf '#!/bin/sh\\ndede guard\\n' > .git/hooks/pre-commit", "mkdir -p .git/hooks/post-checkout"] });
+setup(".husky is a link to nowhere, and there is a package.json", { files: { "package.json": "{}\n" }, setup: ["ln -s nowhere .husky"], after: ["cat package.json"], back: UNCAUGHT });
+setup(".husky is a directory and its pre-commit a directory", { files: { "package.json": "{}\n", ".husky/pre-commit/keep": "" }, after: ["cat package.json"], back: UNCAUGHT });
+setup(".husky's pre-commit is a link to nowhere: a refusal of dede's own", { files: { "package.json": "{}\n" }, setup: ["mkdir .husky", "ln -s nowhere .husky/pre-commit"], after: ["cat package.json", "ls -A .husky"] });
+
+// ═══════════════════════════ enc: the sync record where git finds it ═══════════════════════════
+//
+// Before its first write enc looks at every sync record git could take
+// (rs/src/repo.rs): along the path as written and the real one, past a .git
+// that git passes over, in a parent repository too. One it does not read the
+// way the TypeScript does sends the invocation back.
+
+add("enc: a file reached through a link into a repository whose record is a list", ["enc", "link/.env.prod"], {
+  repo: false,
+  setup: ["git init -q -b main real && printf '.env*\\n!.env*.enc\\n' > real/.gitignore && mkdir -p real/sub real/.git/dotenvdotenc && echo '[]' > real/.git/dotenvdotenc/state.json && printf 'A=1\\n' > real/sub/.env.prod && ln -s real/sub link"],
+  after: ["ls -A real/sub", "cat real/.git/dotenvdotenc/state.json"],
+  back: ODD_RECORD,
+});
+add("enc: a file reached through a link into a repository", ["enc", "link/.env.prod"], {
+  repo: false,
+  setup: ["git init -q -b main real && printf '.env*\\n!.env*.enc\\n' > real/.gitignore && mkdir -p real/sub && printf 'A=1\\n' > real/sub/.env.prod && ln -s real/sub link"],
+  after: ["ls -A real/sub", "cd real/sub && " + PROBE + " enc .env.prod.enc .env.keys"],
+});
+add("enc: a record that is a list in a parent repository, the file in a nested one", ["enc", "nested/.env.prod"], {
+  files: { "nested/.env.prod": "A=1\n" },
+  setup: ["mkdir -p .git/dotenvdotenc && echo '[]' > .git/dotenvdotenc/state.json", "git init -q -b main nested && printf '.env*\\n!.env*.enc\\n' > nested/.gitignore"],
+  after: ["ls -A nested", "cat .git/dotenvdotenc/state.json"],
+  back: "a sync record that is not an object, in a repository around the one git finds: the pre-read does not judge which one git takes",
+});
+add("enc: another file's entry in the record is not of dede's shape", ["enc"], { files: { ".env.local": LOCAL, "state.fixture": '{"sub/.env.other": {"plain": 1}}\n' }, setup: [K1], after: [LS], back: ODD_RECORD });
+
 // ═══════════════════════════ the verifier's cases ═══════════════════════════
 //
 // 285 cases an independent verifier wrote against the port at 24d24a9
