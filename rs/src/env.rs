@@ -154,8 +154,9 @@ fn changes_the_runtime(key: &str) -> bool {
 /// that could end it or start another (none at all when it is not quoted);
 /// a quoted one no backslash either. Those are where bun starts to interpret
 /// (expansion, escapes, values over several lines). Lines end in LF or CRLF.
-/// Anything else — `export`, indentation, a key with `.` or `-`, a line
-/// without `=`, a BOM, the same key twice in a file — is `HandBack`.
+/// A name given twice has its last value. Anything else — `export`,
+/// indentation, a key with `.` or `-`, a line without `=`, a BOM — is
+/// `HandBack`.
 ///
 /// Every rule here was read off bun 1.4.0 and is held by the parity cases
 /// `bun env: …` (rs/parity.gen.mjs).
@@ -220,10 +221,15 @@ fn parse_plain_dotenv(text: &str) -> Result<Vec<(String, String)>, HandBack> {
         }
         let (key, raw) = line.split_once('=').ok_or(HandBack)?;
         let key_is_plain = key.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_') && key.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
-        if !key_is_plain || changes_the_runtime(key) || vars.iter().any(|(k, _)| same_name(k, key)) {
+        if !key_is_plain || changes_the_runtime(key) {
             return Err(HandBack);
         }
-        vars.push((key.to_string(), plain_value(raw)?.to_string()));
+        let value = plain_value(raw)?.to_string();
+        // The last assignment of a name wins.
+        match vars.iter_mut().find(|(k, _)| same_name(k, key)) {
+            Some(entry) => entry.1 = value,
+            None => vars.push((key.to_string(), value)),
+        }
     }
     Ok(vars)
 }
@@ -246,6 +252,7 @@ mod tests {
     fn plain_dotenv_lines_are_read() {
         assert_eq!(parsed(""), pairs(&[]));
         assert_eq!(parsed("A=1\nB=two words\n"), pairs(&[("A", "1"), ("B", "two words")]));
+        assert_eq!(parsed("A=1\nB=x\nA=2\n"), pairs(&[("A", "2"), ("B", "x")]));
         assert_eq!(parsed("# it's a \"comment\" with $x\r\n\r\nA=1\r\nB= \t padded \t \r\nC="), pairs(&[("A", "1"), ("B", "padded"), ("C", "")]));
         assert_eq!(
             parsed("URL=https://user:pa.ss@host.example.com:8080/a/b.git?x=1&y=2\nWIN=C:\\Users\\me\nU=héllo→世界\nNODE_ENV=production"),
@@ -306,7 +313,6 @@ mod tests {
             "A",
             "A.B=1",
             "1A=1",
-            "A=1\nA=2",
             "A=1\rB=2",
             "\u{feff}A=1",
             "BUN_ENV=test",
