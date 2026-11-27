@@ -80,7 +80,8 @@ const IDENT = "git config --global user.name Parity && git config --global user.
 const STATE = "mkdir -p .git/dotenvdotenc && mv state.fixture .git/dotenvdotenc/state.json";
 const PROBE = "node <REPO>/rs/parity/probe.mjs";
 const GIT_LOG = "cat <HOME>/git.log 2>&1";
-const LS = "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done";
+const FILES = "node <REPO>/rs/parity/files.mjs";
+const LS = `ls -A | grep -v '^\\.git$' | ${FILES} stat '%a %F %n'`;
 
 export const cases = [];
 /** A key in a file or a variable: placeholders rs/parity/run.sh expands. */
@@ -342,8 +343,8 @@ add("dec: the plaintext is a directory", ["dec", "--force"], { files: { ".env.pr
 add("enc: a keys file named like an env file, without --key", ["enc"], { files: { ".env.keys.me": `# backup\nDOTENV_PRIVATE_KEY_PROD=@3@\nOTHER=x\n` }, after: [LS, `${PROBE} keys .env.keys .env.keys.me.enc`, `${PROBE} enc .env.keys.me.enc .env.keys | sed 's/3\\{64\\}/<the key in it>/'`] });
 add("enc: git is not installed", ["enc"], { files: { ".env.local": LOCAL }, setup: [K1], env: { X_NOGIT: "1" }, nolog: true });
 add("dec: git is not installed", ["dec"], { files: { ".env.local.enc": LOCAL_ENC }, setup: [K1], env: { X_NOGIT: "1" }, nolog: true });
-add("enc: with a umask that lets nobody in", ["enc"], { files: { ".env.local": LOCAL }, env: { X_UMASK: "0777" }, after: [LS, "stat -c '%a %n' .git/dotenvdotenc .git/dotenvdotenc/state.json"] });
-add("enc: with a umask that lets everybody in", ["enc"], { files: { ".env.local": LOCAL }, env: { X_UMASK: "0000" }, after: [LS, "stat -c '%a %n' .git/dotenvdotenc .git/dotenvdotenc/state.json"] });
+add("enc: with a umask that lets nobody in", ["enc"], { files: { ".env.local": LOCAL }, env: { X_UMASK: "0777" }, after: [LS, `${FILES} stat '%a %n' .git/dotenvdotenc .git/dotenvdotenc/state.json`] });
+add("enc: with a umask that lets everybody in", ["enc"], { files: { ".env.local": LOCAL }, env: { X_UMASK: "0000" }, after: [LS, `${FILES} stat '%a %n' .git/dotenvdotenc .git/dotenvdotenc/state.json`] });
 add("enc: a key of that name in the environment in upper case, with a second one after a comma", ["enc"], { files: { ".env.local": LOCAL }, env: { DOTENV_PRIVATE_KEY_LOCAL: " @A@ , @b@" }, after: [LS, `${PROBE} enc .env.local.enc a`] });
 add("enc: a key of that name in the environment that is too long", ["enc"], { files: { ".env.local": LOCAL }, env: { DOTENV_PRIVATE_KEY_LOCAL: `${K}11` } });
 add("enc: a key of that name in the environment that is empty; .env.keys has one", ["enc"], { files: { ".env.local": LOCAL }, setup: [K1], env: { DOTENV_PRIVATE_KEY_LOCAL: "" }, after: ENC_AFTER() });
@@ -437,7 +438,7 @@ health("an .enc with CRLF and a last line without a newline", 'rotate:\r\n  - ke
 
 // ═══════════════════════════ setup ═══════════════════════════
 
-const SETUP_AFTER = [LS, "cat .gitignore", "for f in .git/hooks/pre-commit .git/hooks/post-merge .git/hooks/post-checkout .husky/pre-commit package.json; do [ -e \"$f\" ] && { stat -c '%a %n' \"$f\"; cat \"$f\"; }; done; true"];
+const SETUP_AFTER = [LS, "cat .gitignore", `for f in .git/hooks/pre-commit .git/hooks/post-merge .git/hooks/post-checkout .husky/pre-commit package.json; do [ -e \"$f\" ] && { ${FILES} stat '%a %n' \"$f\"; cat \"$f\"; }; done; true`];
 const pkg = (name, text, o = {}) => add(`setup: ${name}`, ["setup"], { repo: "", files: { "package.json": text }, after: SETUP_AFTER, ...o });
 pkg("a package.json with CRLF line endings", '{\r\n    "name": "x",\r\n    "version": "1.0.0"\r\n}\r\n');
 pkg("a package.json indented by twelve spaces", '{\n            "name": "x"\n}');
@@ -570,7 +571,7 @@ add("status: .env.keys is a directory", ["status"], { files: { ".env.prod": LOCA
 add("enc: .env.keys is a directory", ["enc"], { files: { ".env.prod": LOCAL, ".env.keys/keep": "" } });
 add("get: .env.keys is a directory", ["get", "API_KEY"], { files: { ".env.prod.enc": encFile(".env.prod", 1, LOCAL, "p"), ".env.keys/keep": "" } });
 add("enc: .env.keys is empty", ["enc"], { files: { ".env.prod": LOCAL, ".env.keys": "" }, after: [LS, `${PROBE} keys .env.keys .env.prod.enc`] });
-add("enc: --env-keys-file= with nothing after it: the new key has nowhere to go", ["enc", "--env-keys-file="], { files: { ".env.prod": LOCAL }, after: ["ls -A | grep -v '^\\.git$' | sed 's/dede-tmp-.*/dede-tmp-<pid>-<random>/' | while read -r f; do echo \"$f\"; done", "stat -c '%a %F' .env.dede-tmp-* 2>&1 | sed 's/.env.dede-tmp-[0-9a-f-]*/<temp file>/'"] });
+add("enc: --env-keys-file= with nothing after it: the new key has nowhere to go", ["enc", "--env-keys-file="], { files: { ".env.prod": LOCAL }, after: ["ls -A | grep -v '^\\.git$' | sed 's/dede-tmp-.*/dede-tmp-<pid>-<random>/' | while read -r f; do echo \"$f\"; done", `${FILES} stat '%a %F' .env.dede-tmp-* 2>&1 | sed 's/.env.dede-tmp-[0-9a-f-]*/<temp file>/'`] });
 add("enc: -fk to a file in a directory that is not there", ["enc", "-fk", "nowhere/keys"], { files: { ".env.prod": LOCAL }, after: [LS] });
 add("enc: -fk to a directory", ["enc", "-fk", "."], { files: { ".env.prod": LOCAL }, after: [LS] });
 add("dec: a key file given by -fk that is the .enc itself", ["dec", "-fk", ".env.prod.enc"], { files: { ".env.prod.enc": encFile(".env.prod", 1, LOCAL, "p") } });

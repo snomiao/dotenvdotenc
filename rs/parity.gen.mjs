@@ -120,7 +120,9 @@ const STATE = "mkdir -p .git/dotenvdotenc && mv state.fixture .git/dotenvdotenc/
 const PROBE = "node <REPO>/rs/parity/probe.mjs";
 const GIT_LOG = "cat <HOME>/git.log 2>&1";
 /** What is in the directory, with modes: nothing may be left behind (temp files) or loosened. */
-const LS = "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done";
+/** Shell: what GNU `stat -c` and `sha256sum` print, on every system (rs/parity/files.mjs). */
+const FILES = "node <REPO>/rs/parity/files.mjs";
+const LS = `ls -A | grep -v '^\\.git$' | ${FILES} stat '%a %F %n'`;
 
 const cases = [];
 /**
@@ -576,7 +578,7 @@ add("status: through the key tree", ["status"], { files: { ...TREE, ".env.deep":
 
 // keys link
 add("keys link: links .env.keys to another checkout's", ["keys", "link", "../other/.env.keys"], { files: { ".env.local.enc": LOCAL_ENC }, setup: ["mkdir ../other", keysFile({ _LOCAL: 1 }, "../other/.env.keys"), "chmod 600 ../other/.env.keys"], after: ["readlink .env.keys", LS] });
-add("keys link: warns when the target is readable by others", ["keys", "link", "../other/.env.keys"], { setup: ["mkdir ../other", keysFile({ _LOCAL: 1 }, "../other/.env.keys"), "chmod 644 ../other/.env.keys"], after: ["readlink .env.keys", "stat -c %a ../other/.env.keys"] });
+add("keys link: warns when the target is readable by others", ["keys", "link", "../other/.env.keys"], { setup: ["mkdir ../other", keysFile({ _LOCAL: 1 }, "../other/.env.keys"), "chmod 644 ../other/.env.keys"], after: ["readlink .env.keys", `${FILES} stat %a ../other/.env.keys`] });
 add("keys link: an absolute target", ["keys", "link", "<CWD>/../other/k"], { setup: ["mkdir ../other", keysFile({ _LOCAL: 1 }, "../other/k"), "chmod 600 ../other/k"], after: ["readlink .env.keys"] });
 add("keys link: without a target", ["keys", "link"], { after: [LS] });
 add("keys link: an empty target", ["keys", "link", ""], { after: [LS] });
@@ -687,7 +689,7 @@ add("enc: a key of another name in .env.keys is not used; a new one is added", [
 add("enc: a new key goes to a .env.keys without a final newline", ["enc"], { files: { ".env.local": LOCAL }, setup: ["printf 'OTHER=1' > .env.keys"], after: FIRST });
 add("enc: a key of that name in the key tree is used", ["enc"], { files: { ".env.production": PROD }, setup: [keysFile({ _ROOT: 1 }), treeNode("team", 1, { _PRODUCTION: 2 })], after: WRITTEN_PROD });
 add("enc: an invalid key of that name", ["enc"], { files: { ".env.local": LOCAL, ".env.production": PROD }, setup: [keysFile({ _LOCAL: 0, _PRODUCTION: 2 })], after: [LS] });
-add("enc: -fk, the new key goes there", ["enc", "-fk", "../vault/keys"], { files: { ".env.local": LOCAL }, setup: ["mkdir ../vault"], after: [`${PROBE} enc .env.local.enc ../vault/keys`, `${PROBE} keys ../vault/keys .env.local.enc`, LS, "stat -c '%a %n' ../vault/keys"] });
+add("enc: -fk, the new key goes there", ["enc", "-fk", "../vault/keys"], { files: { ".env.local": LOCAL }, setup: ["mkdir ../vault"], after: [`${PROBE} enc .env.local.enc ../vault/keys`, `${PROBE} keys ../vault/keys .env.local.enc`, LS, `${FILES} stat '%a %n' ../vault/keys`] });
 add("enc: -fk to a file here that is not gitignored", ["enc", "-fk", "keys.txt"], { files: { ".env.local": LOCAL }, after: [LS] });
 add("enc: .env.keys is a link; the new key lands in its target", ["enc"], { files: { ".env.local": LOCAL }, setup: ["mkdir ../other", keysFile({ _OTHER: 3 }, "../other/.env.keys"), "ln -s ../other/.env.keys .env.keys"], after: [`${PROBE} enc .env.local.enc ../other/.env.keys`, `${PROBE} keys ../other/.env.keys .env.local.enc`, LS, "readlink .env.keys"] });
 add("enc: .env.keys would not be gitignored", ["enc"], { repo: ".env.local\n", files: { ".env.local": LOCAL }, after: [LS] });
@@ -928,7 +930,7 @@ health("an .enc that is not committed", "rotate:\n  - keys: API_TOKEN\n    every
 health("an edit not committed yet counts as changed now", "rotate:\n  - every: 90d\n    warn: 1d\n", { files: { "later.enc": encFile(".env.prod", 2, HEALTH.replace("p1", "p2")) }, setup: [`git add .env.prod.enc .dede.yaml && ${commitAgo(200)}`, "mv later.enc .env.prod.enc"] });
 health("the last assignment of a name counts; a public key is no value", "rotate:\n  - every: 90d\n", {
   files: { ".env.prod.enc": `${HEALTH_ENC}API_TOKEN=${seal(2, "t1", "again")}\nDOTENV_PUBLIC_KEY_X="${pub(1)}"\n  # c\n\nnot an assignment\n` },
-  setup: [`git add .env.prod.enc .dede.yaml && ${commitAgo(200)}`, "sed -i '$d' .env.prod.enc && echo 'ZED=encrypted:x' >> .env.prod.enc && git add . && " + commitAgo(10)],
+  setup: [`git add .env.prod.enc .dede.yaml && ${commitAgo(200)}`, "sed -i.bak '$d' .env.prod.enc && rm .env.prod.enc.bak && echo 'ZED=encrypted:x' >> .env.prod.enc && git add . && " + commitAgo(10)],
 });
 health("several files", "rotate:\n  - keys: \"*\"\n    files: [.env.prod, \".env.local\"]\n    every: 90d\n", { files: { ".env.local.enc": LOCAL_ENC, ".env.other.enc": PROD_ENC } });
 health("one named file", "rotate:\n  - every: 90d\n", { files: { ".env.local.enc": LOCAL_ENC } }, ["health", ".env.local"]);
@@ -962,7 +964,7 @@ health("DOTENVDOTENC_NO_NATIVE=1", "rotate: []\n", { env: { DOTENVDOTENC_NO_NATI
 // ═══════════════════════════ setup ═══════════════════════════
 
 /** Shell: the hooks in a directory, each with its mode and text. */
-const hooksIn = (dir) => `for h in pre-commit post-merge post-checkout; do if [ -e ${dir}/$h ]; then stat -c '--- %a %n' ${dir}/$h; cat ${dir}/$h; fi; done; ls -A ${dir} 2>&1 | grep -v -e '\\.sample$' -e '^_$'`;
+const hooksIn = (dir) => `for h in pre-commit post-merge post-checkout; do if [ -e ${dir}/$h ]; then ${FILES} stat '--- %a %n' ${dir}/$h; cat ${dir}/$h; fi; done; ls -A ${dir} 2>&1 | grep -v -e '\\.sample$' -e '^_$'`;
 const HOOKS = hooksIn(".git/hooks");
 const IGNORED = "cat .gitignore 2>&1";
 const setup = (name, o = {}) => add(`setup: ${name}`, ["setup"], { repo: "", ...o, after: [IGNORED, ...(o.after || [HOOKS]), LS] });
@@ -991,7 +993,7 @@ setup("a .husky directory without core.hooksPath", { files: { "package.json": "{
 setup("lefthook.yml: a snippet to paste", { files: { "lefthook.yml": "pre-push:\n  commands: {}\n", "package.json": "{}\n" }, after: ["cat lefthook.yml package.json", HOOKS] });
 setup(".lefthook.yaml that already has the guard", { files: { ".lefthook.yaml": "pre-commit:\n  commands:\n    x:\n      run: dede guard\n" } });
 setup("lefthook.yaml before .lefthook.yml", { files: { "lefthook.yaml": "a: 1\n", ".lefthook.yml": "run: dede guard\n" } });
-const HUSKY = [hooksIn(".husky"), "cat package.json", "stat -c '%a %n' package.json", HOOKS];
+const HUSKY = [hooksIn(".husky"), "cat package.json", `${FILES} stat '%a %n' package.json`, HOOKS];
 setup("a package.json: husky is set up", { files: { "package.json": '{\n  "name": "app",\n  "version": "1.0.0",\n  "private": true\n}\n' }, after: HUSKY });
 setup("a package.json with four spaces, a prepare script and its own mode", { files: { "package.json": '{\n    "name": "app",\n    "scripts": {\n        "prepare": "node build.js",\n        "test": "x"\n    },\n    "devDependencies": {\n        "typescript": "^5"\n    }\n}' }, setup: ["chmod 600 package.json"], after: HUSKY });
 setup("a package.json with tabs, where husky is already a dependency and in prepare", { files: { "package.json": '{\n\t"scripts": {"prepare": "husky"},\n\t"dependencies": {"husky": "^9"},\n\t"files": ["a", "b"],\n\t"count": 3,\n\t"nothing": null\n}\n' }, after: HUSKY });
@@ -1092,10 +1094,10 @@ const BOTH_CHANGED = (count, size) => [
   WRITE(".env.prod", `Array.from({ length: ${count} }, (_, i) => "V_" + i + "=" + String(i).padStart(${size}, "v") + "\\n").join("")`),
   "X_CD= PARITY_GIT_LOG= sh <REPO>/rs/parity/run.sh bun <REPO>/dede.ts enc 2>/dev/null",
   "cp .git/dotenvdotenc/state.json state.synced",
-  "sed -i 's/^V_8=v/V_8=w/' .env.prod && X_CD= PARITY_GIT_LOG= sh <REPO>/rs/parity/run.sh bun <REPO>/dede.ts enc 2>/dev/null",
-  "mv state.synced .git/dotenvdotenc/state.json && sed -i 's/^V_8=w/V_8=v/; s/^V_7=v/V_7=x/' .env.prod",
+  "sed -i.bak 's/^V_8=v/V_8=w/' .env.prod && rm .env.prod.bak && X_CD= PARITY_GIT_LOG= sh <REPO>/rs/parity/run.sh bun <REPO>/dede.ts enc 2>/dev/null",
+  "mv state.synced .git/dotenvdotenc/state.json && sed -i.bak 's/^V_8=w/V_8=v/; s/^V_7=v/V_7=x/' .env.prod && rm .env.prod.bak",
 ];
-const MERGED_AFTER = [LS, `${PROBE} enc .env.prod.enc .env.keys | grep -c '^V_'`, `${PROBE} enc .env.prod.enc .env.keys | grep -E '^V_[78]=' | cut -c1-12`, "grep -E '^V_[78]=' .env.prod | cut -c1-12", "sha256sum .env.prod", `${PROBE} state`];
+const MERGED_AFTER = [LS, `${PROBE} enc .env.prod.enc .env.keys | grep -c '^V_'`, `${PROBE} enc .env.prod.enc .env.keys | grep -E '^V_[78]=' | cut -c1-12`, "grep -E '^V_[78]=' .env.prod | cut -c1-12", `${FILES} sha256 .env.prod`, `${PROBE} state`];
 add("large: enc, both sides changed in 23 values of 1,000 bytes: merged here", ["enc"], { setup: BOTH_CHANGED(23, 1000), after: MERGED_AFTER });
 add("large: enc, both sides changed in 24 values of 1,000 bytes: past the margin", ["enc"], { setup: BOTH_CHANGED(24, 1000), after: MERGED_AFTER, back: MARGIN });
 add("large: enc, both sides changed in a file of 450 short values: merged here", ["enc"], { setup: BOTH_CHANGED(450, 9), after: MERGED_AFTER });

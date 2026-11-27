@@ -20,7 +20,7 @@
 
 import { spawnSync } from "node:child_process";
 import { createHash, createHmac } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { basename, join } from "node:path";
 
@@ -99,7 +99,7 @@ function state(...only) {
   } catch {
     return console.log(`sync record is not JSON:\n${text}`);
   }
-  console.log(`sync record: ${text === JSON.stringify(all, null, 2) + "\n" ? "written as JSON.stringify(…, null, 2) and a newline" : "NOT in the form dede writes"}, mode ${(spawnSync("stat", ["-c", "%a", file], { encoding: "utf8" }).stdout || "").trim()}`);
+  console.log(`sync record: ${text === JSON.stringify(all, null, 2) + "\n" ? "written as JSON.stringify(…, null, 2) and a newline" : "NOT in the form dede writes"}, mode ${(statSync(file).mode & 0o7777).toString(8)}`);
   const sha = (t) => createHash("sha256").update(lf(t)).digest("hex");
   const hmac = (salt, t) => createHmac("sha256", salt).update(t).digest("hex").slice(0, 24);
   const commentsOf = (t) => t.split("\n").filter((l) => l.trimStart().startsWith("#")).join("\n");

@@ -76,8 +76,9 @@ const INIT = "git init -q -b main";
 const IDENT = "git config --global user.name Parity && git config --global user.email parity@example.com";
 const PROBE = "node <REPO>/rs/parity/probe.mjs";
 const GIT_LOG = "cat <HOME>/git.log 2>&1";
-const LS = "ls -A | grep -v '^\\.git$' | while read -r f; do stat -c '%a %F %n' \"$f\"; done";
-const FIND = "find . -path ./.git/objects -prune -o -path '*/.git/objects' -prune -o -name '*.sample' -prune -o -print | sort | while read -r f; do stat -c '%a %F %n' \"$f\"; done";
+const FILES = "node <REPO>/rs/parity/files.mjs";
+const LS = `ls -A | grep -v '^\\.git$' | ${FILES} stat '%a %F %n'`;
+const FIND = `find . -path ./.git/objects -prune -o -path '*/.git/objects' -prune -o -name '*.sample' -prune -o -print | sort | ${FILES} stat '%a %F %n'`;
 
 export const cases = [];
 function add(name, args, o = {}) {
@@ -102,7 +103,7 @@ function add(name, args, o = {}) {
 // TypeScript's /\/\.husky\/_\/?$/ applies to that. The pre-read resolves
 // core.hooksPath without following links.
 const UNCAUGHT = "the TypeScript updates .gitignore and then ends in an uncaught error";
-const hooksIn = (dir) => `for h in pre-commit post-merge post-checkout; do if [ -e ${dir}/$h ]; then stat -c '--- %a %F %n' ${dir}/$h; [ -f ${dir}/$h ] && cat ${dir}/$h; fi; done; true`;
+const hooksIn = (dir) => `for h in pre-commit post-merge post-checkout; do if [ -e ${dir}/$h ]; then ${FILES} stat '--- %a %F %n' ${dir}/$h; [ -f ${dir}/$h ] && cat ${dir}/$h; fi; done; true`;
 const setup = (name, o = {}) => add(`setup: ${name}`, ["setup"], { repo: "", ...o, after: ["cat .gitignore 2>&1", ...(o.after || []), FIND] });
 
 setup(".husky a link to real, core.hooksPath .husky/_, real/_/pre-commit a directory", {
@@ -228,12 +229,12 @@ const BIG_PLAIN = `A=1\nBIG="${BIGV}"\nZ=2\n`;
 // value replaced in place, its quotes kept. rs/parity.gen.mjs runs on node.)
 const encFileOf = (name, digit, variant, lines) => `${header(name, digit)}${lines.map(([k, v, q = ""]) => `${k}=${q}${seal(digit, v, `${variant}${k}#0`)}${q}\n`).join("")}`;
 const BIG_ENC = encFileOf(".env.prod", 1, "edge", [["A", "1"], ["BIG", BIGV, '"'], ["Z", "2"]]);
-add("dec, an .enc with a quoted ciphertext of 131,070 characters", ["dec"], { files: { ".env.prod.enc": BIG_ENC }, setup: [KPROD], after: [LS, "wc -c < .env.prod", "sha256sum .env.prod", `${PROBE} state`] });
+add("dec, an .enc with a quoted ciphertext of 131,070 characters", ["dec"], { files: { ".env.prod.enc": BIG_ENC }, setup: [KPROD], after: [LS, "wc -c < .env.prod", `${FILES} sha256 .env.prod`, `${PROBE} state`] });
 const BIG_PLAIN2 = `A=3\nBIG="${BIGV}"\nZ=2\n`;
 add("enc, A changed, the 131,070-character ciphertext of BIG kept", ["enc"], {
   files: { ".env.prod.enc": BIG_ENC, ".env.prod": BIG_PLAIN2, "state.fixture": stateText({ ".env.prod": [BIG_PLAIN, BIG_ENC] }) },
   setup: ["mkdir -p .git/dotenvdotenc && mv state.fixture .git/dotenvdotenc/state.json", KPROD],
-  after: [LS, `${PROBE} enc .env.prod.enc .env.keys | cut -c1-70`, "grep '^BIG=' .env.prod.enc | sha256sum", "grep '^A=' .env.prod.enc | wc -c", `${PROBE} state`],
+  after: [LS, `${PROBE} enc .env.prod.enc .env.keys | cut -c1-70`, `grep '^BIG=' .env.prod.enc | ${FILES} sha256`, "grep '^A=' .env.prod.enc | wc -c", `${PROBE} state`],
   back: "both files there and different, over 120,000 units together: the pre-read hands back a possible merge" });
 const MIDV = "m".repeat(50000);
 const MID_PLAIN = `A=1\nBIG="${MIDV}"\nZ=2\n`;
@@ -241,12 +242,12 @@ const MID_ENC = encFileOf(".env.prod", 1, "mid", [["A", "1"], ["BIG", MIDV, '"']
 add("enc, A changed, the ciphertext of a 50,000-byte BIG kept (100,000 units together)", ["enc"], {
   files: { ".env.prod.enc": MID_ENC, ".env.prod": MID_PLAIN.replace("A=1", "A=3"), "state.fixture": stateText({ ".env.prod": [MID_PLAIN, MID_ENC] }) },
   setup: ["mkdir -p .git/dotenvdotenc && mv state.fixture .git/dotenvdotenc/state.json", KPROD],
-  after: [LS, `${PROBE} enc .env.prod.enc .env.keys | cut -c1-70`, "grep '^BIG=' .env.prod.enc | sha256sum", "grep '^A=' .env.prod.enc | wc -c", `${PROBE} state`],
+  after: [LS, `${PROBE} enc .env.prod.enc .env.keys | cut -c1-70`, `grep '^BIG=' .env.prod.enc | ${FILES} sha256`, "grep '^A=' .env.prod.enc | wc -c", `${PROBE} state`],
   back: "both files and both sides' ciphertexts past 131,072 units: the pre-read hands back a possible merge" });
 add("dec, both changed and mergeable, 100,000 units together", ["dec"], {
   files: { ".env.prod.enc": MID_ENC, ".env.prod": MID_PLAIN.replace("Z=2", "Z=9"), "state.fixture": stateText({ ".env.prod": [MID_PLAIN.replace("A=1", "A=0"), "x"] }) },
   setup: ["mkdir -p .git/dotenvdotenc && mv state.fixture .git/dotenvdotenc/state.json", KPROD],
-  after: [LS, "grep -v '^BIG' .env.prod", "sha256sum .env.prod", `${PROBE} state`] });
+  after: [LS, "grep -v '^BIG' .env.prod", `${FILES} sha256 .env.prod`, `${PROBE} state`] });
 
 // Many short values: the "possible merge" check counts every value's ciphertext twice.
 for (const n of [300, 450]) {
