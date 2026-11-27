@@ -66,7 +66,9 @@ jobs:
       #   `handback` may reach the JavaScript;
       # - the two taking turns on the same files, and dotenvx reading what the
       #   binary encrypts;
-      # - both on a pseudo-terminal.
+      # - both on a pseudo-terminal, under several TERM values;
+      # - both where the file system refuses something (as the runner's user,
+      #   with sudo making what belongs to root).
       parity: >-
         bun install --frozen-lockfile
         && node rs/parity.gen.mjs --check
@@ -79,6 +81,7 @@ jobs:
         --handback DOTENVDOTENC_PACKAGE_ROOT=dede.ts
         && sh rs/cross-compat.sh "$RUSTIFY_BIN_DIR/dotenvdotenc"
         && python3 rs/tty-compat.py "$RUSTIFY_BIN_DIR/dotenvdotenc"
+        && sh rs/perm-compat.sh "$RUSTIFY_BIN_DIR/dotenvdotenc"
       # After installing, on every platform. The parity job runs on Linux
       # only; these lines are all that macOS and Windows get. An unknown
       # command prints the usage and exits 4; `get` without a name, and for a
