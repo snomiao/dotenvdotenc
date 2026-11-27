@@ -137,7 +137,11 @@ function add(name, args, o = {}) {
   if (Object.keys(env).length) testCase.env = env;
   if (Object.keys(files).length) testCase.files = files;
   if (setup.length) testCase.setup = setup;
-  testCase.after = [...(o.after || []), GIT_LOG];
+  // A case that is handed back may have asked git a few things before it
+  // was (the JavaScript then asks them again), so what git was asked is only
+  // compared where the binary answers.
+  testCase.after = [...(o.after || []), ...(o.back ? [] : [GIT_LOG])];
+  if (!testCase.after.length) delete testCase.after;
   if (o.normalize) testCase.normalize = o.normalize;
   if (o.back) testCase.handback = o.back;
   if (cases.some((c) => c.name === name)) throw new Error(`two cases named ${JSON.stringify(name)}`);
@@ -336,6 +340,7 @@ for (const [what, line, back] of [
   ["a backslash in a bare value", "DOTENV_KEYS_FILE=a\\b"],
   ["letters beyond ASCII", "DOTENV_KEYS_FILE=clés→鍵"],
   ["a tab before the quote", 'DOTENV_KEYS_FILE=\t"k"'],
+  ["the same name twice: the last wins", "DOTENV_KEYS_FILE=k1\nT_OTHER=1\nDOTENV_KEYS_FILE=k2"],
   // What bun interprets, or what was not looked at closely enough to imitate.
   ["a $ in a bare value", "DOTENV_KEYS_FILE=a$b", "bun expands $b"],
   ["a $ at the end", "DOTENV_KEYS_FILE=cost$", "a $ is where bun starts to expand"],
@@ -355,7 +360,6 @@ for (const [what, line, back] of [
   ["a space before the equals sign", "DOTENV_KEYS_FILE =k", "spaces before = are not imitated"],
   ["a line without an equals sign", "DOTENV_KEYS_FILE", "a line without = is not imitated"],
   ["a name with a dot", "A.B=1\nDOTENV_KEYS_FILE=k", "names with . or - are not imitated"],
-  ["the same name twice", "DOTENV_KEYS_FILE=k1\nDOTENV_KEYS_FILE=k2", "a name given twice is not imitated"],
   ["a byte order mark", "﻿DOTENV_KEYS_FILE=k", "a byte order mark is not imitated"],
   ["a lone carriage return", "A=1\rDOTENV_KEYS_FILE=k", "a lone carriage return is not imitated"],
   ["a variable for bun", "BUN_CONFIG_VERBOSE_FETCH=1\nDOTENV_KEYS_FILE=k", "variables that steer bun are not imitated"],
@@ -385,7 +389,204 @@ add("bun env: the variables reach git", ["get", "API_KEY"], {
 });
 // A private key in a file bun loads is a key in the environment.
 add("bun env: a private key in .env.development.local opens the .enc", ["get", "API_KEY"], { files: NO_KEY, setup: [keysFile({ _ANYTHING: 1 }, ".env.development.local")] });
-add("bun env: a private key in .env, which dede then refuses as an env file", ["status"], { files: { ...NO_KEY, ".env.local": LOCAL }, setup: [keysFile({ _LOCAL: 1 }, ".env")], back: "status is not ported yet" });
+add("bun env: a private key in .env, which dede then refuses as an env file", ["status"], { files: { ...NO_KEY, ".env.local": LOCAL }, setup: [keysFile({ _LOCAL: 1 }, ".env")] });
+
+// ═══════════════════════════ scenes: a pair and its sync record ═══════════════════════════
+
+/** Files of a pair in a given state: plaintext, .enc and the record of the last sync (of LOCAL with LOCAL_ENC). */
+const pair = (plain, enc, record = [LOCAL, LOCAL_ENC], o = {}) => ({
+  ...(plain === null ? {} : { ".env.local": plain }),
+  ...(enc === null ? {} : { ".env.local.enc": enc }),
+  ...(record === null ? {} : { "state.fixture": stateText({ ".env.local": record }, o) }),
+});
+const EDITED = "# api\nAPI_KEY=dummy-2\nNAME=\"hello world\"\nNEW=added\n";
+const PULLED = "# api\nAPI_KEY=dummy-1\nNAME=\"hello there\"\nEXTRA=from-enc\n";
+const PULLED_ENC = encFile(".env.local", 1, PULLED);
+const CLASH = "# api\nAPI_KEY=dummy-3\nNAME=\"hello world\"\n";
+const CLASH_ENC = encFile(".env.local", 1, CLASH);
+const SCENES = {
+  "in sync": pair(LOCAL, LOCAL_ENC),
+  "in sync, never recorded": pair(LOCAL, LOCAL_ENC, null),
+  "in sync, CRLF plaintext": pair(LOCAL.replace(/\n/g, "\r\n"), LOCAL_ENC),
+  "in sync, CRLF .enc": pair(LOCAL, LOCAL_ENC.replace(/\n/g, "\r\n")),
+  "plaintext edited": pair(EDITED, LOCAL_ENC),
+  "plaintext edited, comment only": pair(LOCAL.replace("# api", "# the api"), LOCAL_ENC),
+  "plaintext edited, record without per-key hashes": pair(EDITED, LOCAL_ENC, [LOCAL, LOCAL_ENC], { perKey: false }),
+  ".enc changed": pair(LOCAL, PULLED_ENC),
+  "both changed, other keys": pair(EDITED, PULLED_ENC),
+  "both changed, the same key": pair(EDITED, CLASH_ENC),
+  "both changed to the same": pair(CLASH, CLASH_ENC),
+  "both changed, record without per-key hashes": pair(EDITED, PULLED_ENC, [LOCAL, LOCAL_ENC], { perKey: false }),
+  "both changed, comments on both sides": pair(LOCAL.replace("# api", "# mine"), encFile(".env.local", 1, LOCAL.replace("# api", "# theirs"))),
+  "both changed, a comment here and a key there": pair(LOCAL.replace("# api", "# mine"), PULLED_ENC),
+  "both changed, a key deleted here and one edited there": pair("# api\nNAME=\"hello world\"\n", encFile(".env.local", 1, "# api\nAPI_KEY=dummy-1\nNAME=\"hello there\"\n")),
+  "both changed, a key added here and one deleted there": pair(LOCAL + "MINE=1\n", encFile(".env.local", 1, "# api\nAPI_KEY=dummy-1\n")),
+  "differ, never recorded": pair(EDITED, PULLED_ENC, null),
+  "differ in formatting only, never recorded": pair("# other comment\nAPI_KEY=dummy-1\nNAME=\"hello world\"\n", LOCAL_ENC, null),
+  "differ, the record fits both files": pair(EDITED, PULLED_ENC, [EDITED, PULLED_ENC]),
+  "many keys differ": pair("A=1\nB=1\nC=1\nD=1\nE=1\nF=1\nG=1\nH=1\nONLY_HERE=1\n", encFile(".env.local", 1, "A=2\nB=2\nC=2\nD=2\nE=2\nF=2\nG=2\nH=2\nONLY_THERE=1\n"), null),
+  "no .enc yet": pair(LOCAL, null, null),
+  "no plaintext": pair(null, LOCAL_ENC, null),
+  "a repeated name": pair("A=1\nA=2\nB=x\n", encFile(".env.local", 1, "A=1\nA=2\nB=x\n"), null),
+  "a repeated name, edited": pair("A=1\nA=3\nB=x\n", encFile(".env.local", 1, "A=1\nA=2\nB=x\n"), ["A=1\nA=2\nB=x\n", encFile(".env.local", 1, "A=1\nA=2\nB=x\n")]),
+  "a name every JavaScript object has": pair("A=1\nconstructor=x\n", LOCAL_ENC, null),
+  "a public key in the plaintext": pair(`DOTENV_PUBLIC_KEY_LOCAL="${pub(1)}"\nA=1\n`, LOCAL_ENC, null),
+  "a private key name in the plaintext": pair("DOTENV_PRIVATE_KEY_X=not-a-key\nA=1\n", LOCAL_ENC, null),
+  "a damaged ciphertext": pair(LOCAL, TAMPERED),
+  "a value not encrypted in the .enc": pair(LOCAL, `${LOCAL_ENC}PLAIN=oops\n`),
+  "an .enc without header": pair(LOCAL, "API_KEY=encrypted:AAAA\n"),
+  "the record is not JSON": { ...pair(EDITED, LOCAL_ENC, null), "state.fixture": "{ not json" },
+  "the record is an empty object": { ...pair(EDITED, LOCAL_ENC, null), "state.fixture": "{}\n" },
+  "the record has other entries only": { ...pair(EDITED, LOCAL_ENC, null), "state.fixture": stateText({ "sub/.env.local": [LOCAL, LOCAL_ENC], ".env.other": [PROD, PROD_ENC] }) },
+};
+// Not imitated: a record that is not what dede writes.
+const ODD_SCENES = {
+  "the record holds a number": { ...pair(EDITED, LOCAL_ENC, null), "state.fixture": '{"x": 1.5}\n' },
+  "the record is a list": { ...pair(EDITED, LOCAL_ENC, null), "state.fixture": "[]\n" },
+  "the record is null": { ...pair(EDITED, LOCAL_ENC, null), "state.fixture": "null\n" },
+  "the entry is a string": { ...pair(EDITED, LOCAL_ENC, null), "state.fixture": '{".env.local": "x"}\n' },
+  "the entry has a list for keys": { ...pair(EDITED, LOCAL_ENC, null), "state.fixture": '{".env.local": {"plain": "x", "enc": "y", "keys": []}}\n' },
+};
+const ODD_RECORD = "a sync record that is not of the shape dede writes is not imitated";
+
+// ═══════════════════════════ status ═══════════════════════════
+
+for (const [scene, files] of Object.entries(SCENES)) add(`status: ${scene}`, ["status"], { files, setup: [K1] });
+for (const [scene, files] of Object.entries(ODD_SCENES)) add(`status: ${scene}`, ["status"], { files, setup: [K1], back: ODD_RECORD });
+add("status: in sync, --quiet prints nothing", ["status", "--quiet"], { files: SCENES["in sync"], setup: [K1] });
+add("status: edited, --quiet still says so", ["status", "--quiet"], { files: SCENES["plaintext edited"], setup: [K1] });
+add("status: no private key", ["status"], { files: SCENES["plaintext edited"] });
+add("status: the key in the environment", ["status"], { files: SCENES["plaintext edited"], keys: "_LOCAL=1" });
+add("status: another key only", ["status"], { files: SCENES["plaintext edited"], keys: "_LOCAL=2" });
+add("status: -fk", ["status", "-fk", "k"], { files: SCENES[".enc changed"], setup: [keysFile({ _LOCAL: 1 }, "k")] });
+add("status: nothing here", ["status"], {});
+add("status: a named file that is not there", ["status", ".env.staging"], {});
+add("status: a named file, by its .enc", ["status", ".env.local.enc"], { files: SCENES["in sync"], setup: [K1] });
+add("status: not an env file", ["status", "package.json"], { files: SCENES["in sync"], setup: [K1] });
+add("status: outside any repository", ["status"], { repo: false, files: { ".env.local": LOCAL, ".env.local.enc": LOCAL_ENC }, setup: [K1] });
+add("status: outside any repository, files differ", ["status"], { repo: false, files: { ".env.local": EDITED, ".env.local.enc": LOCAL_ENC }, setup: [K1] });
+add("status: outside any repository, nothing here", ["status"], { repo: false });
+const SEVERAL = {
+  ".env": "A=1\n",
+  ".env.enc": encFile(".env", 1, "A=1\n"),
+  ".env.local": EDITED,
+  ".env.local.enc": LOCAL_ENC,
+  ".env.production.enc": PROD_ENC,
+  ".env.staging": "S=1\n",
+  ".env.example": "API_KEY=\n",
+  ".env.keys.backup": "X=1\n",
+  "state.fixture": stateText({ ".env": ["A=1\n", encFile(".env", 1, "A=1\n")], ".env.local": [LOCAL, LOCAL_ENC] }),
+};
+const SEVERAL_KEYS = keysFile({ "": 1, _LOCAL: 1, _PRODUCTION: 2 });
+add("status: several files in different states", ["status"], { files: SEVERAL, setup: [SEVERAL_KEYS] });
+add("status: several files, --quiet", ["status", "--quiet"], { files: SEVERAL, setup: [SEVERAL_KEYS] });
+add("status: two of several, named", ["status", ".env.production", ".env"], { files: SEVERAL, setup: [SEVERAL_KEYS] });
+add("status: one file fails, the others are still reported", ["status"], { files: { ...SEVERAL, ".env.local.enc": TAMPERED, ".env.staging.enc": "nothing\n" }, setup: [SEVERAL_KEYS] });
+add("status: unmanaged files elsewhere in the repository", ["status"], {
+  files: { ...SCENES["in sync"], "app/.env.prod": "X=1\n", "app/.env.local": "X=1\n", "app/.env.example": "X=\n", "app/.env.managed": "X=1\n", "app/.env.managed.enc": encFile(".env.managed", 1, "X=1\n"), "node_modules/pkg/.env.test": "X=1\n", "app/node_modules/pkg/.env.x": "X=1\n" },
+  setup: [K1],
+});
+add("status: unmanaged files, from a subdirectory", ["status"], {
+  files: { ".env.root": "X=1\n", "app/.env.prod": "X=1\n", "app/deep/.env.deep": "X=1\n", "other/.env.other": "X=1\n" },
+  setup: ["mkdir -p app/run && cd app/run && " + keysFile({ _LOCAL: 1 })],
+});
+cases[cases.length - 1].setup.push("true");
+add("status: an unmanaged file that is not ignored", ["status"], { repo: "node_modules/\n", files: { ".env.prod": "X=1\n" } });
+add("status: a committed plaintext file is public config", ["status"], { repo: "", files: { ".env.shared": "PUBLIC=1\n", ".env.local": LOCAL, ".env.local.enc": LOCAL_ENC, ".gitignore": ".env.local\n.env.keys\n" }, setup: [IDENT, "git add .env.shared .gitignore && git commit -q -m public", K1] });
+add("status: a committed plaintext file, named", ["status", ".env.shared"], { repo: "", files: { ".env.shared": "PUBLIC=1\n", ".gitignore": ".env.keys\n" }, setup: [IDENT, "git add .env.shared && git commit -q -m public"] });
+add("status: the plaintext is a symlink", ["status"], { files: { ".env.local.enc": LOCAL_ENC, "elsewhere": LOCAL }, setup: [K1, "ln -s elsewhere .env.local"] });
+add("status: the plaintext is a symlink, named", ["status", ".env.local"], { files: { ".env.local.enc": LOCAL_ENC, "elsewhere": LOCAL }, setup: [K1, "ln -s elsewhere .env.local"] });
+add("status: the .enc is a symlink", ["status"], { files: { ".env.local": LOCAL, "elsewhere": LOCAL_ENC }, setup: [K1, "ln -s elsewhere .env.local.enc"] });
+add("status: a glob", ["status", ".env.*"], { files: SEVERAL, setup: [SEVERAL_KEYS], back: "Bun.Glob does the matching" });
+add("status: in a linked worktree, its own record", ["status"], {
+  repo: false,
+  files: { "../main/.gitignore": IGNORE, "../main/README": "x\n", ".env.local": EDITED, ".env.local.enc": LOCAL_ENC, "record.fixture": stateText({ ".env.local": [LOCAL, LOCAL_ENC] }) },
+  setup: [
+    IDENT,
+    "cd ../main && git init -q -b main && git add . && git commit -q -m init && git worktree add -q ../wt -b side",
+    // Make the case directory that worktree.
+    "mv ../wt/.git ../wt/.gitignore . && pwd > /dev/null && echo \"$PWD/.git\" > ../main/.git/worktrees/wt/gitdir",
+    "mkdir -p \"$(git rev-parse --git-path dotenvdotenc)\" && mv record.fixture \"$(git rev-parse --git-path dotenvdotenc)/state.json\"",
+    K1,
+  ],
+  after: ["git rev-parse --git-path dotenvdotenc/state.json"],
+});
+
+// ═══════════════════════════ diff ═══════════════════════════
+
+for (const scene of ["in sync", "in sync, CRLF plaintext", "plaintext edited", ".enc changed", "both changed, other keys", "differ in formatting only, never recorded", "many keys differ", "no .enc yet", "no plaintext", "a repeated name", "a repeated name, edited", "a name every JavaScript object has", "a private key name in the plaintext", "a damaged ciphertext", "an .enc without header"]) {
+  add(`diff: ${scene}`, ["diff"], { files: SCENES[scene], setup: [K1] });
+}
+add("diff: no private key", ["diff"], { files: SCENES["plaintext edited"] });
+add("diff: nothing here", ["diff"], {});
+add("diff: several files", ["diff"], { files: SEVERAL, setup: [SEVERAL_KEYS] });
+add("diff: one named file", ["diff", ".env.local"], { files: SEVERAL, setup: [SEVERAL_KEYS] });
+add("diff: a named file that is not there", ["diff", ".env.nope"], { files: SEVERAL, setup: [SEVERAL_KEYS] });
+add("diff: outside any repository", ["diff"], { repo: false, files: { ".env.local": EDITED, ".env.local.enc": LOCAL_ENC }, setup: [K1] });
+add("diff: a glob", ["diff", ".env*"], { files: SEVERAL, setup: [SEVERAL_KEYS], back: "Bun.Glob does the matching" });
+
+// ═══════════════════════════ keys ═══════════════════════════
+
+add("keys: each .enc and where its key is", ["keys"], { files: SEVERAL, setup: [SEVERAL_KEYS] });
+add("keys: a key that is missing", ["keys"], { files: SEVERAL, setup: [K1] });
+add("keys: no keys at all", ["keys"], { files: SEVERAL });
+add("keys: from the environment", ["keys"], { files: SEVERAL, keys: "_A=1 _B=2" });
+add("keys: the environment is named before the file", ["keys"], { files: SEVERAL, setup: [SEVERAL_KEYS], keys: "_PRODUCTION=2" });
+add("keys: -fk", ["keys", "-fk", "../k"], { files: SEVERAL, setup: [keysFile({ _X: 2 }, "../k")] });
+add("keys: DOTENV_KEYS_FILE", ["keys"], { files: SEVERAL, setup: ["mkdir sub", keysFile({ _X: 1 }, "sub/k")], env: { DOTENV_KEYS_FILE: "sub/k" } });
+add("keys: named files", ["keys", ".env.production", ".env.local.enc"], { files: SEVERAL, setup: [SEVERAL_KEYS] });
+add("keys: a named file that is not there", ["keys", ".env.nope"], { files: SEVERAL, setup: [SEVERAL_KEYS] });
+add("keys: nothing here", ["keys"], {});
+add("keys: outside any repository", ["keys"], { repo: false, files: { ".env.local.enc": LOCAL_ENC }, setup: [K1] });
+add("keys: a public key named in the environment counts as held", ["keys"], { files: SEVERAL, env: { DOTENV_PUBLIC_KEY_PRODUCTION: pub(2) } });
+add("keys: an .enc without header", ["keys"], { files: { ".env.a.enc": encFile(".env.a", 1, "A=1\n"), ".env.b.enc": "B=1\n", ".env.c.enc": encFile(".env.c", 1, "C=1\n") }, setup: [K1] });
+add("keys: CRLF .enc", ["keys"], { files: { ".env.local.enc": LOCAL_ENC.replace(/\n/g, "\r\n") }, setup: [K1] });
+add("keys: the .enc is a symlink", ["keys"], { files: { "elsewhere": LOCAL_ENC }, setup: [K1, "ln -s elsewhere .env.local.enc"] });
+add("keys: .env.keys is a link to another checkout's", ["keys"], { files: SEVERAL, setup: ["mkdir ../other", keysFile({ _LOCAL: 1, "": 1 }, "../other/.env.keys"), "ln -s ../other/.env.keys .env.keys"] });
+add("keys: .env.keys is a link to nowhere", ["keys"], { files: SEVERAL, setup: ["ln -s ../other/.env.keys .env.keys"], back: "the TypeScript ends in an uncaught ENOENT" });
+add("keys: a glob", ["keys", ".env.*"], { files: SEVERAL, setup: [SEVERAL_KEYS], back: "Bun.Glob does the matching" });
+
+// The key tree: .env.keys.<name>.enc files that held keys open.
+const TEAM_KEYS = encFile(".env.keys.team", 1, "# team keys\nDOTENV_PRIVATE_KEY_PRODUCTION=PLACEHOLDER_2\nDOTENV_PRIVATE_KEY_DEEP=PLACEHOLDER_3\n");
+const TREE = {
+  ".env.local.enc": LOCAL_ENC,
+  ".env.production.enc": PROD_ENC,
+  ".env.deep.enc": encFile(".env.deep", 4, "DEEP=down\n"),
+};
+/** Shell: an .env.keys.<name>.enc, encrypted for key `digit`, holding the given private keys. Made when the case runs, by the package. */
+const treeNode = (name, digit, map, dir = ".") =>
+  `node -e 'const {encrypt,derive}=require("<REPO>/node_modules/@dotenvx/primitives");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t="#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_${name.toUpperCase()}=\\""+derive(k(${digit}))+"\\"\\n\\n# held for the team\\n";for(const [n,d] of Object.entries(m))t+="DOTENV_PRIVATE_KEY"+n+"="+encrypt(derive(k(${digit})),[].concat(d).map(k).join(","))+"\\n";require("fs").writeFileSync(process.argv[2],t)' '${JSON.stringify(map)}' ${dir}/.env.keys.${name}.enc`;
+void TEAM_KEYS;
+const TREE_SETUP = [keysFile({ _ROOT: 1 }), treeNode("team", 1, { _PRODUCTION: 2, _MID: 3 }), treeNode("deep", 3, { _DEEP: 4 })];
+add("keys: the key tree, two levels down", ["keys"], { files: TREE, setup: TREE_SETUP });
+add("keys: the key tree, the root key in the environment", ["keys"], { files: TREE, setup: TREE_SETUP.slice(1), keys: "_ROOT=1" });
+add("keys: the key tree without its root key", ["keys"], { files: TREE, setup: TREE_SETUP.slice(1) });
+add("keys: the key tree, a branch whose key is not held", ["keys"], { files: TREE, setup: [keysFile({ _ROOT: 1 }), treeNode("team", 1, { _PRODUCTION: 2 }), treeNode("deep", 3, { _DEEP: 4 })] });
+add("keys: the key tree, a node that is not a keys file", ["keys"], { files: { ...TREE, ".env.keys.broken.enc": "not an enc\n", ".env.keys.plain.enc": `DOTENV_PUBLIC_KEY="${pub(1)}"\n\nDOTENV_PRIVATE_KEY_X=not-encrypted\n` }, setup: TREE_SETUP });
+add("keys: the key tree, next to a linked .env.keys", ["keys"], { files: TREE, setup: ["mkdir ../vault", keysFile({ _ROOT: 1 }, "../vault/.env.keys"), treeNode("team", 1, { _PRODUCTION: 2, _MID: 3 }, "../vault"), treeNode("deep", 3, { _DEEP: 4 }), "ln -s ../vault/.env.keys .env.keys"] });
+add("keys: the key tree, next to the file -fk names", ["keys", "-fk", "../vault/k"], { files: TREE, setup: ["mkdir ../vault", keysFile({ _ROOT: 1 }, "../vault/k"), treeNode("team", 1, { _PRODUCTION: 2, _MID: 3 }, "../vault"), treeNode("deep", 3, { _DEEP: 4 }, "../vault")] });
+add("keys: the key tree, a list of keys and words that are no keys in a node", ["keys"], { files: TREE, setup: [keysFile({ _ROOT: 1 }), `node -e 'const {encrypt,derive}=require("<REPO>/node_modules/@dotenvx/primitives");const k=(d)=>String(d).repeat(64);require("fs").writeFileSync(".env.keys.team.enc","DOTENV_PUBLIC_KEY=\\""+derive(k(1))+"\\"\\nOTHER="+encrypt(derive(k(1)),k(2))+"\\nDOTENV_PRIVATE_KEY_A="+encrypt(derive(k(1)),"nonsense, "+k(4)+" ,"+k(2).toUpperCase().replace(/2/g,"A")+",short")+"\\nDOTENV_PRIVATE_KEY_EMPTY=\\n")'`] });
+add("keys: the key tree, a node holding a key that is none", ["keys"], { files: TREE, setup: [keysFile({ _ROOT: 1 }), treeNode("team", 1, { _ZERO: 0 })], back: "the TypeScript ends in an uncaught error from the key library" });
+add("get: through the key tree", ["get", "DEEP"], { files: TREE, setup: TREE_SETUP });
+add("get: the key tree without its root key", ["get", "DEEP"], { files: TREE, setup: TREE_SETUP.slice(1) });
+add("status: through the key tree", ["status"], { files: { ...TREE, ".env.deep": "DEEP=down\n", ".env.production": "API_KEY=changed\n" }, setup: TREE_SETUP });
+
+// keys link
+add("keys link: links .env.keys to another checkout's", ["keys", "link", "../other/.env.keys"], { files: { ".env.local.enc": LOCAL_ENC }, setup: ["mkdir ../other", keysFile({ _LOCAL: 1 }, "../other/.env.keys"), "chmod 600 ../other/.env.keys"], after: ["readlink .env.keys", LS] });
+add("keys link: warns when the target is readable by others", ["keys", "link", "../other/.env.keys"], { setup: ["mkdir ../other", keysFile({ _LOCAL: 1 }, "../other/.env.keys"), "chmod 644 ../other/.env.keys"], after: ["readlink .env.keys", "stat -c %a ../other/.env.keys"] });
+add("keys link: an absolute target", ["keys", "link", "<CWD>/../other/k"], { setup: ["mkdir ../other", keysFile({ _LOCAL: 1 }, "../other/k"), "chmod 600 ../other/k"], after: ["readlink .env.keys"] });
+add("keys link: without a target", ["keys", "link"], { after: [LS] });
+add("keys link: an empty target", ["keys", "link", ""], { after: [LS] });
+add("keys link: a target that is not there", ["keys", "link", "../nowhere/.env.keys"], { after: [LS] });
+add("keys link: a target that is a directory", ["keys", "link", ".."], { after: [LS] });
+add("keys link: .env.keys is already here", ["keys", "link", "../other/.env.keys"], { setup: ["mkdir ../other", keysFile({ _LOCAL: 1 }, "../other/.env.keys"), keysFile({ _LOCAL: 2 })], after: [LS] });
+add("keys link: already linked there", ["keys", "link", "../other/.env.keys"], { setup: ["mkdir ../other", keysFile({ _LOCAL: 1 }, "../other/.env.keys"), "ln -s ../other/.env.keys .env.keys"], after: ["readlink .env.keys"] });
+add("keys link: linked somewhere else", ["keys", "link", "../other/.env.keys"], { setup: ["mkdir ../other ../third", keysFile({ _LOCAL: 1 }, "../other/.env.keys"), keysFile({ _LOCAL: 2 }, "../third/.env.keys"), "ln -s ../third/.env.keys .env.keys"], after: ["readlink .env.keys"] });
+add("keys link: a dangling .env.keys link is in the way", ["keys", "link", "../other/.env.keys"], { setup: ["mkdir ../other", keysFile({ _LOCAL: 1 }, "../other/.env.keys"), "ln -s ../gone .env.keys"], after: ["readlink .env.keys"] });
+add("keys link: linking to itself", ["keys", "link", ".env.keys"], { setup: [K1], after: [LS] });
+add("keys link: .env.keys would not be gitignored", ["keys", "link", "../other/.env.keys"], { repo: "node_modules/\n", setup: ["mkdir ../other", keysFile({ _LOCAL: 1 }, "../other/.env.keys")], after: [LS] });
+add("keys link: outside any repository", ["keys", "link", "../other/.env.keys"], { repo: false, setup: ["mkdir ../other", keysFile({ _LOCAL: 1 }, "../other/.env.keys"), "chmod 600 ../other/.env.keys"], after: ["readlink .env.keys"] });
+add("keys link: then the keys are found through the link", ["keys"], { files: { ".env.local.enc": LOCAL_ENC }, setup: ["mkdir ../other", keysFile({ _LOCAL: 1 }, "../other/.env.keys"), "ln -s ../other/.env.keys .env.keys"] });
 
 // ═══════════════════════════ write ═══════════════════════════
 
