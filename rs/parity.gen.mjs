@@ -558,9 +558,12 @@ const TREE = {
   ".env.production.enc": PROD_ENC,
   ".env.deep.enc": encFile(".env.deep", 4, "DEEP=down\n"),
 };
-/** Shell: an .env.keys.<name>.enc, encrypted for key `digit`, holding the given private keys. Made when the case runs, by the package. */
+/**
+ * Shell: an .env.keys.<name>.enc, encrypted for key `digit`, holding the given private keys. Made when the case runs, by the package.
+ * (What it needs comes in variables: bun, standing in for node, reads `node -e <code> <arguments>` differently.)
+ */
 const treeNode = (name, digit, map, dir = ".") =>
-  `node -e 'const {encrypt,derive}=require("<REPO>/node_modules/@dotenvx/primitives");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t="#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_${name.toUpperCase()}=\\""+derive(k(${digit}))+"\\"\\n\\n# held for the team\\n";for(const [n,d] of Object.entries(m))t+="DOTENV_PRIVATE_KEY"+n+"="+encrypt(derive(k(${digit})),[].concat(d).map(k).join(","))+"\\n";require("fs").writeFileSync(process.argv[2],t)' '${JSON.stringify(map)}' ${dir}/.env.keys.${name}.enc`;
+  `TREE_KEYS='${JSON.stringify(map)}' TREE_FILE=${dir}/.env.keys.${name}.enc node -e 'const {encrypt,derive}=require("<REPO>/node_modules/@dotenvx/primitives");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t="#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_${name.toUpperCase()}=\\""+derive(k(${digit}))+"\\"\\n\\n# held for the team\\n";for(const [n,d] of Object.entries(m))t+="DOTENV_PRIVATE_KEY"+n+"="+encrypt(derive(k(${digit})),[].concat(d).map(k).join(","))+"\\n";require("fs").writeFileSync(process.env.TREE_FILE,t)'`;
 void TEAM_KEYS;
 const TREE_SETUP = [keysFile({ _ROOT: 1 }), treeNode("team", 1, { _PRODUCTION: 2, _MID: 3 }), treeNode("deep", 3, { _DEEP: 4 })];
 add("keys: the key tree, two levels down", ["keys"], { files: TREE, setup: TREE_SETUP });

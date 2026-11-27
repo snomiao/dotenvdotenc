@@ -5907,8 +5907,8 @@
    "setup": [
     "git init -q -b main",
     "{ printf 'DOTENV_PRIVATE_KEY_ROOT=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
-    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_PRODUCTION\":2,\"_MID\":3}' ./.env.keys.team.enc",
-    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_DEEP=\\\"\"+derive(k(3))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(3)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_DEEP\":4}' ./.env.keys.deep.enc"
+    "TREE_KEYS='{\"_PRODUCTION\":2,\"_MID\":3}' TREE_FILE=./.env.keys.team.enc node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.env.TREE_FILE,t)'",
+    "TREE_KEYS='{\"_DEEP\":4}' TREE_FILE=./.env.keys.deep.enc node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_DEEP=\\\"\"+derive(k(3))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(3)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.env.TREE_FILE,t)'"
    ],
    "after": [
     "cat <HOME>/git.log 2>&1"
@@ -5930,8 +5930,8 @@
    },
    "setup": [
     "git init -q -b main",
-    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_PRODUCTION\":2,\"_MID\":3}' ./.env.keys.team.enc",
-    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_DEEP=\\\"\"+derive(k(3))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(3)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_DEEP\":4}' ./.env.keys.deep.enc"
+    "TREE_KEYS='{\"_PRODUCTION\":2,\"_MID\":3}' TREE_FILE=./.env.keys.team.enc node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.env.TREE_FILE,t)'",
+    "TREE_KEYS='{\"_DEEP\":4}' TREE_FILE=./.env.keys.deep.enc node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_DEEP=\\\"\"+derive(k(3))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(3)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.env.TREE_FILE,t)'"
    ],
    "after": [
     "cat <HOME>/git.log 2>&1"
@@ -5950,8 +5950,8 @@
    },
    "setup": [
     "git init -q -b main",
-    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_PRODUCTION\":2,\"_MID\":3}' ./.env.keys.team.enc",
-    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_DEEP=\\\"\"+derive(k(3))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(3)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_DEEP\":4}' ./.env.keys.deep.enc"
+    "TREE_KEYS='{\"_PRODUCTION\":2,\"_MID\":3}' TREE_FILE=./.env.keys.team.enc node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.env.TREE_FILE,t)'",
+    "TREE_KEYS='{\"_DEEP\":4}' TREE_FILE=./.env.keys.deep.enc node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_DEEP=\\\"\"+derive(k(3))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(3)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.env.TREE_FILE,t)'"
    ],
    "after": [
     "cat <HOME>/git.log 2>&1"
@@ -5971,8 +5971,8 @@
    "setup": [
     "git init -q -b main",
     "{ printf 'DOTENV_PRIVATE_KEY_ROOT=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
-    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_PRODUCTION\":2}' ./.env.keys.team.enc",
-    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_DEEP=\\\"\"+derive(k(3))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(3)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_DEEP\":4}' ./.env.keys.deep.enc"
+    "TREE_KEYS='{\"_PRODUCTION\":2}' TREE_FILE=./.env.keys.team.enc node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.env.TREE_FILE,t)'",
+    "TREE_KEYS='{\"_DEEP\":4}' TREE_FILE=./.env.keys.deep.enc node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_DEEP=\\\"\"+derive(k(3))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(3)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.env.TREE_FILE,t)'"
    ],
    "after": [
     "cat <HOME>/git.log 2>&1"
@@ -5994,8 +5994,8 @@
    "setup": [
     "git init -q -b main",
     "{ printf 'DOTENV_PRIVATE_KEY_ROOT=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
-    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_PRODUCTION\":2,\"_MID\":3}' ./.env.keys.team.enc",
-    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_DEEP=\\\"\"+derive(k(3))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(3)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_DEEP\":4}' ./.env.keys.deep.enc"
+    "TREE_KEYS='{\"_PRODUCTION\":2,\"_MID\":3}' TREE_FILE=./.env.keys.team.enc node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.env.TREE_FILE,t)'",
+    "TREE_KEYS='{\"_DEEP\":4}' TREE_FILE=./.env.keys.deep.enc node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_DEEP=\\\"\"+derive(k(3))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(3)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.env.TREE_FILE,t)'"
    ],
    "after": [
     "cat <HOME>/git.log 2>&1"
@@ -6016,8 +6016,8 @@
     "git init -q -b main",
     "mkdir ../vault",
     "{ printf 'DOTENV_PRIVATE_KEY_ROOT=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > ../vault/.env.keys",
-    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_PRODUCTION\":2,\"_MID\":3}' ../vault/.env.keys.team.enc",
-    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_DEEP=\\\"\"+derive(k(3))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(3)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_DEEP\":4}' ./.env.keys.deep.enc",
+    "TREE_KEYS='{\"_PRODUCTION\":2,\"_MID\":3}' TREE_FILE=../vault/.env.keys.team.enc node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.env.TREE_FILE,t)'",
+    "TREE_KEYS='{\"_DEEP\":4}' TREE_FILE=./.env.keys.deep.enc node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_DEEP=\\\"\"+derive(k(3))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(3)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.env.TREE_FILE,t)'",
     "ln -s ../vault/.env.keys .env.keys"
    ],
    "after": [
@@ -6041,8 +6041,8 @@
     "git init -q -b main",
     "mkdir ../vault",
     "{ printf 'DOTENV_PRIVATE_KEY_ROOT=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > ../vault/k",
-    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_PRODUCTION\":2,\"_MID\":3}' ../vault/.env.keys.team.enc",
-    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_DEEP=\\\"\"+derive(k(3))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(3)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_DEEP\":4}' ../vault/.env.keys.deep.enc"
+    "TREE_KEYS='{\"_PRODUCTION\":2,\"_MID\":3}' TREE_FILE=../vault/.env.keys.team.enc node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.env.TREE_FILE,t)'",
+    "TREE_KEYS='{\"_DEEP\":4}' TREE_FILE=../vault/.env.keys.deep.enc node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_DEEP=\\\"\"+derive(k(3))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(3)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.env.TREE_FILE,t)'"
    ],
    "after": [
     "cat <HOME>/git.log 2>&1"
@@ -6082,7 +6082,7 @@
    "setup": [
     "git init -q -b main",
     "{ printf 'DOTENV_PRIVATE_KEY_ROOT=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
-    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_ZERO\":0}' ./.env.keys.team.enc"
+    "TREE_KEYS='{\"_ZERO\":0}' TREE_FILE=./.env.keys.team.enc node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.env.TREE_FILE,t)'"
    ],
    "handback": "the TypeScript ends in an uncaught error from the key library"
   },
@@ -6101,8 +6101,8 @@
    "setup": [
     "git init -q -b main",
     "{ printf 'DOTENV_PRIVATE_KEY_ROOT=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
-    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_PRODUCTION\":2,\"_MID\":3}' ./.env.keys.team.enc",
-    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_DEEP=\\\"\"+derive(k(3))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(3)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_DEEP\":4}' ./.env.keys.deep.enc"
+    "TREE_KEYS='{\"_PRODUCTION\":2,\"_MID\":3}' TREE_FILE=./.env.keys.team.enc node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.env.TREE_FILE,t)'",
+    "TREE_KEYS='{\"_DEEP\":4}' TREE_FILE=./.env.keys.deep.enc node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_DEEP=\\\"\"+derive(k(3))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(3)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.env.TREE_FILE,t)'"
    ],
    "after": [
     "cat <HOME>/git.log 2>&1"
@@ -6122,8 +6122,8 @@
    },
    "setup": [
     "git init -q -b main",
-    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_PRODUCTION\":2,\"_MID\":3}' ./.env.keys.team.enc",
-    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_DEEP=\\\"\"+derive(k(3))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(3)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_DEEP\":4}' ./.env.keys.deep.enc"
+    "TREE_KEYS='{\"_PRODUCTION\":2,\"_MID\":3}' TREE_FILE=./.env.keys.team.enc node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.env.TREE_FILE,t)'",
+    "TREE_KEYS='{\"_DEEP\":4}' TREE_FILE=./.env.keys.deep.enc node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_DEEP=\\\"\"+derive(k(3))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(3)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.env.TREE_FILE,t)'"
    ],
    "after": [
     "cat <HOME>/git.log 2>&1"
@@ -6145,8 +6145,8 @@
    "setup": [
     "git init -q -b main",
     "{ printf 'DOTENV_PRIVATE_KEY_ROOT=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
-    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_PRODUCTION\":2,\"_MID\":3}' ./.env.keys.team.enc",
-    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_DEEP=\\\"\"+derive(k(3))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(3)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_DEEP\":4}' ./.env.keys.deep.enc"
+    "TREE_KEYS='{\"_PRODUCTION\":2,\"_MID\":3}' TREE_FILE=./.env.keys.team.enc node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.env.TREE_FILE,t)'",
+    "TREE_KEYS='{\"_DEEP\":4}' TREE_FILE=./.env.keys.deep.enc node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_DEEP=\\\"\"+derive(k(3))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(3)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.env.TREE_FILE,t)'"
    ],
    "after": [
     "cat <HOME>/git.log 2>&1"
@@ -8267,8 +8267,8 @@
    "setup": [
     "git init -q -b main",
     "{ printf 'DOTENV_PRIVATE_KEY_ROOT=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
-    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_PRODUCTION\":2,\"_MID\":3}' ./.env.keys.team.enc",
-    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_DEEP=\\\"\"+derive(k(3))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(3)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_DEEP\":4}' ./.env.keys.deep.enc"
+    "TREE_KEYS='{\"_PRODUCTION\":2,\"_MID\":3}' TREE_FILE=./.env.keys.team.enc node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.env.TREE_FILE,t)'",
+    "TREE_KEYS='{\"_DEEP\":4}' TREE_FILE=./.env.keys.deep.enc node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_DEEP=\\\"\"+derive(k(3))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(3)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.env.TREE_FILE,t)'"
    ],
    "after": [
     "cat .env.deep .env.local .env.production 2>&1",
@@ -8833,7 +8833,7 @@
    "setup": [
     "git init -q -b main",
     "{ printf 'DOTENV_PRIVATE_KEY_ME=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
-    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_MYPROJ=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_PRODUCTION\":2,\"\":3}' ./.env.keys.myproj.enc"
+    "TREE_KEYS='{\"_PRODUCTION\":2,\"\":3}' TREE_FILE=./.env.keys.myproj.enc node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_MYPROJ=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.env.TREE_FILE,t)'"
    ],
    "after": [
     "node <REPO>/rs/parity/probe.mjs keys .env.keys.myproj",
@@ -10761,7 +10761,7 @@
    "setup": [
     "git init -q -b main",
     "{ printf 'DOTENV_PRIVATE_KEY_ROOT=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
-    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_PRODUCTION\":2}' ./.env.keys.team.enc"
+    "TREE_KEYS='{\"_PRODUCTION\":2}' TREE_FILE=./.env.keys.team.enc node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.env.TREE_FILE,t)'"
    ],
    "after": [
     "cat .env.production 2>&1",
@@ -12038,7 +12038,7 @@
    "setup": [
     "git init -q -b main",
     "{ printf 'DOTENV_PRIVATE_KEY_ROOT=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
-    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_MID\":2}' ./.env.keys.team.enc"
+    "TREE_KEYS='{\"_MID\":2}' TREE_FILE=./.env.keys.team.enc node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.env.TREE_FILE,t)'"
    ],
    "after": [
     "cat .env.production 2>&1",
@@ -12904,7 +12904,7 @@
     "git config --global user.name Parity && git config --global user.email parity@example.com",
     "git add .gitignore && git commit -q -m init",
     "{ printf 'DOTENV_PRIVATE_KEY_LOCAL=%s\\n' \"$(printf %064d 0 | tr 0 1)\"; } > .env.keys",
-    "node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.argv[1]);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.argv[2],t)' '{\"_PRODUCTION\":2}' ./.env.keys.team.enc",
+    "TREE_KEYS='{\"_PRODUCTION\":2}' TREE_FILE=./.env.keys.team.enc node -e 'const {encrypt,derive}=require(\"<REPO>/node_modules/@dotenvx/primitives\");const k=(d)=>String(d).repeat(64);const m=JSON.parse(process.env.TREE_KEYS);let t=\"#/ keys\\nDOTENV_PUBLIC_KEY_KEYS_TEAM=\\\"\"+derive(k(1))+\"\\\"\\n\\n# held for the team\\n\";for(const [n,d] of Object.entries(m))t+=\"DOTENV_PRIVATE_KEY\"+n+\"=\"+encrypt(derive(k(1)),[].concat(d).map(k).join(\",\"))+\"\\n\";require(\"fs\").writeFileSync(process.env.TREE_FILE,t)'",
     "git add .env.keys.team.enc"
    ],
    "after": [
